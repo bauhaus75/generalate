@@ -1,0 +1,44 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Search" description="Full-text search across all 169 Indipetae letters, people, places, and themes.">
+  <link slot="head" href="/pagefind/pagefind-ui.css" rel="stylesheet" />
+  <script slot="head" src="/pagefind/pagefind-ui.js" is:inline defer></script>
+
+  <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a> · Search</nav>
+  <p class="kicker">Full-text search</p>
+  <h1>Search the archive</h1>
+  <p class="lede">Search every translated letter, and every person, place, and theme page.</p>
+
+  <div id="search"></div>
+  <p class="tip">
+    Tip: for structured browsing — by year, author, destination, or theme — use
+    <a href="/letters/">Browse letters</a> instead.
+  </p>
+
+  <script is:inline>
+    window.addEventListener('DOMContentLoaded', () => {
+      const q = new URLSearchParams(location.search).get('q') || '';
+      new PagefindUI({
+        element: '#search',
+        showSubResults: true,
+        showImages: false,
+        excerptLength: 24,
+        query: q,
+      });
+      // keep the header search box in sync
+      const input = document.querySelector('#q');
+      if (input && q) input.value = q;
+    });
+  </script>
+</Base>
+
+<style>
+  #search { margin: 1.5rem 0; }
+  .tip { font-size: .9rem; color: var(--ink-faint); }
+  /* tune Pagefind UI to the archive palette */
+  #search :global(.pagefind-ui__search-input) { font-family: var(--serif); }
+  #search :global(.pagefind-ui__result-title) { font-family: var(--serif); }
+  #search :global(.pagefind-ui__result-link) { color: var(--accent); }
+</style>

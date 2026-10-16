@@ -100,18 +100,7 @@ function saveRng(state, rng) {
   state.rngState = rng.getState();
 }
 
-/**
- * Isolated deterministic substream for a labeled purpose — e.g.
- * streamFor(state, 'voyage', voyageId) or streamFor(state, 'disposition', petId).
- *
- * Derived from the campaign seed + label ONLY, never from rngState, so
- * resolving (or inspecting) one thing can never perturb another stream's
- * outcomes. Same seed + same action sequence → same rolls, always.
- * These streams carry no mutable state and need no serialization.
- * @param {object} state
- * @param {...string} parts label parts
- * @returns {{int:(a:number,b:number)=>number, pick:Function, chance:Function, float:Function}}
- */
+/** Deterministic substream from seed + label only; never perturbs other streams. */
 export function streamFor(state, ...parts) {
   return makeRng(`${state.seed}::${parts.join(':')}`);
 }
@@ -260,6 +249,14 @@ export function dispatchMission(state, destId, counts = {}) {
  * Fictional and unattested grades land with the brothers (honest default).
  */
 export function staffGradeFor(state, petitionerId) {
+  // Vows stage takes precedence: it reflects the man's actual rank in the formation system.
+  const entry = (state.europeanLabor || []).find((e) => e.petitionerId === petitionerId);
+  if (entry && entry.vows && entry.vows.stage) {
+    const stage = entry.vows.stage;
+    if (stage === 'ordained' || stage === 'coadjutor' || stage === 'professed') return 'fathers';
+    if (stage === 'scholastic' || stage === 'novice') return 'coadjutors';
+    if (stage === 'brother') return 'brothers';
+  }
   const gr = gradeFor(state, petitionerId);
   const grade = String(gr.grade || '').toLowerCase();
   if (gr.ordained === true || grade === 'father' || grade === 'professed') return 'fathers';

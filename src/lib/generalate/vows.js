@@ -4,7 +4,12 @@ import { getGameData } from './data.js';
 
 const VOWS_THRESHOLDS={firstVows:2,philosophy:5,regency:8,theology:12,ordination:12};
 function vowsStageFor(s,p){const g=gradeFor(s,p),gr=String(g.grade||'').toLowerCase();if(g.ordained===true||gr==='father')return'ordained';if(gr==='professed-of-the-4th-vow'||gr==='professed')return'professed';if(gr==='scholastic')return'scholastic';return'novice';}function vowsTrackFor(s,p){const r=s.petitioners[p];if(r&&r.vowsTrack)return r.vowsTrack;const g=gradeFor(s,p),gr=String(g.grade||'').toLowerCase();return gr==='brother'?'brother':'scholastic';}
-export function ensureVows(s,p){const r=ensureRecord(s,p,false);if(!r.vows||typeof r.vows!=='object'){const e=(s.europeanLabor||[]).find(x=>x.petitionerId===p);if(e&&e.vows&&typeof e.vows==='object')r.vows=e.vows;else r.vows={stage:vowsStageFor(s,p),firstVows:null,philosophy:null,regency:null,theology:null,ordination:null,finalVows:null,tertianshipUntil:null,deferredUntil:null};}return r.vows;}
+export function ensureVows(s,p){const r=ensureRecord(s,p,false);if(!r.vows||typeof r.vows!=='object'){const e=(s.europeanLabor||[]).find(x=>x.petitionerId===p);if(e&&e.vows&&typeof e.vows==='object')r.vows=e.vows;else r.vows={stage:vowsStageFor(s,p),firstVows:null,philosophy:null,regency:null,theology:null,ordination:null,finalVows:null,tertianshipUntil:null,deferredUntil:null};
+const yrs=yearsInSociety(s,p),vw=r.vows,trk=vowsTrackFor(s,p);
+if(yrs>2&&!vw.firstVows){vw.firstVows=true;if(vw.stage==='novice')vw.stage=trk;bumpTrait(s,p,'zeal');bumpTrait(s,p,'humility');}
+if(yrs>5&&!vw.philosophy&&vw.stage!=='brother'){vw.philosophy=true;bumpTrait(s,p,'prudence');}
+if(yrs>8&&!vw.regency&&vw.stage!=='brother'){vw.regency=true;bumpTrait(s,p,'adaptability');}
+if(yrs>12&&!vw.theology&&vw.stage!=='brother'){vw.theology=true;bumpTrait(s,p,'obedience');}}return r.vows;}
 function yearsInSociety(s,p){const r=s.petitioners[p],pt=getGameData().petitioners.find(x=>x.id===p),ys=(r&&r.yearsInSociety)??(pt?pt.yearsInSociety:0)??0,ey=(r&&r.entryYear)??(pt?pt.entryYear:s.year)??s.year;return s.year-ey+ys;}
 function bumpTrait(s,p,t){const d=ensureDisposition(s,p);if(d.current[t]!=null)d.current[t]=Math.min(5,d.current[t]+1);}
 function overseasMen(s){const o=[];for(const v of s.voyages||[]){if(v.stage!=='arrived')continue;if(v.outcome!=='thriving'&&v.outcome!=='reassigned')continue;if(v.veteranReturned)continue;const r=s.petitioners[v.petitionerId];if(!r||r.status===STATUS.DECEASED||r.status===STATUS.DISMISSED||r.status===STATUS.RETURNED)continue;o.push(v);}return o;}

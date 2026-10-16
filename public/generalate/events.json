@@ -1,0 +1,220 @@
+[
+ {
+  "id": "ev-expulsion-1614",
+  "year": 1614,
+  "month": 1,
+  "title": "Tokugawa expulsion edict",
+  "text": "In 1614 the Tokugawa shogunate issued edicts ordering the expulsion of missionaries from Japan and the suppression of Christianity. This is the backdrop to the petitions of the 1610s-20s: many writers ask for Japan knowing entry is forbidden and martyrdom likely.",
+  "historical": true,
+  "effects": {
+   "japan": {
+    "danger": 2,
+    "access": "restricted"
+   }
+  },
+  "sources": "standard histories of the Japanese mission (edict of 1614)"
+ },
+ {
+  "id": "ev-nagasaki-1622",
+  "year": 1622,
+  "month": 9,
+  "title": "Great Martyrdom of Nagasaki",
+  "text": "On 10 September 1622, fifty-five Christians — including Jesuit missionaries — were executed at Nishizaka hill outside Nagasaki in the largest single martyrdom of the Japanese persecution. News reaching Europe sharpened both zeal and fear around the Japan petitions.",
+  "historical": true,
+  "effects": {
+   "japan": {
+    "danger": 3,
+    "access": "restricted"
+   }
+  },
+  "sources": "standard histories of the Japanese mission"
+ },
+ {
+  "id": "ev-persecution-1620s",
+  "year": 1629,
+  "month": null,
+  "title": "Intensified persecution through the 1620s-30s",
+  "text": "Throughout the 1620s and 1630s the shogunate tightened its anti-Christian measures: missionaries were hunted, Japanese Christians faced the fumi-e, and clandestine entry grew ever harder. By the mid-1630s the Japan mission depended on a handful of underground priests.",
+  "historical": true,
+  "effects": {
+   "japan": {
+    "danger": 3,
+    "access": "restricted"
+   }
+  },
+  "sources": "standard histories of the Japanese mission"
+ },
+ {
+  "id": "ev-shimabara-1638",
+  "year": 1638,
+  "month": 2,
+  "title": "Shimabara Rebellion crushed",
+  "text": "The Shimabara uprising of 1637-38, a revolt of peasants in a heavily Christian region, was crushed by shogunate forces in February 1638. The regime blamed foreign Christian influence, accelerating the closing of the country.",
+  "historical": true,
+  "effects": {
+   "japan": {
+    "danger": 3,
+    "access": "closed"
+   }
+  },
+  "sources": "standard histories of Japan"
+ },
+ {
+  "id": "ev-sakoku-1639",
+  "year": 1639,
+  "month": 8,
+  "title": "Portuguese ships restricted (1639)",
+  "text": "In 1639 the shogunate forbade Portuguese ships to call at Japanese ports, ending the Macao-Nagasaki trade that had carried Jesuit personnel and funds. Nuance: this was not an instant total closure — the Dutch were confined to Deshima and Chinese traders continued — but missionary entry to Japan was already near-impossible.",
+  "historical": true,
+  "effects": {
+   "japan": {
+    "danger": 3,
+    "access": "closed"
+   },
+   "china": {
+    "danger": 1,
+    "access": "open"
+   }
+  },
+  "sources": "standard histories of the sakoku period"
+ },
+ {
+  "id": "ev-china-1615",
+  "year": 1615,
+  "month": null,
+  "title": "China mission steady under Ricci's successors",
+  "text": "In the mid-1610s the Jesuit China mission, founded in the wake of Matteo Ricci (d. 1610), continued to grow slowly through the scholar-official strategy of his successors. It remained a favored and comparatively open destination in the petitions.",
+  "historical": true,
+  "effects": {
+   "china": {
+    "danger": 0,
+    "access": "open"
+   }
+  },
+  "sources": "standard histories of the China mission"
+ },
+ {
+  "id": "ev-storm-1621",
+  "year": 1621,
+  "month": 10,
+  "title": "Late monsoon delays the India carracks",
+  "text": "A severe late-season storm in the Indian Ocean scatters the year's Portuguese carracks, delaying departures from Lisbon and stranding missionaries awaiting passage at Goa. Passage to the East is a year thinner than usual.",
+  "historical": false,
+  "kind": "plausible",
+  "effects": {
+   "east-indies": {
+    "danger": 1,
+    "access": "restricted"
+   },
+   "india": {
+    "danger": 1,
+    "access": "restricted"
+   }
+  },
+  "sources": "plausible period event — storm seasons routinely disrupted the Carreira da India; not a documented specific event"
+ },
+ {
+  "id": "ev-plague-1624",
+  "year": 1624,
+  "month": null,
+  "title": "Plague year in the Mediterranean ports",
+  "text": "Plague strikes several Mediterranean ports, closing colleges, thinning the ranks of departing missionaries, and delaying the Lisbon embarkations. The General must weigh sending men into a sickly season.",
+  "historical": false,
+  "kind": "plausible",
+  "effects": {
+   "england": {
+    "danger": 1,
+    "access": "restricted"
+   },
+   "east-indies": {
+    "danger": 1,
+    "access": "restricted"
+   }
+  },
+  "sources": "plausible period event — plague recurred in Mediterranean ports through the 1620s; not a documented specific event"
+ },
+ {
+  "id": "ev-funds-1628",
+  "year": 1628,
+  "month": null,
+  "title": "Shortfall in mission funds",
+  "text": "Donations earmarked for the overseas missions fall short this year, and the procurators in Lisbon and Seville warn that fewer passages can be bought. Some petitioners' departures are deferred for lack of funds.",
+  "historical": false,
+  "kind": "plausible",
+  "effects": {
+   "paraguay": {
+    "danger": 0,
+    "access": "restricted"
+   },
+   "brazil": {
+    "danger": 0,
+    "access": "restricted"
+   },
+   "peru": {
+    "danger": 0,
+    "access": "restricted"
+   }
+  },
+  "sources": "plausible period event — mission funding was chronically tight; not a documented specific event"
+ },
+ {
+  "id": "ev-shipwreck-1631",
+  "year": 1631,
+  "month": null,
+  "title": "Carrack lost on the homeward leg",
+  "text": "A Portuguese carrack is lost with all hands on the return voyage from Goa, a reminder that the sea road to the Indies is itself a martyrdom of sorts. Families and provincials hesitate; the bold volunteer anyway.",
+  "historical": false,
+  "kind": "plausible",
+  "effects": {
+   "east-indies": {
+    "danger": 2,
+    "access": "restricted"
+   },
+   "india": {
+    "danger": 2,
+    "access": "restricted"
+   }
+  },
+  "sources": "plausible period event — ship losses on the Carreira were common; not a documented specific event"
+ },
+ {
+  "id": "ev-goa-epidemic-1635",
+  "year": 1635,
+  "month": null,
+  "title": "Epidemic in Goa",
+  "text": "Sickness sweeps Goa, the great clearing-house of the Asian missions, and newly arrived Europeans are among the first to fall ill. The General is warned to send only the hardiest men eastward this year.",
+  "historical": false,
+  "kind": "plausible",
+  "effects": {
+   "east-indies": {
+    "danger": 2,
+    "access": "restricted"
+   },
+   "india": {
+    "danger": 2,
+    "access": "restricted"
+   },
+   "china": {
+    "danger": 1,
+    "access": "open"
+   }
+  },
+  "sources": "plausible period event — Goa suffered recurring epidemics; not a documented specific event"
+ },
+ {
+  "id": "ev-channel-1641",
+  "year": 1641,
+  "month": null,
+  "title": "Unrest delays Channel crossings",
+  "text": "Political unrest in England and storms in the Channel make the covert crossing to the English mission riskier than usual; priests wait longer in Flanders and France for a safe passage.",
+  "historical": false,
+  "kind": "plausible",
+  "effects": {
+   "england": {
+    "danger": 2,
+    "access": "restricted"
+   }
+  },
+  "sources": "plausible period event — the English mission always depended on covert crossings; not a documented specific event"
+ }
+]

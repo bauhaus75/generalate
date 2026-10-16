@@ -1,0 +1,181 @@
+---
+import Base from '../layouts/Base.astro';
+import { letterNumbers, personList, placeList, topicList, years, getLetter } from '../lib/data';
+
+const nLetters = letterNumbers.length;
+const nAuthors = personList.filter((p) => p.role === 'author').length;
+const sample = [1, 79, 146, 169];
+---
+
+<Base title="Home" description="A Wikipedia-style research archive of the 169 Jesuit indipetae letters to Mutio Vitelleschi (1616–1647): every letter, person, place, and theme interlinked.">
+  <section class="hero">
+    <p class="kicker">A digital-humanities research archive</p>
+    <h1>The Indipetae<br />to Mutio Vitelleschi</h1>
+    <p class="lede">
+      Between 1616 and 1647, Jesuits across Italy wrote to their Superior General,
+      Mutio Vitelleschi, begging to be sent to the missions — to the Indies, China, Japan,
+      and beyond. Here are their {nLetters} letters, translated into English, with every
+      person, place, and theme linked into one explorable web.
+    </p>
+    <form class="hero-search" action="/search/" method="get" role="search">
+      <label class="visually-hidden" for="hq">Search the archive</label>
+      <input id="hq" name="q" type="search" placeholder="Try “China”, “martyrdom”, or “Cinami”…" autocomplete="off" />
+      <button type="submit">Search</button>
+    </form>
+    <div class="stats" aria-label="Collection statistics">
+      <div><strong>{nLetters}</strong><span>letters</span></div>
+      <div><strong>{nAuthors}</strong><span>writers</span></div>
+      <div><strong>{placeList.length}</strong><span>places</span></div>
+      <div><strong>{topicList.length}</strong><span>themes</span></div>
+      <div><strong>{years[0]}–{years[years.length - 1]}</strong><span>years</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Ways in</h2>
+    <div class="card-grid">
+      <a class="card" href="/letters/">
+        <h3>Browse the letters</h3>
+        <p>All 169 letters in order, with filters for year, author, destination, and theme.</p>
+      </a>
+      <a class="card" href="/timeline/">
+        <h3>Walk the timeline</h3>
+        <p>Year by year from 1616 to 1647 — letters, writers, destinations, and themes.</p>
+      </a>
+      <a class="card" href="/graph/">
+        <h3>Explore the graph</h3>
+        <p>The whole collection as a network: letters, people, places, and themes, connected.</p>
+      </a>
+      <a class="card" href="/topics/">
+        <h3>Follow a theme</h3>
+        <p>Zeal for souls, tears, vows, martyrdom — the 23 themes of the original index.</p>
+      </a>
+    </div>
+  </section>
+
+  <section>
+    <h2>Begin with a letter</h2>
+    <div class="card-grid">
+      {sample.map((n) => {
+        const l = getLetter(n);
+        return (
+          <a class="card" href={`/letters/${n}/`}>
+            <h3>Letter {n}</h3>
+            <p>{l.author_raw}{l.date_only ? ` · ${l.date_only}` : ''}</p>
+            <p class="excerpt">{l.body[0]?.slice(0, 140)}…</p>
+          </a>
+        );
+      })}
+    </div>
+  </section>
+
+  <section aria-label="Today in the archive">
+    <h2>Today in the archive</h2>
+    <div class="daily-grid">
+      <article class="daily-card" aria-live="polite" aria-label="Letter of the day">
+        <p class="kicker">Letter of the day</p>
+        <div id="lotd"><p class="dim">Loading…</p></div>
+      </article>
+      <article class="daily-card dyk" aria-live="polite" aria-label="Did you know">
+        <p class="kicker">Did you know…</p>
+        <div id="dyk"><p class="dim">Loading…</p></div>
+        <button id="dyk-new" class="link-btn" type="button" hidden>Another fact ↻</button>
+      </article>
+    </div>
+  </section>
+
+  <script is:inline>
+    (function () {
+      var lotd = document.getElementById('lotd');
+      var dyk = document.getElementById('dyk');
+      var btn = document.getElementById('dyk-new');
+      if (!lotd || !dyk) return;
+      function esc(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+      function renderLotd(l) {
+        var meta = [l.author, l.date, l.place].filter(Boolean).map(esc).join(' · ');
+        lotd.innerHTML =
+          '<h3><a href="/letters/' + l.n + '/">Letter ' + l.n + '</a></h3>' +
+          (meta ? '<p class="meta">' + meta + '</p>' : '') +
+          '<p class="excerpt">' + esc(l.preview) + '</p>' +
+          '<p><a href="/letters/' + l.n + '/">Read the letter →</a></p>';
+      }
+      var currentFact = null;
+      function renderFact(f) {
+        currentFact = f;
+        dyk.innerHTML = '<p class="fact">' + esc(f.text) + '</p>' +
+          '<p><a href="' + esc(f.url) + '">Read more →</a></p>';
+        btn.hidden = false;
+      }
+      fetch('/daily.json').then(function (r) { return r.json(); }).then(function (d) {
+        var day = Math.floor(Date.now() / 86400000);
+        var pool = d.letters.filter(function (l) { return l.n !== 100; });
+        renderLotd(pool[day % pool.length]);
+        renderFact(d.facts[day % d.facts.length]);
+        btn.addEventListener('click', function () {
+          var f, guard = 0;
+          do { f = d.facts[Math.floor(Math.random() * d.facts.length)]; guard++; }
+          while (f === currentFact && d.facts.length > 1 && guard < 10);
+          renderFact(f);
+        });
+      }).catch(function () {
+        lotd.innerHTML = '<p class="dim">Could not load today\u2019s letter.</p>';
+        dyk.innerHTML = '<p class="dim">Could not load today\u2019s fact.</p>';
+      });
+    })();
+  </script>
+
+  <section class="method-note">
+    <h2>Read critically</h2>
+    <p>
+      A writer's plea to be sent to China is not evidence he ever reached China.
+      Throughout this archive, <strong>desire</strong> is distinguished from <strong>fact</strong>:
+      what a letter states, what the printed indexes record, and what editors infer are
+      labeled as such. <a href="/about/#editorial-method">Read the editorial method</a>.
+    </p>
+  </section>
+</Base>
+
+<style>
+  .hero { padding: 2.5rem 0 1rem; text-align: left; }
+  .hero h1 { font-size: 3rem; line-height: 1.08; margin: .4rem 0 1rem; }
+  .hero-search { display: flex; gap: .5rem; max-width: 34rem; margin: 1.4rem 0; }
+  .hero-search input {
+    flex: 1; font: inherit; font-size: 1rem; padding: .65rem .9rem;
+    border-radius: var(--radius); border: 1px solid var(--rule); background: #fffdf8;
+  }
+  .hero-search button {
+    font: inherit; padding: .65rem 1.3rem; border-radius: var(--radius);
+    border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer;
+  }
+  .hero-search button:hover { background: var(--accent-deep); }
+  .stats { display: flex; gap: 2rem; flex-wrap: wrap; margin: 1.6rem 0; }
+  .stats div { display: flex; flex-direction: column; }
+  .stats strong { font-family: var(--serif); font-size: 1.9rem; color: var(--accent-deep); }
+  .stats span { font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .excerpt { font-family: var(--serif); font-style: italic; }
+  .daily-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; margin-top: 1rem; }
+  .daily-card {
+    border: 1px solid var(--rule); border-radius: var(--radius);
+    background: #fffdf8; padding: 1.2rem 1.4rem;
+  }
+  .daily-card .kicker { margin: 0 0 .4rem; }
+  .daily-card h3 { margin: 0 0 .3rem; font-size: 1.3rem; }
+  .daily-card h3 a { text-decoration: none; color: inherit; }
+  .daily-card h3 a:hover { color: var(--accent-deep); }
+  .daily-card .meta { color: var(--ink-soft); font-size: .9rem; margin: .2rem 0; }
+  .daily-card .excerpt { margin: .6rem 0; }
+  .dyk { border-left: 4px solid var(--accent); background: var(--accent-soft); }
+  .fact { font-size: 1.02rem; margin: .4rem 0 .8rem; }
+  .link-btn {
+    background: none; border: none; padding: 0; cursor: pointer;
+    color: var(--accent); font: inherit; font-size: .9rem; font-weight: 600;
+  }
+  .link-btn:hover { color: var(--accent-deep); text-decoration: underline; }
+  .dim { color: var(--ink-faint); font-size: .9rem; }
+  @media (max-width: 720px) { .daily-grid { grid-template-columns: 1fr; } }
+  .method-note { background: var(--paper-deep); border: 1px solid var(--rule); border-radius: var(--radius); padding: 1.2rem 1.5rem; margin-top: 2rem; }
+  @media (max-width: 640px) { .hero h1 { font-size: 2.2rem; } }
+</style>

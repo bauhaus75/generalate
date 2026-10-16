@@ -1,0 +1,134 @@
+---
+import Base from '../../layouts/Base.astro';
+import { letterNumbers, getLetter, formatDate, personList, placeList, topicList, letterEdges, letterPreview } from '../../lib/data';
+
+// build a compact client-side index for filtering
+const index = letterNumbers.map((n) => {
+  const l = getLetter(n);
+  return {
+    n,
+    author: l.author_raw ?? '',
+    authorId: personList.find((p) => p.letters_written.includes(n))?.id ?? '',
+    year: l.year,
+    date: l.date_only ?? '',
+    place: l.place_raw ?? '',
+    dest: letterEdges(n, 'aspires_to').map((e) => e.target),
+    topics: letterEdges(n, 'indexed_under').map((e) => e.target),
+    lang: l.language ?? '',
+    preview: letterPreview(n, 150),
+  };
+});
+const authors = personList.filter((p) => p.role === 'author');
+const destPlaces = placeList.filter((p) => p.letters_desiring.length > 0);
+---
+
+<Base title="Browse letters" description="Browse all 169 letters of the Indipetae to Mutio Vitelleschi by number, date, author, destination, or theme.">
+  <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a> · Letters</nav>
+  <p class="kicker">The collection</p>
+  <h1>Letters</h1>
+  <p class="lede">All 169 numbered letters, in order. Filter by year, author, destination, or theme — or <a href="/timeline/">browse the timeline</a>.</p>
+
+  <form id="filters" class="filters" aria-label="Filter letters">
+    <div class="frow">
+      <label>Year
+        <select id="f-year">
+          <option value="">All years</option>
+          {Array.from(new Set(index.map((i) => i.year).filter(Boolean))).sort().map((y) => (
+            <option value={y}>{y}</option>
+          ))}
+        </select>
+      </label>
+      <label>Author
+        <select id="f-author">
+          <option value="">All authors</option>
+          {authors.map((a) => <option value={a.id}>{a.display_name}</option>)}
+        </select>
+      </label>
+      <label>Destination desired
+        <select id="f-dest">
+          <option value="">Any</option>
+          {destPlaces.map((p) => <option value={p.id}>{p.name}</option>)}
+        </select>
+      </label>
+      <label>Theme
+        <select id="f-topic">
+          <option value="">Any</option>
+          {topicList.map((t) => <option value={t.id}>{t.name}</option>)}
+        </select>
+      </label>
+      <label>Sort
+        <select id="f-sort">
+          <option value="number">Letter number</option>
+          <option value="date">Date</option>
+          <option value="author">Author</option>
+        </select>
+      </label>
+    </div>
+    <p class="result-count" aria-live="polite"><span id="count"></span></p>
+  </form>
+
+  <ul id="letter-index" class="index-list"></ul>
+  <p id="empty" class="notice" hidden>No letters match these filters. Try widening the selection.</p>
+
+  <script define:vars={{ index }}>
+    const list = document.getElementById('letter-index');
+    const empty = document.getElementById('empty');
+    const count = document.getElementById('count');
+    const fy = document.getElementById('f-year');
+    const fa = document.getElementById('f-author');
+    const fd = document.getElementById('f-dest');
+    const ft = document.getElementById('f-topic');
+    const fs = document.getElementById('f-sort');
+
+    function render() {
+      let rows = index.filter((i) =>
+        (!fy.value || String(i.year) === fy.value) &&
+        (!fa.value || i.authorId === fa.value) &&
+        (!fd.value || i.dest.includes(fd.value)) &&
+        (!ft.value || i.topics.includes(ft.value))
+      );
+      const key = fs.value;
+      rows.sort((a, b) =>
+        key === 'author' ? (a.author || '').localeCompare(b.author || '') || a.n - b.n
+        : key === 'date' ? (a.year || 9999) - (b.year || 9999) || a.n - b.n
+        : a.n - b.n);
+
+      list.innerHTML = rows.map((i) => {
+        const bits = [`<a class="letter-link" href="/letters/${i.n}/">Letter ${i.n}</a>`];
+        if (i.author) bits.push(escapeHtml(i.author));
+        if (i.date) bits.push(escapeHtml(i.date));
+        else if (i.year) bits.push(String(i.year));
+        if (i.place) bits.push(escapeHtml(i.place));
+        return `<li>${bits.join(' <span class="n">·</span> ')}<p class="preview">${escapeHtml(i.preview)}</p></li>`;
+      }).join('');
+      empty.hidden = rows.length > 0;
+      count.textContent = `${rows.length} of ${index.length} letters`;
+    }
+    function escapeHtml(s) {
+      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    [fy, fa, fd, ft, fs].forEach((el) => el.addEventListener('change', render));
+    // deep-linkable filters
+    const q = new URLSearchParams(location.search);
+    if (q.get('year')) fy.value = q.get('year');
+    if (q.get('author')) fa.value = q.get('author');
+    if (q.get('dest')) fd.value = q.get('dest');
+    if (q.get('topic')) ft.value = q.get('topic');
+    render();
+  </script>
+</Base>
+
+<style>
+  .filters { background: var(--paper-deep); border: 1px solid var(--rule); border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1.2rem 0; }
+  .frow { display: flex; flex-wrap: wrap; gap: 1rem; }
+  .frow label { display: flex; flex-direction: column; font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); gap: .25rem; }
+  .frow select { font: inherit; font-size: .95rem; text-transform: none; letter-spacing: 0; color: var(--ink); padding: .4rem .6rem; border-radius: var(--radius); border: 1px solid var(--rule); background: #fffdf8; max-width: 14rem; }
+  .result-count { font-size: .88rem; color: var(--ink-faint); margin: .6rem 0 0; }
+  .index-list { list-style: none; padding: 0; margin: .8rem 0; }
+  .index-list li { padding: .5rem 0 .7rem; border-bottom: 1px dotted var(--rule); }
+  .letter-link { font-family: var(--serif); font-weight: 600; font-size: 1.02rem; text-decoration: none; }
+  .letter-link:hover { text-decoration: underline; }
+  .n { color: var(--ink-faint); }
+  .index-list .preview { margin: .25rem 0 0; font-size: .9rem; color: var(--ink-soft); font-style: italic; max-width: 46rem;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+</style>

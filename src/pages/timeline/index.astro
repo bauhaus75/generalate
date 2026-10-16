@@ -1,0 +1,146 @@
+---
+import Base from '../../layouts/Base.astro';
+import { years, lettersInYear, getLetter, letterEdges, people, places } from '../../lib/data';
+
+// full continuous span 1616–1647, including silent years with no surviving letters
+const allYears = Array.from({ length: 1647 - 1616 + 1 }, (_, i) => 1616 + i);
+
+const perYear = allYears.map((y) => {
+  const nums = lettersInYear(y);
+  // most frequent author and most desired destination this year
+  const authors = new Map<string, number>();
+  const dests = new Map<string, number>();
+  for (const n of nums) {
+    for (const e of letterEdges(n, 'written_by')) authors.set(e.target, (authors.get(e.target) ?? 0) + 1);
+    for (const e of letterEdges(n, 'aspires_to')) dests.set(e.target, (dests.get(e.target) ?? 0) + 1);
+  }
+  const top = (m: Map<string, number>) => [...m.entries()].sort((a, b) => b[1] - a[1])[0];
+  const [aId] = top(authors) ?? [];
+  const [dId] = top(dests) ?? [];
+  // date span within the year
+  const dates = nums.map((n) => getLetter(n).date_only).filter(Boolean) as string[];
+  return {
+    y, nums, count: nums.length,
+    author: aId ? people[aId]?.display_name : null,
+    dest: dId ? places[dId]?.name : null,
+    first: dates[0] ?? null,
+    last: dates[dates.length - 1] ?? null,
+  };
+});
+const maxCount = Math.max(...perYear.map((d) => d.count));
+const peak = perYear.reduce((a, b) => (b.count > a.count ? b : a));
+---
+
+<Base title="Timeline" description="A chronological timeline of the Indipetae letters, 1616–1647: year by year, with letter counts, leading writers, and destinations.">
+  <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a> · Timeline</nav>
+  <p class="kicker">Chronology</p>
+  <h1>Timeline</h1>
+  <p class="lede">
+    Thirty-two years of petitions, from the first letter of January 1616 to the last of
+    February 1647. The busiest year was <strong>{peak.y}</strong> with {peak.count} letters.
+    Follow the spine downward — or jump straight to a year.
+  </p>
+
+  <section class="density" aria-label="Letters per year">
+    <h2 class="visually-hidden">Letters per year</h2>
+    <div class="bars" role="list">
+      {perYear.map((d) => d.count === 0 ? (
+        <span role="listitem" class="bar gap" title={`${d.y}: no surviving letters`}
+              aria-label={`${d.y}: no surviving letters`}>
+          <span class="ylab">{d.y}</span>
+        </span>
+      ) : (
+        <a role="listitem" class="bar" href={`/timeline/${d.y}/`} title={`${d.y}: ${d.count} letters`}
+           aria-label={`${d.y}: ${d.count} letters`}>
+          <span class="fill" style={`height: ${Math.max(6, Math.round((d.count / maxCount) * 100))}%`}></span>
+          <span class="ylab">{d.y}</span>
+        </a>
+      ))}
+    </div>
+    <p class="dim">Letters per year — click a bar to open the year.</p>
+  </section>
+
+  <ol class="timeline">
+    {perYear.map((d) => d.count === 0 ? (
+      <li class="t-entry silent">
+        <span class="dot hollow" aria-hidden="true"></span>
+        <div class="t-body">
+          <div class="t-head">
+            <span class="t-year mute">{d.y}</span>
+            <span class="t-count">no surviving letters</span>
+          </div>
+        </div>
+      </li>
+    ) : (
+      <li class="t-entry">
+        <span class="dot" aria-hidden="true"></span>
+        <div class="t-body">
+          <div class="t-head">
+            <a class="t-year" href={`/timeline/${d.y}/`}>{d.y}</a>
+            <span class="t-count">{d.count} {d.count === 1 ? 'letter' : 'letters'}</span>
+          </div>
+          <div class="t-bar" aria-hidden="true">
+            <span style={`width: ${Math.round((d.count / maxCount) * 100)}%`}></span>
+          </div>
+          <p class="t-meta">
+            {[
+              d.author ? `most from ${d.author}` : '',
+              d.dest ? `leading destination: ${d.dest}` : 'no destination named',
+            ].filter(Boolean).join(' · ')}
+          </p>
+          <a class="t-open" href={`/timeline/${d.y}/`}>Open {d.y} →</a>
+        </div>
+      </li>
+    ))}
+  </ol>
+</Base>
+
+<style>
+  .density { margin: 2rem 0 1rem; }
+  .bars {
+    display: flex; align-items: flex-end; gap: 3px; height: 7rem;
+    border-bottom: 2px solid var(--ink); padding-bottom: 0;
+  }
+  .bar {
+    flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center;
+    height: 100%; text-decoration: none; min-width: 0;
+  }
+  .bar .fill {
+    width: 100%; max-width: 1.6rem; background: var(--accent); border-radius: 2px 2px 0 0;
+    transition: background .15s;
+  }
+  .bar:hover .fill, .bar:focus-visible .fill { background: var(--accent-deep); }
+  .bar .ylab {
+    font-size: .62rem; color: var(--ink-faint); margin-top: .3rem;
+    writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap;
+  }
+  .dim { font-size: .85rem; color: var(--ink-faint); }
+
+  .timeline {
+    list-style: none; margin: 2.5rem 0; padding: 0 0 0 1.2rem;
+    border-left: 2px solid var(--rule); display: flex; flex-direction: column; gap: 1.6rem;
+  }
+  .t-entry { position: relative; padding-left: 1.2rem; }
+  .dot {
+    position: absolute; left: calc(-1.2rem - 7px); top: .35rem;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--paper); border: 2px solid var(--accent);
+  }
+  .t-head { display: flex; align-items: baseline; gap: .8rem; }
+  .t-year { font-family: var(--serif); font-size: 1.6rem; font-weight: 600; text-decoration: none; color: inherit; }
+  .t-year:hover { color: var(--accent-deep); }
+  .t-count { font-size: .85rem; color: var(--ink-faint); letter-spacing: .06em; text-transform: uppercase; }
+  .t-bar { height: 6px; background: var(--paper-deep); border-radius: 3px; margin: .5rem 0; max-width: 26rem; }
+  .t-bar span { display: block; height: 100%; background: var(--accent); border-radius: 3px; opacity: .75; }
+  .t-meta { margin: .2rem 0 .4rem; font-size: .92rem; color: var(--ink-soft); }
+  .t-open { font-size: .9rem; }
+  .t-year.mute { color: var(--ink-faint); }
+  .t-entry.silent { opacity: .65; }
+  .dot.hollow { background: transparent; border-color: var(--ink-faint); }
+  .bar.gap { cursor: default; }
+  .bar.gap .ylab { color: var(--ink-faint); opacity: .5; }
+  @media (max-width: 640px) {
+    .bars { height: 5.5rem; }
+    .bar .ylab { font-size: .55rem; }
+  }
+</style>

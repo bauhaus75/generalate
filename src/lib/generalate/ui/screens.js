@@ -36,6 +36,14 @@ function dispLine(app, petitionerId) {
   return `${t('zeal')} · ${t('prudence')}`;
 }
 function gradeChip(app, petitionerId) {
+  // Vows stage takes precedence: shows the man's actual rank in the formation system.
+  const entry = (app.state.europeanLabor || []).find((e) => e.petitionerId === petitionerId);
+  if (entry && entry.vows && entry.vows.stage) {
+    const stageLabels = { novice: 'Novice', scholastic: 'Scholastic', brother: 'Brother', ordained: 'Ordained scholastic', coadjutor: 'Spiritual coadjutor', professed: 'Professed' };
+    const label = stageLabels[entry.vows.stage] || entry.vows.stage;
+    const suffix = app.Engine.rankSuffix ? app.Engine.rankSuffix(app.state, petitionerId) : '';
+    return `<span class="grade-chip" title="Formation rank">${esc(label)} ${esc(suffix)}</span>`;
+  }
   const g = app.Engine.gradeFor(app.state, petitionerId);
   const ord = g.ordained === true ? 'ordained priest'
     : g.ordained === false ? 'not ordained' : 'ordination not specified in the source';

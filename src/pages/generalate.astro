@@ -1,0 +1,18 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base
+  title="Generalate"
+  description="GENERALATE — a game of the Jesuit Generalate, 1615–1645. Three petitioners beg the missions each year; you choose one. The sea judges the rest."
+>
+  <link slot="head" rel="preconnect" href="https://fonts.googleapis.com" />
+  <link slot="head" rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    slot="head"
+    href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
+    rel="stylesheet"
+  />
+  <div id="generalate-app" aria-live="polite"></div>
+  <script src="../lib/generalate/ui/app.js"></script>
+</Base>

@@ -234,6 +234,15 @@ export function dispatchMission(state, destId, counts = {}) {
   state.available -= total;
   const st = missionStaff(state, destId);
   for (const gid of rules.MISSION_GRADE_IDS) st[gid] += n[gid];
+  // Report-card instrumentation (additive only): record mission-strengthening
+  // investments for the end-of-generalate report. Never affects rules.
+  if (!state.stats) state.stats = {};
+  state.stats.missionDispatches = (state.stats.missionDispatches || 0) + total;
+  if (!state.stats.missionDispatchDests || typeof state.stats.missionDispatchDests !== 'object') {
+    state.stats.missionDispatchDests = {};
+  }
+  state.stats.missionDispatchDests[destId] =
+    (state.stats.missionDispatchDests[destId] || 0) + total;
   const parts = rules.MISSION_GRADE_IDS.filter((gid) => n[gid] > 0)
     .map((gid) => `${n[gid]} ${rules.MISSION_GRADES[gid].short.toLowerCase()}`);
   state.ledger.unshift({
@@ -623,6 +632,276 @@ export function dispatchFromEurope(state, petitionerId, destId) {
   return { petitionerId, destId, grade, cost };
 }
 
+// ---------------------------------------------------------------------------
+// Collective deployment (Stage 1)
+//
+// Moves a group of eligible European Jesuits to a mission without an
+// individual terna decision for every man. The order commits named men from
+// europeanLabor into the departure queue; they sail via the existing
+// departure loop (berths → men to spare → funds → hulls), costing
+// DEPARTURE_COST per man at departure, and their voyages resolve through
+// the existing seeded mechanics. Deployment purpose is informational only.
+// ---------------------------------------------------------------------------
+
+/**
+ * Deployment purposes are recorded intent only (Stage 1). They have no
+ * mechanical effect on costs, voyages, staffing, scoring, or outcomes.
+ */
+export const DEPLOYMENT_PURPOSES = Object.freeze({
+  reinforce: 'Reinforce an established mission',
+  found: 'Establish a new work',
+  replace: 'Replace losses / strengthen a fragile community',
+  college: 'Support an expanding college or institution',
+});
+
+/** Minimum men for a collective deployment (a single man uses terna/dispatch). */
+export const DEPLOYMENT_MIN_SIZE = 2;
+
+/**
+ * Whether a europeanLabor entry may be selected for a collective deployment.
+ * Same guards as direct dispatch from Europe: the man must be present in
+ * Europe, healthy, out of formation, and free of domestic assignment.
+ */
+export function deploymentEligible(state, entry) {
+  if (!entry) return false;
+  if (entry.ill) return false;
+  if (entry.formation && entry.formation.until >= state.year) return false;
+  if (entry.assignment) return false;
+  return true;
+}
+
+/** Men currently selectable for a deployment, with grades attached. */
+export function deploymentCandidates(state) {
+  return (state.europeanLabor || [])
+    .filter((e) => deploymentEligible(state, e))
+    .map((e) => ({ ...e, staffGrade: staffGradeFor(state, e.petitionerId) }));
+}
+
+function sortCandidates(a, b) {
+  return (a.year - b.year) || (a.petitionerId < b.petitionerId ? -1 : a.petitionerId > b.petitionerId ? 1 : 0);
+}
+
+/**
+ * Deterministically select deployment members from the eligible pool.
+ * Sort: longest in Europe (earliest labor year), then petitionerId. No RNG:
+ * same state + request selects the same contingent.
+ * Mode: { count } for a headcount, or { grades: { fathers, coadjutors, brothers } }
+ * for grade composition (keys from rules.MISSION_GRADE_IDS).
+ * Throws when fewer than requested are eligible — never silently shrinks.
+ */
+export function selectDeploymentMembers(state, sel = {}) {
+  const cands = deploymentCandidates(state);
+  let picked = [];
+  if (sel.grades) {
+    for (const gid of rules.MISSION_GRADE_IDS) {
+      const want = sel.grades[gid] ?? 0;
+      if (!Number.isInteger(want) || want < 0) {
+        throw new Error(`selectDeploymentMembers: grade "${gid}" count must be a whole number ≥ 0`);
+      }
+      const have = cands.filter((c) => c.staffGrade === gid).sort(sortCandidates);
+      if (have.length < want) {
+        throw new Error(`selectDeploymentMembers: only ${have.length} eligible ${gid}, ${want} requested`);
+      }
+      picked = picked.concat(have.slice(0, want));
+    }
+  } else {
+    const count = sel.count ?? 0;
+    if (!Number.isInteger(count) || count < 0) {
+      throw new Error('selectDeploymentMembers: count must be a whole number ≥ 0');
+    }
+    const sorted = [...cands].sort(sortCandidates);
+    if (sorted.length < count) {
+      throw new Error(`selectDeploymentMembers: only ${sorted.length} eligible men, ${count} requested`);
+    }
+    picked = sorted.slice(0, count);
+  }
+  return picked.map((c) => c.petitionerId);
+}
+
+/**
+ * Order a collective deployment: commit named eligible men to a destination.
+ *
+ * Personnel accounting follows the terna convention exactly:
+ * - At order: men are removed from europeanLabor (they cannot be selected
+ *   again) and pushed into the departure queue with status 'awaiting'.
+ *   state.available is NOT changed here — mirrors decide().
+ * - At departure: the existing loop decrements state.available by 1 per man
+ *   and charges DEPARTURE_COST per man. Exactly once per member.
+ *
+ * Queue entries carry deploymentId and companions: 0. No terna approval or
+ * denial seal costs apply. There is no cancellation in Stage 1: the order is
+ * irreversible and the men sail as berths, men to spare, funds, and hulls
+ * allow, oldest approval year first (no deployment priority).
+ */
+export function orderDeployment(state, { destId, purpose, memberIds }) {
+  const g = ensureData();
+  const dest = g.destinations.find((d) => d.id === destId);
+  if (!dest) throw new Error(`orderDeployment: unknown destination "${destId}"`);
+  const dst = state.destState[destId];
+  if (dst && dst.access === 'closed') {
+    throw new Error(`orderDeployment: ${dest.name || destId} is closed to new men`);
+  }
+  if (!DEPLOYMENT_PURPOSES[purpose]) {
+    throw new Error(`orderDeployment: unknown purpose "${purpose}"`);
+  }
+  if (!Array.isArray(memberIds) || memberIds.length < DEPLOYMENT_MIN_SIZE) {
+    throw new Error(`orderDeployment: a deployment needs at least ${DEPLOYMENT_MIN_SIZE} men`);
+  }
+  const seen = new Set();
+  for (const id of memberIds) {
+    if (seen.has(id)) throw new Error(`orderDeployment: "${id}" is listed twice`);
+    seen.add(id);
+  }
+  // Re-validate eligibility at order time: the UI's candidate list may be stale.
+  const entries = new Map((state.europeanLabor || []).map((e) => [e.petitionerId, e]));
+  for (const id of memberIds) {
+    const e = entries.get(id);
+    if (!e) throw new Error(`orderDeployment: "${id}" is not laboring in Europe`);
+    if (!deploymentEligible(state, e)) {
+      throw new Error(`orderDeployment: "${e.name || id}" is not eligible (ill, in formation, or assigned)`);
+    }
+    if ((state.queue || []).some((q) => q.petitionerId === id && q.status === 'awaiting')) {
+      throw new Error(`orderDeployment: "${e.name || id}" is already awaiting departure`);
+    }
+  }
+  // Fail early on funds: the loop would otherwise strand the men in the queue.
+  const estCost = memberIds.length * rules.RESOURCES.DEPARTURE_COST;
+  if ((state.resources.funds || 0) < estCost) {
+    throw new Error(`orderDeployment: ${estCost} scudi needed to embark ${memberIds.length} men; the chest holds ${state.resources.funds || 0}`);
+  }
+  if (!Array.isArray(state.deployments)) state.deployments = [];
+  if (!state.seq || typeof state.seq.deployment !== 'number') {
+    state.seq = state.seq || {};
+    state.seq.deployment = state.seq.deployment || 0;
+  }
+  const depId = `dep-${state.year}-${++state.seq.deployment}`;
+  const teamId = `deploy-team-${depId}`;
+  const destName = dest.name || destId;
+  for (const id of memberIds) {
+    const e = entries.get(id);
+    state.europeanLabor = state.europeanLabor.filter((x) => x.petitionerId !== id);
+    const rec = ensureRecord(state, id, false);
+    rec.status = STATUS.APPROVED;
+    rec.history.push({ year: state.year, decision: 'deployment', destination: destId, deploymentId: depId });
+    state.queue.push({
+      petitionerId: id,
+      petitionerName: e.name || id, // europeanLabor name; voyage records prefer this over cardName
+      approvedYear: state.year,
+      destination: destId,
+      status: 'awaiting',
+      teamId,
+      teamSize: memberIds.length,
+      companions: 0,
+      deploymentId: depId,
+    });
+  }
+  const dep = {
+    id: depId, year: state.year, destId, destName,
+    purpose, memberIds: [...memberIds], voyageIds: [],
+    // Names are snapshotted here: members leave europeanLabor at order time,
+    // and their voyage record (with the name) only exists once they sail.
+    memberNames: Object.fromEntries(memberIds.map((id) => [id, entries.get(id).name || id])),
+  };
+  state.deployments.push(dep);
+  addLedger(state, {
+    year: state.year, type: 'deployment', destination: destId,
+    text: `Collective deployment ordered: ${memberIds.map((id) => (entries.get(id).name || id)).join(', ')} for ${destName} — ${DEPLOYMENT_PURPOSES[purpose].toLowerCase()} (${memberIds.length} men, ${estCost} scudi to embark).`,
+  });
+  return dep;
+}
+
+/**
+ * Record a deployment voyage on its registry entry when the departure loop
+ * creates it. Called by the departure loop only.
+ */
+function recordDeploymentVoyage(state, voyage) {
+  if (!voyage || !voyage.deploymentId) return;
+  const dep = (state.deployments || []).find((d) => d.id === voyage.deploymentId);
+  if (dep && !dep.voyageIds.includes(voyage.id)) dep.voyageIds.push(voyage.id);
+}
+
+/**
+ * Derive a deployment's status from its members' voyage states.
+ * 'ordered' = no member has sailed yet; 'in-transit' = at least one sailed
+ * and at least one voyage unresolved; 'arrived' = every member's voyage
+ * resolved (any outcome). Descriptive only — it never drives resolution.
+ */
+export function deploymentStatus(state, depId) {
+  const dep = (state.deployments || []).find((d) => d.id === depId);
+  if (!dep) return null;
+  const byMember = new Map();
+  for (const v of (state.voyages || [])) {
+    if (v.deploymentId === depId) byMember.set(v.petitionerId, v);
+  }
+  let awaiting = 0, transit = 0, resolved = 0;
+  for (const id of dep.memberIds) {
+    const v = byMember.get(id);
+    if (v && v.outcome) resolved++;
+    else if (v) transit++;
+    else awaiting++;
+  }
+  const status = awaiting === dep.memberIds.length ? 'ordered'
+    : resolved === dep.memberIds.length ? 'arrived' : 'in-transit';
+  return { status, awaiting, transit, resolved, total: dep.memberIds.length };
+}
+
+/**
+ * Constraint analysis for a prospective deployment of `count` men.
+ * Reports each of the four departure constraints separately and names the
+ * binding one in planning order: funds (which gates the order itself),
+ * then men to spare, berths, hulls. Pure: no mutation.
+ * Hull capacity is per-hull souls; berths are per-man per-year — a contingent
+ * that fits one hull can still need several sailing years of berths.
+ */
+export function deploymentConstraints(state, count) {
+  const berthsPerYear = state.resources.berthsPerYear || 0;
+  const freeHulls = (state.resources.ships || []).filter((s) => (s.freeYear || 0) <= state.year);
+  const cost = count * rules.RESOURCES.DEPARTURE_COST;
+  const avail = state.available || 0;
+  const funds = state.resources.funds || 0;
+  const sailingYears = berthsPerYear > 0 ? Math.ceil(count / berthsPerYear) : Infinity;
+  let bottleneck = null;
+  if (funds < cost) bottleneck = 'funds';
+  else if (avail < count) bottleneck = 'men';
+  else if (berthsPerYear < count) bottleneck = 'berths';
+  else if (freeHulls.length === 0) bottleneck = 'hulls';
+  return {
+    count, cost,
+    berthsNeeded: count, berthsPerYear, sailingYears,
+    hullSouls: count, hullCapacity: rules.RESOURCES.SHIP_CAPACITY, hullsFree: freeHulls.length,
+    menNeeded: count, menAvailable: avail,
+    fundsNeeded: cost, funds,
+    bottleneck, // null when the whole contingent can sail this year
+  };
+}
+
+/**
+ * Per-member roster for a deployment: each member's name, grade, and current
+ * state — 'awaiting' (in the departure queue), 'in-transit' (voyage en route),
+ * or the resolved voyage outcome ('thriving', 'returned', 'ill', 'deceased').
+ * Used by the UI status list and tests.
+ */
+export function deploymentRoster(state, depId) {
+  const dep = (state.deployments || []).find((d) => d.id === depId);
+  if (!dep) return null;
+  const byMember = new Map();
+  for (const v of (state.voyages || [])) {
+    if (v.deploymentId === depId) byMember.set(v.petitionerId, v);
+  }
+  const names = new Map((state.europeanLabor || []).map((e) => [e.petitionerId, e.name]));
+  return dep.memberIds.map((id) => {
+    const v = byMember.get(id);
+    return {
+      petitionerId: id,
+      name: (v && (v.petitionerName || v.name)) || names.get(id) || (dep.memberNames && dep.memberNames[id]) || id,
+      grade: staffGradeFor(state, id),
+      state: v && v.outcome ? v.outcome : v ? 'in-transit' : 'awaiting',
+      voyageId: v ? v.id : null,
+      arriveYear: v ? v.arriveYear : null,
+    };
+  });
+}
+
 /**
  * Instruction types the General may issue to a mission superior.
  * Instructions travel by the same delays as voyages; they do not take effect before arrival.
@@ -668,6 +947,19 @@ export function issueInstruction(state, destId, typeId) {
 }
 
 /**
+ * Instrumentation only (Stage 0): parallel uncapped score. Every site that
+ * moves the capped score calls trackScoreDelta with the IDENTICAL delta.
+ * This never affects rules, the cap, voyage resolution, or any mechanic —
+ * it is a measurement counter for balance simulations.
+ * @param {object} state
+ * @param {number} delta the exact delta applied to the capped score
+ */
+function trackScoreDelta(state, delta) {
+  if (typeof state.scoreUncapped !== 'number') state.scoreUncapped = rules.SCORE.START;
+  state.scoreUncapped += delta;
+}
+
+/**
  * Resolve instructions arriving this year. Uses the mission's fathers as a proxy
  * for leadership quality. Outcomes: obeyed, adapted, delayed, disobeyed.
  * All seeded and reproducible.
@@ -706,6 +998,7 @@ function resolveInstructions(state, y) {
       } else if (outcome === 'disobeyed') {
         // Reckless overreach: costs score
         state.score = rules.addScore(state.score, -1);
+        trackScoreDelta(state, -1);
         effectText = ' Reckless overreach causes scandal (-1 score).';
       } else if (outcome === 'adapted') {
         effectText = ' The superior adapts prudently to local conditions.';
@@ -713,6 +1006,7 @@ function resolveInstructions(state, y) {
     } else if (inst.type === 'consolidate') {
       if (outcome === 'disobeyed') {
         state.score = rules.addScore(state.score, -1);
+        trackScoreDelta(state, -1);
         effectText = ' The superior ignores caution and overextends (-1 score).';
       } else {
         effectText = outcome === 'obeyed' ? ' The mission steadies.' : ' The superior adapts prudently.';
@@ -728,6 +1022,7 @@ function resolveInstructions(state, y) {
         const erng = streamFor(state, 'instruction-enc', destId, String(y));
         if (erng.chance(0.4)) {
           state.score = rules.addScore(state.score, 1);
+          trackScoreDelta(state, 1);
           effectText = ' The brethren take heart; their fervor bears fruit (+1 score).';
         } else {
           effectText = ' The brethren receive the encouragement gladly.';
@@ -741,6 +1036,7 @@ function resolveInstructions(state, y) {
         effectText = ' The superior receives the correction humbly.';
       } else if (outcome === 'disobeyed') {
         state.score = rules.addScore(state.score, -1);
+        trackScoreDelta(state, -1);
         effectText = ' The admonition is resented; discipline suffers (-1 score).';
       } else {
         effectText = ' The admonition produces a partial amendment.';
@@ -874,6 +1170,7 @@ export function newGame({ mode = 'campaign', seed = 'generalate', data = null } 
     diverged: false,
     ended: false,
     score: rules.SCORE.START,
+    scoreUncapped: rules.SCORE.START, // Stage 0 instrumentation: parallel uncapped score
     society: rules.RESOURCES.SOCIETY_START, // the whole Society (13,112 in 1615)
     available: Math.round(rules.RESOURCES.SOCIETY_START * rules.RESOURCES.MISSION_PCT), // men the General can spare: 1%
     petitioners: {},   // id → record {status, history, deniedCount, usedLetters, voyages, archived}
@@ -889,6 +1186,7 @@ export function newGame({ mode = 'campaign', seed = 'generalate', data = null } 
     missions: initMissions(g.destinations), // per-mission staffing: {fathers, coadjutors, brothers, capacity}
     novitiates: [],   // {destination, foundedYear} — houses of formation at missions
     europeanLabor: [], // men working in Europe: {petitionerId, name, year, via:'denied'|'returned'|'veteran'}
+    deployments: [], // collective deployment orders (Stage 1): {id, year, destId, destName, purpose, memberIds, voyageIds}
     zealUntil: 0,     // year through which veteran zeal aids voyage checks
     currentTerna: null, // {year, cards:[...]} while awaiting decide()
     instructions: {}, // destId -> {type, issuedYear, arriveYear, status, outcome}
@@ -899,9 +1197,10 @@ export function newGame({ mode = 'campaign', seed = 'generalate', data = null } 
       departures: 0, arrivals: 0, deaths: 0,
       returns: 0, illnesses: 0, reassignments: 0, thriving: 0,
       teams: 0, novitiates: 0,
+      missionDispatches: 0, missionDispatchDests: {}, // report-card instrumentation (additive)
     },
     firedEvents: [],
-    seq: { ledger: 0, voyage: 0, fic: 0, team: 0 },
+    seq: { ledger: 0, voyage: 0, fic: 0, team: 0, deployment: 0 },
     rngState: rng.getState(),
     endlessRngState: endlessRng.getState(),
   };
@@ -1520,6 +1819,7 @@ export function foundNovitiate(state, destinationId) {
   st.danger = Math.max(0, (st.danger ?? dest.danger ?? 1) - 1);
   state.novitiates.push({ destination: destinationId, foundedYear: state.year });
   state.score = rules.addScore(state.score, rules.SCORE.NOVITIATE_FOUND_BONUS);
+  trackScoreDelta(state, rules.SCORE.NOVITIATE_FOUND_BONUS);
   state.stats.novitiates += 1;
   addLedger(state, {
     year: state.year, type: 'novitiate', destination: destinationId,
@@ -1574,6 +1874,7 @@ function deliverNews(state, g, voyage, outcomes) {
     st.thrivingCount = priorThriving + 1;
   }
   state.score = rules.addScore(state.score, fruitDelta);
+  trackScoreDelta(state, fruitDelta);
   if (voyage.outcome === 'returned') {
     addEuropeanLabor(state, voyage.petitionerId, petName, 'returned');
   }
@@ -1727,7 +2028,9 @@ export function resolveYear(state) {
         shipmates.set(ship.id, (shipmates.get(ship.id) || 0) + 1);
       }
       for (const { q, ship: hull, comps } of aboard) {
-        const pname = cardName(state, g, q.petitionerId);
+        // Prefer the queue entry's name (deployment members carry their
+        // europeanLabor name); terna sailors fall back to the card name.
+        const pname = q.petitionerName || cardName(state, g, q.petitionerId);
         const actualTeamSize = shipmates.get(hull.id) || 1;
         const voyage = {
           id: `voy-${++state.seq.voyage}`,
@@ -1749,8 +2052,10 @@ export function resolveYear(state) {
           companions: comps,
           shipId: hull.id,
           shipName: hull.name,
+          deploymentId: q.deploymentId || null, // collective deployment lineage, if any
         };
         state.voyages.push(voyage);
+        recordDeploymentVoyage(state, voyage);
         q.status = 'departed';
         q.voyageId = voyage.id;
         const rec = getRecord(state, q.petitionerId);
@@ -1865,6 +2170,7 @@ export function resolveYear(state) {
     const pname = v.petitionerName || cardName(state, g, v.petitionerId);
     const dName = destName(g, v.destination);
     state.score = rules.addScore(state.score, rules.VETERAN.SCORE);
+    trackScoreDelta(state, rules.VETERAN.SCORE);
     state.zealUntil = Math.max(state.zealUntil || 0, y + rules.VETERAN.ZEAL_YEARS);
     // He leaves the mission's stationed strength (and his companions with him).
     if (v.staffGrade) {
@@ -1918,8 +2224,9 @@ export function resolveYear(state) {
   state.available = (state.available || 0)
     + Math.round(rules.RESOURCES.SOCIETY_YEARLY_INTAKE * rules.RESOURCES.MISSION_PCT);
   if ((state.novitiates || []).length) {
-    state.score = rules.addScore(
-      state.score, state.novitiates.length * rules.SCORE.NOVITIATE_YEARLY);
+    const novYearly = state.novitiates.length * rules.SCORE.NOVITIATE_YEARLY;
+    state.score = rules.addScore(state.score, novYearly);
+    trackScoreDelta(state, novYearly);
   }
 
   // 4a. Mission upkeep: a high-capacity mission costs scudi every year to sustain.
@@ -2091,6 +2398,179 @@ const REFLECTIONS = Object.freeze({
  * @param {object} state
  * @returns {{stats:object, title:string, reflection:string}}
  */
+// ---------------------------------------------------------------------------
+// End-of-generalate report card (Stage 2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Build the end-of-generalate report card: a plain-data summary of the
+ * campaign for the closing screen. Uses only data already in game state or
+ * safely derivable from it (stats, voyages, novitiates, fired events).
+ *
+ * The report states actual outcomes; the closing narrative is descriptive,
+ * never a grade or a judgment. It introduces no new score, no modifier, and
+ * no assessment vocabulary ("wasteful", "efficient", ...). The internal
+ * uncapped audit score is deliberately NOT exposed here.
+ *
+ * Missing historical data (saves predating a tracking field) is marked
+ * unavailable, never fabricated.
+ *
+ * @param {object} state
+ * @returns {object} plain-data report (JSON-safe)
+ */
+export function generalateReport(state) {
+  const g = ensureData();
+  const s = state.stats || {};
+  const startYear = CAMPAIGN_START;
+  const endYear = (typeof state.year === 'number' ? state.year : startYear) - 1;
+  const fundsStart = rules.RESOURCES.START_FUNDS;
+  const fundsEnd = state.resources && typeof state.resources.funds === 'number'
+    ? state.resources.funds : null;
+
+  let souls = 0, deployVoyages = 0;
+  for (const v of (state.voyages || [])) {
+    souls += 1 + (v.companions || 0);
+    if (v.deploymentId) deployVoyages += 1;
+  }
+
+  const novitiates = (state.novitiates || [])
+    .map((n) => ({
+      destination: n.destination,
+      name: destName(g, n.destination),
+      foundedYear: n.foundedYear,
+    }))
+    .sort((a, b) => a.foundedYear - b.foundedYear);
+
+  // Mission-strengthening investments are tracked only in saves created
+  // after the tracking was introduced; older saves report it as unknown.
+  const hasDispatchData = !!s && typeof s.missionDispatches === 'number';
+  const strengthened = hasDispatchData
+    ? Object.entries(s.missionDispatchDests || {})
+      .map(([destId, men]) => ({ destId, name: destName(g, destId), men }))
+      .sort((a, b) => b.men - a.men)
+    : null;
+
+  const events = [];
+  for (const id of (state.firedEvents || [])) {
+    const ev = (g.events || []).find((e) => e.id === id);
+    if (ev) {
+      events.push({
+        year: ev.year,
+        title: ev.title,
+        description: ev.description || ev.title,
+        effects: summarizeEventEffects(g, ev.effects),
+      });
+    }
+  }
+  events.sort((a, b) => a.year - b.year);
+
+  const score = getScore(state);
+  const report = {
+    startYear,
+    endYear,
+    yearsRuled: Math.max(0, endYear - startYear + 1),
+    score,
+    scoreTitle: rules.titleForScore(score),
+    outcomes: {
+      thriving: s.thriving || 0,
+      returned: s.returns || 0,
+      ill: s.illnesses || 0,
+      deceased: s.deaths || 0,
+      reassigned: s.reassignments || 0,
+    },
+    personnel: {
+      dispatched: s.departures || 0,
+      souls,
+      viaDeployment: deployVoyages,
+      available: typeof state.available === 'number' ? state.available : null,
+    },
+    treasury: {
+      start: fundsStart,
+      end: fundsEnd,
+      net: fundsEnd === null ? null : fundsEnd - fundsStart,
+    },
+    institutions: {
+      novitiates,
+      strengthened,
+      strengthenedTotal: hasDispatchData ? s.missionDispatches : null,
+      strengthenedUnknown: !hasDispatchData,
+    },
+    events,
+  };
+  report.narrative = reportNarrative(report);
+  return report;
+}
+
+/** One-line human summary of a historical event's mechanical effects. */
+function summarizeEventEffects(g, effects) {
+  const parts = [];
+  for (const [destId, fx] of Object.entries(effects || {})) {
+    const bits = [];
+    if (typeof fx.danger === 'number') bits.push(`peril ${fx.danger}`);
+    if (fx.access === 'closed') bits.push('closed to new men');
+    else if (fx.access === 'restricted') bits.push('sailings restricted');
+    else if (fx.access === 'open') bits.push('opened to new men');
+    if (bits.length) parts.push(`${destName(g, destId)}: ${bits.join(', ')}`);
+  }
+  return parts.join('; ');
+}
+
+/**
+ * Descriptive closing narrative: what happened, in plain words. No grades,
+ * no judgments, no attribution of divine favor or disfavor to the outcomes.
+ */
+function reportNarrative(r) {
+  const o = r.outcomes, p = r.personnel, t = r.treasury, ins = r.institutions;
+  const sents = [];
+  const menWord = p.dispatched === 1 ? 'man' : 'men';
+  sents.push(
+    `From ${r.startYear} to ${r.endYear}, ${p.dispatched} ${menWord} embarked for the missions` +
+    (p.souls > p.dispatched ? ` (${p.souls} souls counting the companions who sailed with them)` : '') +
+    '.',
+  );
+  if (p.dispatched > 0) {
+    const bits = [];
+    if (o.thriving) bits.push(`${o.thriving} reported thriving in their stations`);
+    if (o.returned) bits.push(`${o.returned} returned to Europe`);
+    if (o.ill) bits.push(`${o.ill} fallen gravely ill`);
+    if (o.deceased) bits.push(`${o.deceased} dead in the missions`);
+    sents.push(
+      bits.length
+        ? `Word has come back of ${bits.join('; ')}.`
+        : 'No word has yet come back from those who sailed.',
+    );
+    if (o.thriving > 0) {
+      const per10 = Math.round((o.thriving / p.dispatched) * 10);
+      sents.push(`Roughly ${per10} in ten of those embarked are thriving.`);
+    }
+  }
+  if (t.end !== null) {
+    const dir = t.net > 0 ? 'more' : t.net < 0 ? 'less' : 'no more nor less';
+    sents.push(
+      t.net === 0
+        ? `The mission chest holds ${t.end} scudi, as at the election.`
+        : `The mission chest, which held ${t.start} scudi at the election, now holds ${t.end} — ${Math.abs(t.net)} scudi ${dir} than at the beginning.`,
+    );
+  }
+  const found = [];
+  if (ins.novitiates.length) {
+    found.push(
+      `${ins.novitiates.length} ${ins.novitiates.length === 1 ? 'novitiate' : 'novitiates'} founded` +
+      ` (${ins.novitiates.map((n) => `${n.name} ${n.foundedYear}`).join(', ')})`,
+    );
+  }
+  if (ins.strengthenedUnknown) {
+    found.push('earlier mission reinforcements are not recorded in this account');
+  } else if (ins.strengthenedTotal > 0) {
+    found.push(
+      `${ins.strengthenedTotal} ${ins.strengthenedTotal === 1 ? 'man' : 'men'} dispatched to strengthen the missions` +
+      ` (${ins.strengthened.map((m) => `${m.name}: ${m.men}`).join(', ')})`,
+    );
+  }
+  if (found.length) sents.push(`The Society's foundations grew by ${found.join('; ')}.`);
+  return sents.join(' ');
+}
+
 export function endGame(state) {
   const s = state.stats;
   const unresolved =
@@ -2129,7 +2609,7 @@ export function endGame(state) {
   const variants = REFLECTIONS[title];
   const r = makeRng(`${state.seed}:reflection`);
   const reflection = variants[r.int(0, variants.length - 1)];
-  return { stats, title, reflection };
+  return { stats, title, reflection, report: generalateReport(state) };
 }
 
 // ---------------------------------------------------------------------------
@@ -2165,6 +2645,9 @@ export function deserialize(obj) {
   if (!('instructions' in state) || typeof state.instructions !== 'object') state.instructions = {};
   if (!('novices' in state) || !Array.isArray(state.novices)) state.novices = [];
   if (!('zealUntil' in state)) state.zealUntil = 0;
+  // Stage 0 instrumentation: pre-instrumentation saves have no uncapped history;
+  // seed from the capped score (a floor, documented approximation).
+  if (!('scoreUncapped' in state)) state.scoreUncapped = state.score;
   if (typeof state.society !== 'number') state.society = rules.RESOURCES.SOCIETY_START;
   if (typeof state.available !== 'number') {
     state.available = Math.round((state.society || rules.RESOURCES.SOCIETY_START) * rules.RESOURCES.MISSION_PCT);
@@ -2175,6 +2658,8 @@ export function deserialize(obj) {
     }
   }
   if (!('team' in (state.seq || {}))) state.seq.team = 0;
+  if (!('deployment' in (state.seq || {}))) state.seq.deployment = 0; // collective deployments (Stage 1)
+  if (!('deployments' in state) || !Array.isArray(state.deployments)) state.deployments = []; // Stage 1 registry
   if (!('teams' in (state.stats || {}))) state.stats.teams = 0;
   if (!('novitiates' in (state.stats || {}))) state.stats.novitiates = 0;
   // Validate RNG states are restorable.

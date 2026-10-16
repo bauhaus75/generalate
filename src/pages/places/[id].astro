@@ -1,0 +1,84 @@
+---
+import Base from '../../layouts/Base.astro';
+import LetterList from '../../components/LetterList.astro';
+import { places, placeList, people, letterEdges } from '../../lib/data';
+
+export function getStaticPaths() {
+  return placeList.map((p) => ({ params: { id: p.id } }));
+}
+
+const place = places[Astro.params.id];
+const kindLabel = { city: 'City', region: 'Region', country: 'Country', mission: 'Mission destination' }[place.kind];
+
+// people who wrote from here
+const writers = new Map<string, number[]>();
+for (const n of place.letters_written_from) {
+  for (const e of letterEdges(n, 'written_by')) {
+    const arr = writers.get(e.target) ?? [];
+    arr.push(n);
+    writers.set(e.target, arr);
+  }
+}
+const writerList = [...writers.entries()].sort((a, b) => b[1].length - a[1].length);
+---
+
+<Base title={place.name} description={`${kindLabel} in the Indipetae to Mutio Vitelleschi (1616–1647).`}>
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="/">Home</a> · <a href="/places/">Places</a> · {place.name}
+  </nav>
+  <p class="kicker">{kindLabel}{place.modern_name && place.modern_name !== place.name ? ` · ${place.modern_name}` : ''}</p>
+  <h1>{place.name}</h1>
+
+  {place.note && <div class="notice">{place.note}</div>}
+  {place.description && <p class="lede">{place.description}</p>}
+  {place.kind === 'mission' && (
+    <div class="notice">
+      <strong>A note on evidence.</strong> A writer's request to be sent somewhere is not proof that he
+      ever went there. "Desired" below means the destination was named in a petition; "mentioned"
+      means it appears in the text without an explicit request.
+    </div>
+  )}
+
+  {place.letters_desiring.length > 0 && (
+    <section aria-label="Desired as a destination">
+      <h2>Desired as a destination <span class="count">({place.letters_desiring.length})</span></h2>
+      <p>Writers who explicitly asked to be sent {place.kind === 'mission' ? 'here' : 'to ' + place.name}.</p>
+      <LetterList numbers={place.letters_desiring} />
+    </section>
+  )}
+
+  {place.letters_written_from.length > 0 && (
+    <section aria-label="Letters written from here">
+      <h2>Letters written from {place.name} <span class="count">({place.letters_written_from.length})</span></h2>
+      <LetterList numbers={place.letters_written_from} />
+    </section>
+  )}
+
+  {writerList.length > 0 && place.letters_written_from.length > 0 && (
+    <section aria-label="Writers">
+      <h2>Writers</h2>
+      <p>
+        {writerList.map(([pid, nums]) => (
+          <a class="pill" href={`/people/${pid}/`}>{people[pid]?.display_name ?? pid} <span class="n">({nums.length})</span></a>
+        ))}
+      </p>
+    </section>
+  )}
+
+  {place.letters_mentioning.length > 0 && (
+    <section aria-label="Mentioned in">
+      <h2>Mentioned in <span class="count">({place.letters_mentioning.length})</span></h2>
+      <p>Letters naming {place.name} without an explicit request to go there.</p>
+      <LetterList numbers={place.letters_mentioning} />
+    </section>
+  )}
+
+  {place.letters_desiring.length === 0 && place.letters_written_from.length === 0 && place.letters_mentioning.length === 0 && (
+    <div class="notice">No letters are currently linked to this place.</div>
+  )}
+</Base>
+
+<style>
+  .count { color: var(--ink-faint); font-size: 1rem; font-weight: 400; }
+  .n { color: var(--ink-faint); }
+</style>

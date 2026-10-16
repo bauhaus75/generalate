@@ -579,6 +579,221 @@ function missionCardHTML(app, d, year) {
   </article>`;
 }
 
+/* ---------------- collective deployment (Stage 1) ---------------- */
+
+function deployState(app) {
+  const E = app.Engine;
+  if (!app.ui.deploy) app.ui.deploy = { destId: null, purpose: 'reinforce', count: 4, mustered: null };
+  const openDests = Object.values(E.DESTINATIONS || {}).filter(d => d && d.id && (app.state.destState[d.id] || {}).access !== 'closed');
+  const dp = app.ui.deploy;
+  if (!dp.destId || !openDests.some(d => d.id === dp.destId)) dp.destId = openDests.length ? openDests[0].id : null;
+  if (!E.DEPLOYMENT_PURPOSES[dp.purpose]) dp.purpose = 'reinforce';
+  return dp;
+}
+
+function deploymentConstraintsHTML(app, count) {
+  const E = app.Engine;
+  const c = E.deploymentConstraints(app.state, count);
+  const row = (label, text, binding) =>
+    `<div class="dc-row${binding ? ' binding' : ''}"><span class="dc-label">${label}</span><span class="dc-val">${text}</span>${binding ? '<span class="dc-flag">binding</span>' : ''}</div>`;
+  const hullText = c.hullSouls <= c.hullCapacity
+    ? `${c.hullSouls} souls — fits in one hull (capacity ${c.hullCapacity})`
+    : `${c.hullSouls} souls — needs ${Math.ceil(c.hullSouls / c.hullCapacity)} hulls (capacity ${c.hullCapacity} each)`;
+  const berthText = c.berthsPerYear >= c.berthsNeeded
+    ? `${c.berthsNeeded} berths needed · ${c.berthsPerYear}/year — sails this year`
+    : `${c.berthsNeeded} berths needed · ${c.berthsPerYear}/year — expect ~${c.sailingYears} sailing years`;
+  let html = `<div class="dc-rows">`
+    + row('Berths', berthText, c.bottleneck === 'berths')
+    + row('Hulls', `${hullText} · ${c.hullsFree} free now`, c.bottleneck === 'hulls')
+    + row('Men to spare', `${c.menNeeded} from the pool · ${c.menAvailable} to spare`, c.bottleneck === 'men')
+    + row('Funds', `${c.fundsNeeded} scudi to embark · ${c.funds} in the chest`, c.bottleneck === 'funds')
+    + `</div>`;
+  if (c.bottleneck === 'berths' && c.hullSouls <= c.hullCapacity) {
+    html += `<p class="howto-note dc-note">The contingent fits in a single hull, but berths — not hulls — govern when it sails: one berth per man, ${c.berthsPerYear} a year.</p>`;
+  } else if (!c.bottleneck) {
+    html += `<p class="howto-note dc-note">No constraint binds: the whole contingent can sail this year.</p>`;
+  }
+  return html;
+}
+
+function deploymentPreviewHTML(app) {
+  const E = app.Engine;
+  const dp = deployState(app);
+  const mustered = dp.mustered;
+  if (!mustered || !mustered.length) return '';
+  const dest = (E.DESTINATIONS || {})[dp.destId] || {};
+  const travel = dest.travelYears || 2;
+  const st = E.missionStaff(app.state, dp.destId);
+  const staffed = E.missionStaffed(st);
+  const overCap = st.capacity > 0 && staffed + mustered.length > st.capacity;
+  const names = mustered.map(m => {
+    const gr = E.MISSION_GRADES[m.staffGrade];
+    return `<li>${esc(m.name)} <span class="dg-meta">${esc(gr ? gr.short : m.staffGrade)}</span></li>`;
+  }).join('');
+  return `<div class="deploy-preview">
+    <h4 class="sect">The contingent — ${mustered.length} men for ${esc(dest.name || dp.destId)}</h4>
+    <p class="howto-note">Purpose (informational only): ${esc(E.DEPLOYMENT_PURPOSES[dp.purpose])}. Voyage ~${travel} year${travel === 1 ? '' : 's'}; sailing in company steadies the crossing.</p>
+    <ul class="deploy-names">${names}</ul>
+    ${deploymentConstraintsHTML(app, mustered.length)}
+    ${overCap ? `<p class="howto-note dc-warn">⚠ ${esc(dest.name || dp.destId)} stands at ${staffed}/${st.capacity}; these men would bring it to ${staffed + mustered.length}. Capacity is a target, not a cap — this changes nothing mechanically.</p>` : ''}
+    <div class="btn-row">
+      <button class="gbtn ghost" id="deploy-clear">Disband</button>
+      <button class="gbtn primary" id="deploy-order">Order the deployment</button>
+    </div>
+    <p class="howto-note">The order is irreversible — there is no recall in Stage 1. The men enter the departure queue and sail as berths, men to spare, funds, and hulls allow, oldest first alongside terna approvals.</p>
+  </div>`;
+}
+
+function deploymentPanelHTML(app) {
+  const E = app.Engine;
+  const dp = deployState(app);
+  const openDests = Object.values(E.DESTINATIONS || {}).filter(d => d && d.id && (app.state.destState[d.id] || {}).access !== 'closed');
+  const eligible = E.deploymentCandidates(app.state).length;
+  const min = E.DEPLOYMENT_MIN_SIZE;
+  const maxCount = Math.max(min, eligible);
+  if (dp.count < min) dp.count = min;
+  if (dp.count > maxCount) dp.count = maxCount;
+  return `<h3 class="sect">Collective deployment</h3>
+  <div class="dispatch-panel deploy-panel">
+    <p class="howto-note">Send a company of formed men from Europe to a mission in a single order — no terna, no seal. 60 scudi per man at departure, one berth per man, drawn from the same pool as terna sailors. The men must already labor in Europe and be free: not ill, not in formation, holding no domestic assignment.</p>
+    <div class="deploy-form">
+      <label class="dest-redirect">Destination:
+        <select id="deploy-dest" aria-label="Deployment destination">
+          ${openDests.map(d => `<option value="${d.id}"${d.id === dp.destId ? ' selected' : ''}>${esc(d.name || d.id)}</option>`).join('')}
+        </select>
+      </label>
+      <label class="dest-redirect">Purpose:
+        <select id="deploy-purpose" aria-label="Deployment purpose">
+          ${Object.entries(E.DEPLOYMENT_PURPOSES).map(([k, v]) => `<option value="${k}"${k === dp.purpose ? ' selected' : ''}>${esc(v)}</option>`).join('')}
+        </select>
+      </label>
+      <div class="dispatch-grade">
+        <div class="dg-info"><strong>Men</strong>
+          <span class="dg-meta">${eligible} eligible in Europe · min ${min}</span></div>
+        <div class="dg-step">
+          <button class="gbtn small ghost" id="deploy-dec" aria-label="Fewer men">−</button>
+          <span class="dg-count" id="deploy-count">${dp.count}</span>
+          <button class="gbtn small ghost" id="deploy-inc" aria-label="More men">+</button>
+        </div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="gbtn" id="deploy-muster" ${eligible >= min && dp.destId ? '' : 'disabled'}>Muster the contingent</button>
+    </div>
+    <div id="deploy-preview">${deploymentPreviewHTML(app)}</div>
+  </div>`;
+}
+
+function deploymentListHTML(app) {
+  const E = app.Engine;
+  const deps = [...(app.state.deployments || [])].reverse();
+  if (!deps.length) return '';
+  const stateLabel = (s) => ({
+    'awaiting': 'awaiting berths', 'in-transit': 'at sea', 'thriving': 'thriving',
+    'returned': 'returned', 'ill': 'ill', 'deceased': '† deceased',
+  }[s] || s);
+  const cards = deps.map(dep => {
+    const st = E.deploymentStatus(app.state, dep.id);
+    const roster = E.deploymentRoster(app.state, dep.id) || [];
+    const statusText = st.status === 'ordered' ? 'ordered — awaiting berths'
+      : st.status === 'in-transit' ? `at sea — ${st.resolved}/${st.total} arrived`
+      : `complete — ${st.resolved}/${st.total} arrived`;
+    return `<article class="mission-card deploy-card">
+      <div class="mission-head"><strong>Deployment to ${esc(dep.destName || dep.destId)}</strong>
+        <span class="mflag ${st.status === 'arrived' ? 'full-flag' : 'want-flag'}">${esc(statusText)}</span></div>
+      <p class="mission-meta">ordered anno ${dep.year} · ${esc(E.DEPLOYMENT_PURPOSES[dep.purpose] || dep.purpose)} · ${dep.memberIds.length} men</p>
+      <ul class="deploy-names">${roster.map(m =>
+        `<li>${esc(m.name)} <span class="dg-meta">${esc((E.MISSION_GRADES[m.grade] || {}).short || m.grade)}</span> — ${esc(stateLabel(m.state))}${m.arriveYear && m.state === 'in-transit' ? ` (arriving ${m.arriveYear})` : ''}</li>`
+      ).join('')}</ul>
+    </article>`;
+  }).join('');
+  return `<h3 class="sect">Deployments ordered</h3><div class="mission-list">${cards}</div>`;
+}
+
+function wireDeploymentPanel(app, root) {
+  const E = app.Engine;
+  const dp = deployState(app);
+  const eligible = E.deploymentCandidates(app.state).length;
+  const min = E.DEPLOYMENT_MIN_SIZE;
+  const maxCount = Math.max(min, eligible);
+
+  const refreshCount = () => {
+    root.querySelector('#deploy-count').textContent = dp.count;
+    const musterBtn = root.querySelector('#deploy-muster');
+    if (musterBtn) musterBtn.disabled = !(eligible >= min && dp.destId);
+  };
+
+  const destSel = root.querySelector('#deploy-dest');
+  if (destSel) destSel.addEventListener('change', (e) => {
+    dp.destId = e.target.value; dp.mustered = null;
+    root.querySelector('#deploy-preview').innerHTML = '';
+    app.sound('tick');
+  });
+  const purpSel = root.querySelector('#deploy-purpose');
+  if (purpSel) purpSel.addEventListener('change', (e) => {
+    dp.purpose = e.target.value; dp.mustered = null;
+    root.querySelector('#deploy-preview').innerHTML = '';
+    app.sound('tick');
+  });
+  const dec = root.querySelector('#deploy-dec');
+  if (dec) dec.addEventListener('click', () => {
+    dp.count = Math.max(min, dp.count - 1); dp.mustered = null;
+    root.querySelector('#deploy-preview').innerHTML = '';
+    app.sound('tick'); refreshCount();
+  });
+  const inc = root.querySelector('#deploy-inc');
+  if (inc) inc.addEventListener('click', () => {
+    dp.count = Math.min(maxCount, dp.count + 1); dp.mustered = null;
+    root.querySelector('#deploy-preview').innerHTML = '';
+    app.sound('tick'); refreshCount();
+  });
+
+  const renderPreview = () => {
+    root.querySelector('#deploy-preview').innerHTML = deploymentPreviewHTML(app);
+    const clear = root.querySelector('#deploy-clear');
+    if (clear) clear.addEventListener('click', () => {
+      dp.mustered = null;
+      root.querySelector('#deploy-preview').innerHTML = '';
+      app.sound('page');
+    });
+    const order = root.querySelector('#deploy-order');
+    if (order) order.addEventListener('click', () => {
+      try {
+        const names = dp.mustered.map(m => m.name).join(', ');
+        const dest = (E.DESTINATIONS || {})[dp.destId] || {};
+        if (!confirm(`Order ${dp.mustered.length} men — ${names} — to ${dest.name || dp.destId}? This cannot be recalled; they will sail as berths, men to spare, funds, and hulls allow.`)) return;
+        const dep = E.orderDeployment(app.state, {
+          destId: dp.destId, purpose: dp.purpose,
+          memberIds: dp.mustered.map(m => m.petitionerId),
+        });
+        E.refreshBriefing(app.state);
+        app.save();
+        app.sound('coin');
+        app.ui.notice = `Deployment ordered: ${dep.memberIds.length} men for ${dep.destName}.`;
+        dp.mustered = null; dp.count = min;
+        app.go('missions');
+      } catch (e) {
+        app.sound('error');
+        alert(`The order could not be given: ${e.message}`);
+      }
+    });
+  };
+
+  const musterBtn = root.querySelector('#deploy-muster');
+  if (musterBtn) musterBtn.addEventListener('click', () => {
+    try {
+      const ids = E.selectDeploymentMembers(app.state, { count: dp.count });
+      const cands = new Map(E.deploymentCandidates(app.state).map(c => [c.petitionerId, c]));
+      dp.mustered = ids.map(id => ({ petitionerId: id, name: cands.get(id).name, staffGrade: cands.get(id).staffGrade }));
+      app.sound('page');
+      renderPreview();
+    } catch (e) {
+      app.sound('error');
+      alert(`Could not muster the contingent: ${e.message}`);
+    }
+  });
+}
+
 export function renderMissions(app, root) {
   const E = app.Engine;
   const year = app.state.currentYear ? app.state.currentYear.year : app.state.year;
@@ -621,10 +836,12 @@ export function renderMissions(app, root) {
       </div>
       <p class="howto-note">Professed fathers are ordained men of the fourth vow — costly, and the strongest pillars of a mission. Spiritual coadjutors are ordained priests of simple vows. Brothers sustain the mission by labor.</p>
     </div>
+    ${deploymentPanelHTML(app)}
     <h3 class="sect">The stations</h3>
     <div class="mission-list">
       ${dests.map(d => missionCardHTML(app, d, year)).join('')}
     </div>
+    ${deploymentListHTML(app)}
     <div class="btn-row">
       <button class="gbtn ghost" id="missions-back">← Back</button>
     </div>
@@ -662,6 +879,8 @@ export function renderMissions(app, root) {
       alert(e.message);
     }
   });
+  // ---- collective deployment wiring ----
+  wireDeploymentPanel(app, root);
   root.querySelectorAll('.instr-send').forEach(btn => {
     btn.addEventListener('click', () => {
       try {
@@ -1132,6 +1351,56 @@ export function showLedgerOverlay(app) {
 }
 
 /* ---------------- ending ---------------- */
+/** End-of-generalate report card. Pure presentation over Engine.generalateReport:
+ *  outcomes stated as facts, no grades, no judgments, no uncapped score. */
+export function renderReportCard(report) {
+  if (!report) return '';
+  const o = report.outcomes, p = report.personnel, t = report.treasury, ins = report.institutions;
+  const li = (k, v) => `<li><span class="rep-k">${esc(k)}</span><span class="rep-v">${v}</span></li>`;
+  const soulsNote = p.souls > p.dispatched ? ` <span class="rep-sub">(${p.souls} souls with companions)</span>` : '';
+  const availNote = p.available === null ? 'not recorded' : p.available;
+  const chestEnd = t.end === null ? 'not recorded' : `${t.end.toLocaleString('en-US')} scudi`;
+  const chestNet = t.net === null ? '' : ` <span class="rep-sub">(${t.net >= 0 ? '+' : ''}${t.net.toLocaleString('en-US')})</span>`;
+  const novitiateItems = ins.novitiates.length
+    ? ins.novitiates.map((n) => `<li><span class="rep-k">${esc(n.name)}</span><span class="rep-v">${n.foundedYear}</span></li>`).join('')
+    : `<li><span class="rep-k">None founded</span><span class="rep-v">—</span></li>`;
+  const strengthenedBlock = ins.strengthenedUnknown
+    ? `<li><span class="rep-k">Earlier reinforcements</span><span class="rep-v">not recorded in this account</span></li>`
+    : (ins.strengthenedTotal > 0
+      ? ins.strengthened.map((m) => `<li><span class="rep-k">${esc(m.name)}</span><span class="rep-v">${m.men} ${m.men === 1 ? 'man' : 'men'}</span></li>`).join('')
+      : `<li><span class="rep-k">None dispatched</span><span class="rep-v">—</span></li>`);
+  const eventsBlock = (report.events && report.events.length)
+    ? `<div class="rep-block"><h4 class="px">Years of trial</h4><ul>` +
+      report.events.map((e) => `<li><span class="rep-k">${e.year} — ${esc(e.title)}</span>` +
+        `<span class="rep-v">${esc(e.effects || e.description)}</span></li>`).join('') + `</ul></div>`
+    : '';
+  return `
+  <section class="report-card" aria-label="Account of the generalate">
+    <p class="kicker px">THE ACCOUNT OF THE GENERALATE</p>
+    <h3 class="px">What these years have yielded</h3>
+    <p class="rep-narrative">${esc(report.narrative)}</p>
+    <div class="rep-grid">
+      <div class="rep-block"><h4 class="px">The missions</h4><ul>
+        ${li('Thriving', o.thriving)}
+        ${li('Returned to Europe', o.returned)}
+        ${li('Fallen ill', o.ill)}
+        ${li('Dead in the missions', o.deceased)}
+      </ul></div>
+      <div class="rep-block"><h4 class="px">The men</h4><ul>
+        ${`<li><span class="rep-k">Embarked</span><span class="rep-v">${p.dispatched}${soulsNote}</span></li>`}
+        ${li('By collective deployment', p.viaDeployment)}
+        ${li('Still to spare', availNote)}
+      </ul></div>
+      <div class="rep-block"><h4 class="px">The chest</h4><ul>
+        ${li('At the election', `${t.start.toLocaleString('en-US')} scudi`)}
+        ${`<li><span class="rep-k">At the close</span><span class="rep-v">${chestEnd}${chestNet}</span></li>`}
+      </ul></div>
+      <div class="rep-block"><h4 class="px">Novitiates founded</h4><ul>${novitiateItems}</ul></div>
+      <div class="rep-block"><h4 class="px">Missions strengthened</h4><ul>${strengthenedBlock}</ul></div>
+      ${eventsBlock}
+    </div>
+  </section>`;
+}
 export function renderEnding(app, root, end) {
   const s = end.stats;
   root.innerHTML = `
@@ -1145,6 +1414,7 @@ export function renderEnding(app, root, end) {
         .map(([k, v]) => `<div class="stat"><span class="bs-num">${v}</span><span class="bs-label">${k}</span></div>`).join('')}
     </div>
     <div class="reflection"><p>${esc(end.reflection)}</p></div>
+    ${end.report ? renderReportCard(end.report) : ''}
     <p class="sim-note">Seed ${esc(s.seed)} · ${esc(s.mode)} — replay it exactly, or begin anew.</p>
     <div class="title-buttons">
       <button class="gbtn primary" id="again-campaign">New Historical Campaign</button>

@@ -351,6 +351,25 @@ body > .overlay .badge.ok { color: #1f4d2e; border-color: #4a7a5c; }
 }
 #generalate-app .ending .title-buttons { max-width: 26rem; margin: 1.6rem auto; display: flex; flex-direction: column; gap: 0.8rem; }
 
+/* ---------- end-of-generalate report card (Stage 2) ---------- */
+#generalate-app .report-card { text-align: left; margin: 1.8rem 0; padding: 1.2rem 1.4rem;
+  background: rgba(232,217,176,0.05); border: 1px solid rgba(216,180,106,0.35); border-radius: 6px; }
+#generalate-app .report-card h3 { font-size: 1.15rem; margin: 0.2rem 0 0.8rem; }
+#generalate-app .report-card .kicker { margin-bottom: 0.2rem; }
+#generalate-app .rep-narrative { font-size: 1.02rem; line-height: 1.65; margin: 0 0 1.1rem; }
+#generalate-app .rep-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem 1.4rem; }
+#generalate-app .rep-block h4 { font-size: 0.95rem; margin: 0 0 0.4rem; color: var(--gold, #d8b46a); }
+#generalate-app .rep-block ul { list-style: none; margin: 0; padding: 0; }
+#generalate-app .rep-block li { display: flex; justify-content: space-between; gap: 1rem;
+  padding: 0.22rem 0; border-bottom: 1px dotted rgba(216,180,106,0.25); font-size: 0.95rem; }
+#generalate-app .rep-block li:last-child { border-bottom: none; }
+#generalate-app .rep-k { color: #cfc39e; }
+#generalate-app .rep-v { font-weight: 600; text-align: right; }
+#generalate-app .rep-sub { font-weight: 400; font-size: 0.85rem; color: #b3a67f; }
+@media (max-width: 640px) {
+  #generalate-app .rep-grid { grid-template-columns: 1fr; }
+}
+
 /* ---------- debug ---------- */
 body > .debug-panel {
   position: fixed; right: 0.8rem; bottom: 0.8rem; z-index: 200;
@@ -497,3 +516,18 @@ body > .debug-panel .debug-json {
   display: flex; justify-content: space-between; align-items: center;
   margin-top: 0.6rem; gap: 0.6rem; flex-wrap: wrap;
 }
+
+/* Collective deployment (Stage 1) */
+#generalate-app .deploy-form { display: flex; flex-direction: column; gap: 0.5rem; margin: 0.5rem 0; }
+#generalate-app .deploy-preview { margin-top: 0.7rem; border-top: 1px dotted rgba(232,217,176,0.25); padding-top: 0.6rem; }
+#generalate-app .deploy-names { list-style: none; margin: 0.4rem 0; padding: 0; }
+#generalate-app .deploy-names li { padding: 0.15rem 0; }
+#generalate-app .dc-rows { margin: 0.5rem 0; }
+#generalate-app .dc-row { display: flex; gap: 0.6rem; align-items: baseline; padding: 0.25rem 0; border-bottom: 1px dotted rgba(232,217,176,0.15); }
+#generalate-app .dc-label { min-width: 7rem; font-weight: 700; font-size: 0.85rem; }
+#generalate-app .dc-val { flex: 1; font-size: 0.9rem; }
+#generalate-app .dc-row.binding .dc-label { color: rgba(255,190,90,0.95); }
+#generalate-app .dc-flag { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,190,90,0.95); border: 1px solid rgba(255,190,90,0.5); border-radius: 3px; padding: 0.05rem 0.35rem; }
+#generalate-app .dc-note { margin-top: 0.4rem; }
+#generalate-app .dc-warn { color: rgba(255,190,90,0.95); }
+#generalate-app .deploy-card { margin-bottom: 0.6rem; }

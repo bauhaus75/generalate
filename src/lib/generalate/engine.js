@@ -326,11 +326,11 @@ function addEuropeanLabor(state, petitionerId, name, via) {
     return existing;
   }
   const rec = { petitionerId, name, year: state.year, via, assignment: null };
+  // Track Society entry for milestone years BEFORE ensureVows (which auto-resolves past milestones).
+  const pr0 = state.petitioners[petitionerId];
+  if (pr0 && pr0.entryYear == null) pr0.entryYear = state.year;
   rec.vows = ensureVows(state, petitionerId);
   state.europeanLabor.push(rec);
-  // Track Society entry for milestone years: if not already set, denial year is the baseline.
-  const pr = state.petitioners[petitionerId];
-  if (pr && pr.entryYear == null) pr.entryYear = state.year;
   return rec;
 }
 

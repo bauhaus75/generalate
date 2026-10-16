@@ -1,0 +1,1545 @@
+{
+  "1": {
+    "destinations": [
+      "east-indies"
+    ],
+    "models": [
+      "claudio-acquaviva",
+      "jesus",
+      "mary"
+    ],
+    "grades": [
+      "professed-of-the-4th-vow",
+      "undetermined"
+    ]
+  },
+  "2": {
+    "destinations": [
+      "china",
+      "japan"
+    ],
+    "models": [
+      "claudio-acquaviva",
+      "jesus",
+      "mary"
+    ],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "3": {
+    "destinations": [
+      "china",
+      "india",
+      "japan"
+    ],
+    "models": [
+      "jesus",
+      "mary"
+    ],
+    "grades": [
+      "brother",
+      "novice"
+    ]
+  },
+  "4": {
+    "destinations": [],
+    "models": [
+      "ignatius-of-loyola"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "5": {
+    "destinations": [
+      "east-indies"
+    ],
+    "models": [],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "6": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "7": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "father",
+      "undetermined"
+    ]
+  },
+  "8": {
+    "destinations": [],
+    "models": [
+      "claudio-acquaviva"
+    ],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "9": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "10": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "11": {
+    "destinations": [],
+    "models": [
+      "ignatius-of-loyola"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "12": {
+    "destinations": [],
+    "models": [
+      "ignatius-of-loyola",
+      "jesus",
+      "mary"
+    ],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "13": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "14": {
+    "destinations": [
+      "china",
+      "japan"
+    ],
+    "models": [
+      "jesus",
+      "mary"
+    ],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "15": {
+    "destinations": [],
+    "models": [
+      "jesus",
+      "mary"
+    ],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "16": {
+    "destinations": [
+      "china",
+      "paraguay"
+    ],
+    "models": [],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "17": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "18": {
+    "destinations": [
+      "paraguay"
+    ],
+    "models": [],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "19": {
+    "destinations": [],
+    "models": [
+      "ignatius-of-loyola"
+    ],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "20": {
+    "destinations": [
+      "china",
+      "japan"
+    ],
+    "models": [],
+    "grades": [
+      "father",
+      "undetermined"
+    ]
+  },
+  "21": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "22": {
+    "destinations": [],
+    "models": [
+      "francis-xavier"
+    ],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "23": {
+    "destinations": [
+      "japan"
+    ],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "24": {
+    "destinations": [],
+    "models": [
+      "mary"
+    ],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "25": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "26": {
+    "destinations": [
+      "china"
+    ],
+    "models": [],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "27": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "28": {
+    "destinations": [],
+    "models": [
+      "mary"
+    ],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "29": {
+    "destinations": [],
+    "models": [
+      "ignatius-of-loyola",
+      "jesus",
+      "mary"
+    ],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "30": {
+    "destinations": [
+      "japan"
+    ],
+    "models": [
+      "jesus"
+    ],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "31": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "brother",
+      "temporal-coadjutor"
+    ]
+  },
+  "32": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "33": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "34": {
+    "destinations": [
+      "japan"
+    ],
+    "models": [
+      "ignatius-of-loyola",
+      "jesus",
+      "mary"
+    ],
+    "grades": [
+      "brother"
+    ]
+  },
+  "35": {
+    "destinations": [
+      "china"
+    ],
+    "models": [],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "36": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "37": {
+    "destinations": [
+      "japan"
+    ],
+    "models": [],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "38": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "39": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "40": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "brother",
+      "novice"
+    ]
+  },
+  "41": {
+    "destinations": [
+      "east-indies"
+    ],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "42": {
+    "destinations": [
+      "japan"
+    ],
+    "models": [
+      "jesus",
+      "mary"
+    ],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "43": {
+    "destinations": [
+      "brazil",
+      "china",
+      "japan"
+    ],
+    "models": [],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "44": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "45": {
+    "destinations": [
+      "brazil",
+      "china",
+      "india"
+    ],
+    "models": [],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "46": {
+    "destinations": [
+      "japan"
+    ],
+    "models": [
+      "ignatius-of-loyola",
+      "mary",
+      "saint-anne"
+    ],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "47": {
+    "destinations": [],
+    "models": [
+      "francis-xavier"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "48": {
+    "destinations": [
+      "brazil",
+      "china",
+      "japan"
+    ],
+    "models": [
+      "jesus"
+    ],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "49": {
+    "destinations": [
+      "brazil",
+      "china",
+      "japan"
+    ],
+    "models": [
+      "mary"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "50": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "51": {
+    "destinations": [],
+    "models": [
+      "jesus",
+      "mary"
+    ],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "52": {
+    "destinations": [],
+    "models": [
+      "ignatius-of-loyola",
+      "jacob",
+      "francis-xavier"
+    ],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "53": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "54": {
+    "destinations": [],
+    "models": [
+      "mary"
+    ],
+    "grades": [
+      "brother"
+    ]
+  },
+  "55": {
+    "destinations": [],
+    "models": [
+      "mary"
+    ],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "56": {
+    "destinations": [
+      "east-indies"
+    ],
+    "models": [],
+    "grades": [
+      "brother",
+      "undetermined"
+    ]
+  },
+  "57": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "58": {
+    "destinations": [],
+    "models": [
+      "mary"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "59": {
+    "destinations": [],
+    "models": [
+      "jesus"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "60": {
+    "destinations": [
+      "aethiopia"
+    ],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "61": {
+    "destinations": [],
+    "models": [
+      "jesus",
+      "mary"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "62": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "63": {
+    "destinations": [],
+    "models": [
+      "jesus",
+      "mary"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "64": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "65": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "66": {
+    "destinations": [
+      "china",
+      "england",
+      "japan"
+    ],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "67": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "scholastic",
+      "undetermined"
+    ]
+  },
+  "68": {
+    "destinations": [],
+    "models": [
+      "francis-xavier"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "69": {
+    "destinations": [
+      "west-indies"
+    ],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "70": {
+    "destinations": [],
+    "models": [
+      "mary"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "71": {
+    "destinations": [
+      "japan"
+    ],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "72": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "73": {
+    "destinations": [
+      "japan"
+    ],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "74": {
+    "destinations": [
+      "japan"
+    ],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "75": {
+    "destinations": [],
+    "models": [
+      "mary"
+    ],
+    "grades": [
+      "scholastic",
+      "undetermined"
+    ]
+  },
+  "76": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "77": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "78": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "79": {
+    "destinations": [
+      "china",
+      "england",
+      "india",
+      "japan",
+      "peru"
+    ],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "80": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "scholastic",
+      "undetermined"
+    ]
+  },
+  "81": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "82": {
+    "destinations": [
+      "japan",
+      "paraguay"
+    ],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "83": {
+    "destinations": [],
+    "models": [
+      "jesus"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "84": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "85": {
+    "destinations": [
+      "east-indies"
+    ],
+    "models": [
+      "francis-xavier"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "86": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "87": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "88": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "89": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "90": {
+    "destinations": [
+      "east-indies"
+    ],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "91": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "92": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "93": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "father",
+      "undetermined"
+    ]
+  },
+  "94": {
+    "destinations": [],
+    "models": [
+      "mary"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "95": {
+    "destinations": [],
+    "models": [
+      "jesus",
+      "mary"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "96": {
+    "destinations": [
+      "asia",
+      "japan"
+    ],
+    "models": [
+      "francis-xavier"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "97": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "98": {
+    "destinations": [
+      "china",
+      "east-indies"
+    ],
+    "models": [
+      "francis-xavier"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "99": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "101": {
+    "destinations": [
+      "china",
+      "east-indies"
+    ],
+    "models": [
+      "marcello-mastrilli",
+      "francis-xavier"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "102": {
+    "destinations": [
+      "japan"
+    ],
+    "models": [
+      "mary"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "103": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "104": {
+    "destinations": [],
+    "models": [
+      "francis-xavier"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "105": {
+    "destinations": [],
+    "models": [
+      "jesus",
+      "mary"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "106": {
+    "destinations": [
+      "japan"
+    ],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "107": {
+    "destinations": [
+      "china"
+    ],
+    "models": [
+      "mary"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "108": {
+    "destinations": [],
+    "models": [
+      "jesus"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "109": {
+    "destinations": [
+      "china"
+    ],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "110": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "brother",
+      "temporal-coadjutor"
+    ]
+  },
+  "111": {
+    "destinations": [],
+    "models": [
+      "matthew-the-apostle"
+    ],
+    "grades": []
+  },
+  "112": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "113": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "scholastic",
+      "undetermined"
+    ]
+  },
+  "114": {
+    "destinations": [
+      "east-indies"
+    ],
+    "models": [
+      "marcello-mastrilli"
+    ],
+    "grades": [
+      "brother",
+      "scholastic"
+    ]
+  },
+  "115": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "116": {
+    "destinations": [
+      "japan"
+    ],
+    "models": [
+      "mary"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "117": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "118": {
+    "destinations": [
+      "china"
+    ],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "119": {
+    "destinations": [],
+    "models": [
+      "francis-xavier"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "120": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "brother",
+      "temporal-coadjutor"
+    ]
+  },
+  "121": {
+    "destinations": [
+      "japan"
+    ],
+    "models": [
+      "jesus",
+      "mary",
+      "francis-xavier"
+    ],
+    "grades": [
+      "brother",
+      "scholastic"
+    ]
+  },
+  "122": {
+    "destinations": [],
+    "models": [
+      "ignatius-of-loyola"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "123": {
+    "destinations": [
+      "japan"
+    ],
+    "models": [
+      "jesus"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "124": {
+    "destinations": [],
+    "models": [
+      "michael-archangel"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "125": {
+    "destinations": [
+      "japan"
+    ],
+    "models": [
+      "jesus"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "126": {
+    "destinations": [
+      "japan"
+    ],
+    "models": [
+      "jesus"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "127": {
+    "destinations": [],
+    "models": [
+      "francis-xavier"
+    ],
+    "grades": [
+      "brother",
+      "temporal-coadjutor"
+    ]
+  },
+  "128": {
+    "destinations": [],
+    "models": [
+      "jesus"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "129": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "father",
+      "undetermined"
+    ]
+  },
+  "130": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "brother",
+      "novice"
+    ]
+  },
+  "131": {
+    "destinations": [
+      "japan"
+    ],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "132": {
+    "destinations": [
+      "china",
+      "east-indies"
+    ],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "133": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "134": {
+    "destinations": [
+      "china"
+    ],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "135": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "136": {
+    "destinations": [
+      "china"
+    ],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "137": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "138": {
+    "destinations": [
+      "china"
+    ],
+    "models": [
+      "mary"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "139": {
+    "destinations": [
+      "east-indies"
+    ],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "140": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "141": {
+    "destinations": [
+      "china"
+    ],
+    "models": [
+      "jesus",
+      "mary"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "142": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "143": {
+    "destinations": [
+      "china"
+    ],
+    "models": [
+      "jesus"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "144": {
+    "destinations": [
+      "china"
+    ],
+    "models": [
+      "aloysius-gonzaga",
+      "ignatius-of-loyola",
+      "jesus",
+      "mary",
+      "francis-xavier"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "145": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "146": {
+    "destinations": [
+      "china",
+      "japan"
+    ],
+    "models": [
+      "mary"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "147": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "148": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "149": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "150": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "151": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "152": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "153": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "154": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "155": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "156": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "157": {
+    "destinations": [
+      "japan"
+    ],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "158": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "159": {
+    "destinations": [
+      "japan"
+    ],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "160": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "161": {
+    "destinations": [
+      "aethiopia"
+    ],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "162": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "163": {
+    "destinations": [],
+    "models": [
+      "francis-xavier"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "164": {
+    "destinations": [
+      "japan"
+    ],
+    "models": [
+      "carlo-spinola",
+      "francis-xavier"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "165": {
+    "destinations": [],
+    "models": [
+      "francis-xavier"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "166": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "167": {
+    "destinations": [],
+    "models": [
+      "jesus"
+    ],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "168": {
+    "destinations": [],
+    "models": [],
+    "grades": [
+      "undetermined"
+    ]
+  },
+  "169": {
+    "destinations": [
+      "chile",
+      "japan"
+    ],
+    "models": [
+      "aloysius-gonzaga",
+      "francis-xavier"
+    ],
+    "grades": [
+      "scholastic",
+      "undetermined"
+    ]
+  }
+}

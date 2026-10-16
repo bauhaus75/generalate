@@ -1,0 +1,1430 @@
+{
+ "astria-giovanni-battista": {
+  "id": "astria-giovanni-battista",
+  "name": "Astria, Giovanni Battista",
+  "display_name": "Giovanni Battista Astria",
+  "role": "author",
+  "aliases": [
+   "Astria, Giovanni Battista",
+   "Giovanni Battista Astria"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   1,
+   2
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "antoglietta-lelio": {
+  "id": "antoglietta-lelio",
+  "name": "Antoglietta, Lelio",
+  "display_name": "Lelio Antoglietta",
+  "role": "author",
+  "aliases": [
+   "Antoglietta, Lelio",
+   "Lelio Antoglietta"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   3
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "balami-ignazio": {
+  "id": "balami-ignazio",
+  "name": "Balami, Ignazio",
+  "display_name": "Ignazio Balami",
+  "role": "author",
+  "aliases": [
+   "Balami, Ignazio",
+   "Ignatio Balami",
+   "Ignazio Balami"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   4,
+   11,
+   19,
+   25,
+   39,
+   62
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "baraona-roderico": {
+  "id": "baraona-roderico",
+  "name": "Baraona, Roderico",
+  "display_name": "Roderico Baraona",
+  "role": "author",
+  "aliases": [
+   "Baraona, Roderico",
+   "Roderico Baraona"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   5
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "armillei-francesco-maria": {
+  "id": "armillei-francesco-maria",
+  "name": "Armillei, Francesco Maria",
+  "display_name": "Francesco Maria Armillei",
+  "role": "author",
+  "aliases": [
+   "Armillei, Francesco Maria",
+   "Francesco Maria Armillei"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   6
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "angelucci-ignazio": {
+  "id": "angelucci-ignazio",
+  "name": "Angelucci, Ignazio",
+  "display_name": "Ignazio Angelucci",
+  "role": "author",
+  "aliases": [
+   "Angelucci, Ignazio",
+   "Ignazio Angelucci"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   7
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "comentali-pietro": {
+  "id": "comentali-pietro",
+  "name": "Comentali, Pietro",
+  "display_name": "Pietro Comentali",
+  "role": "author",
+  "aliases": [
+   "Comentali, Pietro",
+   "Pietro Comentali"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   8,
+   9,
+   10,
+   13,
+   16,
+   17,
+   18
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "camassa-diego": {
+  "id": "camassa-diego",
+  "name": "Camassa, Diego",
+  "display_name": "Diego Camassa",
+  "role": "author",
+  "aliases": [
+   "Camassa, Diego",
+   "Diego Camassa"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   12,
+   29,
+   30,
+   33,
+   34,
+   37,
+   42
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "ardoino-francesco": {
+  "id": "ardoino-francesco",
+  "name": "Ardoino, Francesco",
+  "display_name": "Francesco Ardoino",
+  "role": "author",
+  "aliases": [
+   "Ardoino, Francesco",
+   "Francesco Ardoino"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   14
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "balione-francesco": {
+  "id": "balione-francesco",
+  "name": "Balione, Francesco",
+  "display_name": "Francesco Balione",
+  "role": "author",
+  "aliases": [
+   "Balione, Francesco",
+   "Francesco Balione"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   15
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "amodei-benedetto": {
+  "id": "amodei-benedetto",
+  "name": "Amodei, Benedetto",
+  "display_name": "Benedetto Amodei",
+  "role": "author",
+  "aliases": [
+   "Amodei, Benedetto",
+   "Benedetto Amodei"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   20
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "alfieri-giuseppe": {
+  "id": "alfieri-giuseppe",
+  "name": "Alfieri, Giuseppe",
+  "display_name": "Giuseppe Alfieri",
+  "role": "author",
+  "aliases": [
+   "Alfieri, Giuseppe"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   21
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "gargano-francesco": {
+  "id": "gargano-francesco",
+  "name": "Gargano, Francesco",
+  "display_name": "Francesco Gargano",
+  "role": "author",
+  "aliases": [
+   "Gargano, Francesco"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   22,
+   28,
+   47,
+   51,
+   54,
+   56,
+   60
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "franceschi-giacinto": {
+  "id": "franceschi-giacinto",
+  "name": "Franceschi, Giacinto",
+  "display_name": "Giacinto Franceschi",
+  "role": "author",
+  "aliases": [
+   "Franceschi, Giacinto"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   23
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "stella-marco": {
+  "id": "stella-marco",
+  "name": "Stella, Marco",
+  "display_name": "Marco Stella",
+  "role": "author",
+  "aliases": [
+   "Stella, Marco"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   24,
+   55,
+   58,
+   59,
+   61,
+   63
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "rondonio-antonio": {
+  "id": "rondonio-antonio",
+  "name": "Rondonio, Antonio",
+  "display_name": "Antonio Rondonio",
+  "role": "author",
+  "aliases": [
+   "Antonio Rondoni",
+   "Antonio Rondonius",
+   "Rondonio, Antonio"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   26,
+   35,
+   38,
+   43,
+   45,
+   48,
+   49
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "fassari-vincenzo": {
+  "id": "fassari-vincenzo",
+  "name": "Fassari, Vincenzo",
+  "display_name": "Vincenzo Fassari",
+  "role": "author",
+  "aliases": [
+   "Fassari, Vincenzo"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   27,
+   32,
+   41,
+   44,
+   50
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "asiano-vincenzo": {
+  "id": "asiano-vincenzo",
+  "name": "Asiano, Vincenzo",
+  "display_name": "Vincenzo Asiano",
+  "role": "author",
+  "aliases": [
+   "Asiano, Vincenzo"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   31
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "barletta-francesco": {
+  "id": "barletta-francesco",
+  "name": "Barletta, Francesco",
+  "display_name": "Francesco Barletta",
+  "role": "author",
+  "aliases": [
+   "Barletta, Francesco"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   36,
+   46,
+   52,
+   53
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "abellone-hermete": {
+  "id": "abellone-hermete",
+  "name": "Abellone, Hermete",
+  "display_name": "Hermete Abellone",
+  "role": "author",
+  "aliases": [
+   "Abellone, Hermete"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   40
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "cinami-leonardo": {
+  "id": "cinami-leonardo",
+  "name": "Cinami, Leonardo",
+  "display_name": "Leonardo Cinami",
+  "role": "author",
+  "aliases": [
+   "Cinami, Leonardo",
+   "Lonardo Cinami"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   57,
+   69,
+   90,
+   92,
+   96,
+   98,
+   101,
+   103,
+   104,
+   132,
+   139,
+   142,
+   145,
+   162,
+   163,
+   165
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "bartoli-daniello": {
+  "id": "bartoli-daniello",
+  "name": "Bartoli, Daniello",
+  "display_name": "Daniello Bartoli",
+  "role": "author",
+  "aliases": [
+   "Bartoli, Daniello",
+   "Daniello Bartoli"
+  ],
+  "life_dates": "1608–1685",
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   64,
+   66,
+   76,
+   79,
+   85
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "bressani-francesco-giuseppe": {
+  "id": "bressani-francesco-giuseppe",
+  "name": "Bressani, Francesco Giuseppe",
+  "display_name": "Francesco Giuseppe Bressani",
+  "role": "author",
+  "aliases": [
+   "Bressani, Francesco Giuseppe"
+  ],
+  "life_dates": "1612–1672",
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   65,
+   68,
+   70,
+   87,
+   88
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "vimercati-orazio": {
+  "id": "vimercati-orazio",
+  "name": "Vimercati, Orazio",
+  "display_name": "Orazio Vimercati",
+  "role": "author",
+  "aliases": [
+   "Orazio Vimercati",
+   "Vimercati, Orazio"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   67,
+   75,
+   80,
+   113
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "archinto-gabriele": {
+  "id": "archinto-gabriele",
+  "name": "Archinto, Gabriele",
+  "display_name": "Gabriele Archinto",
+  "role": "author",
+  "aliases": [
+   "Archinto, Gabriele",
+   "Gabriele Archinto"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   71,
+   73,
+   74,
+   77,
+   78,
+   81,
+   84
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "heredia-antonio": {
+  "id": "heredia-antonio",
+  "name": "Heredia, Antonio",
+  "display_name": "Antonio Heredia",
+  "role": "author",
+  "aliases": [
+   "Antonio Heredia",
+   "Heredia, Antonio"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   72
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "archinto-alessandro": {
+  "id": "archinto-alessandro",
+  "name": "Archinto, Alessandro",
+  "display_name": "Alessandro Archinto",
+  "role": "author",
+  "aliases": [
+   "Archinto, Alessandro"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   82
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "taverna-francesco": {
+  "id": "taverna-francesco",
+  "name": "Taverna, Francesco",
+  "display_name": "Francesco Taverna",
+  "role": "author",
+  "aliases": [
+   "Taverna, Francesco"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   83
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "serafini-fortunato": {
+  "id": "serafini-fortunato",
+  "name": "Serafini, Fortunato",
+  "display_name": "Fortunato Serafini",
+  "role": "author",
+  "aliases": [
+   "Serafini, Fortunato"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   86,
+   161
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "finechiaro-mario": {
+  "id": "finechiaro-mario",
+  "name": "Finechiaro, Mario",
+  "display_name": "Mario Finechiaro",
+  "role": "author",
+  "aliases": [
+   "Finechiaro, Mario",
+   "Marius Finechiarus"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   89,
+   91,
+   94,
+   95,
+   99,
+   102,
+   107,
+   116,
+   123,
+   125,
+   126,
+   146
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "demstero-francesco": {
+  "id": "demstero-francesco",
+  "name": "Demstero, Francesco",
+  "display_name": "Francesco Demstero",
+  "role": "author",
+  "aliases": [
+   "Dempsterus, Francesco",
+   "Demstero, Francesco",
+   "Franciscus Dempsterus"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": "Editorial identification: the printed Index of Authors lists “Dempsterus, Francesco” (letters 93, 97) and “Demstero, Francesco” (letter 100) as separate entries. They are treated here as one writer — “Dempsterus” is the Latinized form of the surname (the letters themselves sign off “Franciscus Dempsterus”).",
+  "letters_written": [
+   93,
+   97,
+   100
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "arganantio-domenico": {
+  "id": "arganantio-domenico",
+  "name": "Arganantio, Domenico",
+  "display_name": "Domenico Arganantio",
+  "role": "author",
+  "aliases": [
+   "Arganantio, Domenico"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   105,
+   109,
+   115
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "amabilina-marzio": {
+  "id": "amabilina-marzio",
+  "name": "Amabilina, Marzio",
+  "display_name": "Marzio Amabilina",
+  "role": "author",
+  "aliases": [
+   "Amabilina, Marzio"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   106
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "barbarito-giovanni-antonio": {
+  "id": "barbarito-giovanni-antonio",
+  "name": "Barbarito, Giovanni Antonio",
+  "display_name": "Giovanni Antonio Barbarito",
+  "role": "author",
+  "aliases": [
+   "Barbarito, Giovanni Antonio"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   108,
+   124
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "arisco-lorenzo": {
+  "id": "arisco-lorenzo",
+  "name": "Arisco, Lorenzo",
+  "display_name": "Lorenzo Arisco",
+  "role": "author",
+  "aliases": [
+   "Arisco, Lorenzo"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   110,
+   120,
+   127
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "basile-giacomo-antonio": {
+  "id": "basile-giacomo-antonio",
+  "name": "Basile, Giacomo Antonio",
+  "display_name": "Giacomo Antonio Basile",
+  "role": "author",
+  "aliases": [
+   "Basile, Giacomo Antonio"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   111,
+   129
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "albergati-federico": {
+  "id": "albergati-federico",
+  "name": "Albergati, Federico",
+  "display_name": "Federico Albergati",
+  "role": "author",
+  "aliases": [
+   "Albergati, Federico"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   112
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "buscemi-tomaso": {
+  "id": "buscemi-tomaso",
+  "name": "Buscemi, Tomaso",
+  "display_name": "Tomaso Buscemi",
+  "role": "author",
+  "aliases": [
+   "Buscemi, Tomaso",
+   "Thomaso Busciemi"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   114,
+   121
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "barbarito-felice": {
+  "id": "barbarito-felice",
+  "name": "Barbarito, Felice",
+  "display_name": "Felice Barbarito",
+  "role": "author",
+  "aliases": [
+   "Barbarito, Felice",
+   "Barberito, Felice"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": "Editorial identification: the bylines “Barberito, Felice” (letter 117) and “Barbarito, Felice” (letter 122) are treated here as one writer (spelling variant).",
+  "letters_written": [
+   117,
+   122
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "arcamone-ignatio": {
+  "id": "arcamone-ignatio",
+  "name": "Arcamone, Ignatio",
+  "display_name": "Ignatio Arcamone",
+  "role": "author",
+  "aliases": [
+   "Arcamone, Ignatio"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   118
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "arcolino-domenico": {
+  "id": "arcolino-domenico",
+  "name": "Arcolino, Domenico",
+  "display_name": "Domenico Arcolino",
+  "role": "author",
+  "aliases": [
+   "Arcolino, Domenico"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   119
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "aliotta-ignazio": {
+  "id": "aliotta-ignazio",
+  "name": "Aliotta, Ignazio",
+  "display_name": "Ignazio Aliotta",
+  "role": "author",
+  "aliases": [
+   "Aliotta, Ignazio"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   128
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "archinto-cristoforo": {
+  "id": "archinto-cristoforo",
+  "name": "Archinto, Cristoforo",
+  "display_name": "Cristoforo Archinto",
+  "role": "author",
+  "aliases": [
+   "Archinto, Cristoforo"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   130
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "lubelli-francesco": {
+  "id": "lubelli-francesco",
+  "name": "Lubelli, Francesco",
+  "display_name": "Francesco Lubelli",
+  "role": "author",
+  "aliases": [
+   "Lubelli, Francesco"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   131
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "spinelli-luigi": {
+  "id": "spinelli-luigi",
+  "name": "Spinelli, Luigi",
+  "display_name": "Luigi Spinelli",
+  "role": "author",
+  "aliases": [
+   "Spinelli, Luigi"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   133,
+   134,
+   135,
+   136,
+   137,
+   138,
+   140,
+   141,
+   143,
+   144
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "lazari-giacomo": {
+  "id": "lazari-giacomo",
+  "name": "Lazari, Giacomo",
+  "display_name": "Giacomo Lazari",
+  "role": "author",
+  "aliases": [
+   "Lazari, Giacomo"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   147,
+   148,
+   149,
+   150,
+   151,
+   152,
+   153,
+   154,
+   155,
+   156,
+   157,
+   158,
+   160
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "berni-sebastiano": {
+  "id": "berni-sebastiano",
+  "name": "Berni, Sebastiano",
+  "display_name": "Sebastiano Berni",
+  "role": "author",
+  "aliases": [
+   "Berni, Sebastiano"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   159,
+   164,
+   166,
+   167,
+   168
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "archinto-giuseppe": {
+  "id": "archinto-giuseppe",
+  "name": "Archinto, Giuseppe",
+  "display_name": "Giuseppe Archinto",
+  "role": "author",
+  "aliases": [
+   "Archinto, Giuseppe",
+   "Gioseppe Archinto"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": null,
+  "letters_written": [
+   169
+  ],
+  "letters_mentioned_in": [],
+  "letters_received": []
+ },
+ "vitelleschi-mutio": {
+  "id": "vitelleschi-mutio",
+  "name": "Vitelleschi, Mutio",
+  "display_name": "Mutio Vitelleschi",
+  "role": "recipient",
+  "aliases": [
+   "Mutio Vitelleschi",
+   "Vitelleschi",
+   "Vitelleschi, Mutio",
+   "Your Paternity"
+  ],
+  "life_dates": null,
+  "bio": "Mutio Vitelleschi (1563–1645), Superior General of the Society of Jesus 1615–1645. Every letter in this collection is addressed to him as Father General. The volume's 'note on the text' confirms all 168 translated letters are addressed to Vitelleschi as Superior General.",
+  "bio_source": "source",
+  "note": null,
+  "letters_written": [],
+  "letters_mentioned_in": [],
+  "letters_received": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9,
+   10,
+   11,
+   12,
+   13,
+   14,
+   15,
+   16,
+   17,
+   18,
+   19,
+   20,
+   21,
+   22,
+   23,
+   24,
+   25,
+   26,
+   27,
+   28,
+   29,
+   30,
+   31,
+   32,
+   33,
+   34,
+   35,
+   36,
+   37,
+   38,
+   39,
+   40,
+   41,
+   42,
+   43,
+   44,
+   45,
+   46,
+   47,
+   48,
+   49,
+   50,
+   51,
+   52,
+   53,
+   54,
+   55,
+   56,
+   57,
+   58,
+   59,
+   60,
+   61,
+   62,
+   63,
+   64,
+   65,
+   66,
+   67,
+   68,
+   69,
+   70,
+   71,
+   72,
+   73,
+   74,
+   75,
+   76,
+   77,
+   78,
+   79,
+   80,
+   81,
+   82,
+   83,
+   84,
+   85,
+   86,
+   87,
+   88,
+   89,
+   90,
+   91,
+   92,
+   93,
+   94,
+   95,
+   96,
+   97,
+   98,
+   99,
+   101,
+   102,
+   103,
+   104,
+   105,
+   106,
+   107,
+   108,
+   109,
+   110,
+   111,
+   112,
+   113,
+   114,
+   115,
+   116,
+   117,
+   118,
+   119,
+   120,
+   121,
+   122,
+   123,
+   124,
+   125,
+   126,
+   127,
+   128,
+   129,
+   130,
+   131,
+   132,
+   133,
+   134,
+   135,
+   136,
+   137,
+   138,
+   139,
+   140,
+   141,
+   142,
+   143,
+   144,
+   145,
+   146,
+   147,
+   148,
+   149,
+   150,
+   151,
+   152,
+   153,
+   154,
+   155,
+   156,
+   157,
+   158,
+   159,
+   160,
+   161,
+   162,
+   163,
+   164,
+   165,
+   166,
+   167,
+   168,
+   169
+  ]
+ },
+ "acquaviva-claudio": {
+  "id": "acquaviva-claudio",
+  "name": "Acquaviva, Claudio",
+  "display_name": "Claudio Acquaviva",
+  "role": "mentioned",
+  "aliases": [
+   "Acquaviva",
+   "Acquaviva, Claudio",
+   "Claudio Acquaviva",
+   "Father Claudio Acquaviva",
+   "our Father Claudio Acquaviva"
+  ],
+  "life_dates": null,
+  "bio": "Claudio Acquaviva (1543–1615), fifth Superior General of the Society of Jesus (1581–1615). Several writers recall writing to him for the Indies before his death; Vitelleschi succeeded him.",
+  "bio_source": "external",
+  "note": null,
+  "letters_written": [],
+  "letters_mentioned_in": [
+   1,
+   2
+  ],
+  "letters_received": []
+ },
+ "xavier-francis": {
+  "id": "xavier-francis",
+  "name": "Xavier, Francis",
+  "display_name": "Francis Xavier",
+  "role": "mentioned",
+  "aliases": [
+   "Blessed Xavier",
+   "Father Xavier",
+   "Francis Xavier",
+   "Saint Francis Xavier",
+   "Saint Xavier",
+   "St. Francis",
+   "St. Francis Xavier",
+   "Xavier",
+   "Xavier, Francis",
+   "my Protector St. Francis"
+  ],
+  "life_dates": null,
+  "bio": "St. Francis Xavier (1506–1552), Jesuit missionary to Asia and patron of missions. Invoked throughout the letters as the model and heavenly patron of the Indies missions.",
+  "bio_source": "external",
+  "note": null,
+  "letters_written": [],
+  "letters_mentioned_in": [
+   34,
+   47,
+   52,
+   68,
+   85,
+   96,
+   101,
+   104,
+   119,
+   127,
+   144,
+   164,
+   165,
+   169
+  ],
+  "letters_received": []
+ },
+ "loyola-ignatius-of": {
+  "id": "loyola-ignatius-of",
+  "name": "Loyola, Ignatius of",
+  "display_name": "Ignatius of Loyola",
+  "role": "mentioned",
+  "aliases": [
+   "Blessed Father Ignatius",
+   "Father Ignatius",
+   "Ignatius",
+   "Ignatius of Loyola",
+   "Loyola, Ignatius of",
+   "Saint Ignatius",
+   "St. Ignatius",
+   "St. Ignatius of Loyola",
+   "our blessed Reverend Father Ignatius"
+  ],
+  "life_dates": null,
+  "bio": "St. Ignatius of Loyola (1491–1556), founder of the Society of Jesus.",
+  "bio_source": "external",
+  "note": null,
+  "letters_written": [],
+  "letters_mentioned_in": [
+   4,
+   11,
+   12,
+   19,
+   29,
+   34,
+   52,
+   144
+  ],
+  "letters_received": []
+ },
+ "gonzaga-aloysius": {
+  "id": "gonzaga-aloysius",
+  "name": "Gonzaga, Aloysius",
+  "display_name": "Aloysius Gonzaga",
+  "role": "mentioned",
+  "aliases": [
+   "Aloysius Gonzaga",
+   "Blessed Aloysius",
+   "Gonzaga, Aloysius",
+   "Saint Aloysius",
+   "St. Aloysius",
+   "St. Aloysius Gonzaga"
+  ],
+  "life_dates": null,
+  "bio": "St. Aloysius Gonzaga (1568–1591), Jesuit scholastic, model of youthful holiness; cited in the letters as an exemplar.",
+  "bio_source": "external",
+  "note": null,
+  "letters_written": [],
+  "letters_mentioned_in": [
+   144,
+   169
+  ],
+  "letters_received": []
+ },
+ "semedo-alvaro": {
+  "id": "semedo-alvaro",
+  "name": "Semedo, Alvaro",
+  "display_name": "Alvaro Semedo",
+  "role": "mentioned",
+  "aliases": [
+   "Alvaro Semedo",
+   "Father Alvaro Semedo",
+   "Father Semedo",
+   "Semedo",
+   "Semedo, Alvaro"
+  ],
+  "life_dates": null,
+  "bio": "Álvaro Semedo (1585–1658), Portuguese Jesuit missionary in China; several writers mention the coming of the Father Procurator of China.",
+  "bio_source": "external",
+  "note": null,
+  "letters_written": [],
+  "letters_mentioned_in": [
+   107,
+   138,
+   146
+  ],
+  "letters_received": []
+ },
+ "mastrilli-marcello": {
+  "id": "mastrilli-marcello",
+  "name": "Mastrilli, Marcello",
+  "display_name": "Marcello Mastrilli",
+  "role": "mentioned",
+  "aliases": [
+   "Father Marcello Mastrilli",
+   "Father Mastrilli",
+   "Marcello Mastrilli",
+   "Mastrilli",
+   "Mastrilli, Marcello"
+  ],
+  "life_dates": null,
+  "bio": "Marcello Francesco Mastrilli (1603–1637), Italian Jesuit martyred in Nagasaki, Japan; named in the letters as a recent martyr-exemplar.",
+  "bio_source": "external",
+  "note": null,
+  "letters_written": [],
+  "letters_mentioned_in": [
+   101,
+   114
+  ],
+  "letters_received": []
+ },
+ "scorso-giovanni": {
+  "id": "scorso-giovanni",
+  "name": "Scorso, Giovanni",
+  "display_name": "Giovanni Scorso",
+  "role": "mentioned",
+  "aliases": [
+   "Giovanni Scorso",
+   "Master Giovanni Scorso",
+   "Scorso",
+   "Scorso, Giovanni"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": "Named in the letters; identity not established from the source.",
+  "letters_written": [],
+  "letters_mentioned_in": [
+   59
+  ],
+  "letters_received": []
+ },
+ "magaglianes": {
+  "id": "magaglianes",
+  "name": "Magaglianes",
+  "display_name": "Magaglianes",
+  "role": "mentioned",
+  "aliases": [
+   "Father Magaglianes",
+   "Magaglianes"
+  ],
+  "life_dates": null,
+  "bio": null,
+  "bio_source": null,
+  "note": "Named in the letters; identity not established from the source.",
+  "letters_written": [],
+  "letters_mentioned_in": [
+   84,
+   85
+  ],
+  "letters_received": []
+ },
+ "trigault-nicolas": {
+  "id": "trigault-nicolas",
+  "name": "Trigault, Nicolas",
+  "display_name": "Nicolas Trigault",
+  "role": "mentioned",
+  "aliases": [
+   "Father Trigault",
+   "Nicolas Trigault",
+   "Trigault",
+   "Trigault, Nicolas"
+  ],
+  "life_dates": null,
+  "bio": "Nicolas Trigault (1577–1628), Flemish Jesuit, procurator for the China mission in Europe; his reports are cited in the letters.",
+  "bio_source": "external",
+  "note": null,
+  "letters_written": [],
+  "letters_mentioned_in": [
+   16,
+   35
+  ],
+  "letters_received": []
+ }
+}

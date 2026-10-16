@@ -5,6 +5,7 @@
 
 import * as Dispositions from '../dispositions.js';
 import { DOMESTIC_ROLES } from '../rules.js';
+import * as Playtest from './playtest.js';
 
 export function kindLabel(kind) {
   if (kind === 'fictional') return 'Letter';
@@ -419,11 +420,13 @@ export function renderHouse(app, root) {
     <div class="btn-row">
       <button class="gbtn ghost" id="house-back">← Back</button>
     </div>
+    ${Playtest.playtestSectionHTML(app)}
   </section>`;
   root.querySelector('#house-back').addEventListener('click', () => {
     app.sound('page');
     app.go(app.ui.houseFrom && app.ui.houseFrom !== 'house' ? app.ui.houseFrom : 'briefing');
   });
+  Playtest.attachPlaytestHandlers(app, root);
   root.querySelectorAll('.form-assign').forEach(btn => {
     btn.addEventListener('click', () => {
       try {

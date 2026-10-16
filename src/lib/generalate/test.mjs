@@ -14,6 +14,7 @@ import {
   missionRequests, dispatchMission, staffGradeFor,
   assignDomestic, unassignDomestic, dispatchFromFormation, dispatchFromEurope,
   ordinationEligible, ordainPriest, careerStage, issueInstruction,
+  decideVows, inviteFinalVows, completeFinalVows, rankSuffix,
   orderDeployment, selectDeploymentMembers, deploymentCandidates, deploymentEligible,
   deploymentStatus, deploymentRoster, deploymentConstraints,
   DEPLOYMENT_PURPOSES, DEPLOYMENT_MIN_SIZE,
@@ -1490,6 +1491,250 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   const back = deserialize(serialize(g2));
   const r4 = generalateReport(back);
   ok('report: survives serialize round-trip', r4.institutions.strengthenedTotal === 3);
+}
+
+// --- 39. Vows and career milestones -------------------------------------------
+{
+  // Helper: create a europeanLabor man with controlled years and vows stage.
+  function vowsMan(s, tag, yearsInSoc, stage) {
+    const id = `vows-${tag}-${s.year}`;
+    s.petitioners[id] = {
+      id, fictional: true, status: 'denied', history: [],
+      deniedCount: 1, usedLetters: [], voyages: [], archived: false,
+      yearsInSociety: yearsInSoc, entryYear: s.year,
+    };
+    const entry = {
+      petitionerId: id, name: `Vows Man ${tag}`, year: s.year, via: 'denied',
+      vows: {
+        stage, firstVows: null, philosophy: null, regency: null, theology: null,
+        ordination: null, finalVows: null, tertianshipUntil: null, deferredUntil: null,
+      },
+    };
+    s.europeanLabor.push(entry);
+    return id;
+  }
+
+  // 1. Milestone detection: 2-year novice queues firstVows.
+  {
+    const s = newGame({ mode: 'campaign', seed: 'vows-detect' });
+    const id = vowsMan(s, 'nov2', 2, 'novice');
+    resolveYear(s);
+    const p = (s.pendingVows || []).find((x) => x.petitionerId === id && x.type === 'firstVows');
+    ok('vows: 2-year novice queues firstVows', !!p);
+  }
+
+  // 2. firstVows proceed: novice -> scholastic, +zeal/+humility.
+  {
+    const s = newGame({ mode: 'campaign', seed: 'vows-first' });
+    const id = vowsMan(s, 'nov2', 2, 'novice');
+    resolveYear(s);
+    const d0 = ensureDisposition(s, id);
+    const z0 = d0.current.zeal, h0 = d0.current.humility;
+    decideVows(s, id, 'firstVows', 'proceed');
+    const entry = s.europeanLabor.find((e) => e.petitionerId === id);
+    const d1 = ensureDisposition(s, id);
+    ok('vows: firstVows novice -> scholastic', entry.vows.stage === 'scholastic');
+    ok('vows: firstVows +zeal', d1.current.zeal === Math.min(5, z0 + 1));
+    ok('vows: firstVows +humility', d1.current.humility === Math.min(5, h0 + 1));
+    ok('vows: firstVows year recorded', entry.vows.firstVows === s.year);
+    ok('vows: pending cleared', !(s.pendingVows || []).some((x) => x.petitionerId === id));
+  }
+
+  // 3. Brother firstVows: stays brother.
+  {
+    const s = newGame({ mode: 'campaign', seed: 'vows-bro' });
+    const id = vowsMan(s, 'bro2', 2, 'brother');
+    resolveYear(s);
+    decideVows(s, id, 'firstVows', 'proceed');
+    const entry = s.europeanLabor.find((e) => e.petitionerId === id);
+    ok('vows: brother stays brother after firstVows', entry.vows.stage === 'brother');
+    // Brothers get no further milestones.
+    resolveYear(s);
+    const extra = (s.pendingVows || []).filter((x) => x.petitionerId === id);
+    ok('vows: brother queues no further milestones', extra.length === 0);
+  }
+
+  // 4. Defer: +humility, deferredUntil, re-queued after 2 years.
+  {
+    const s = newGame({ mode: 'campaign', seed: 'vows-defer' });
+    const id = vowsMan(s, 'nov2', 2, 'novice');
+    resolveYear(s);
+    const d0 = ensureDisposition(s, id);
+    const h0 = d0.current.humility;
+    const y0 = s.year;
+    decideVows(s, id, 'firstVows', 'defer');
+    const entry = s.europeanLabor.find((e) => e.petitionerId === id);
+    ok('vows: defer sets deferredUntil +2', entry.vows.deferredUntil === y0 + 2);
+    ok('vows: defer +humility', ensureDisposition(s, id).current.humility === Math.min(5, h0 + 1));
+    ok('vows: defer keeps stage novice', entry.vows.stage === 'novice');
+    // Next year: still deferred, no re-queue.
+    resolveYear(s);
+    ok('vows: deferred not re-queued early',
+      !(s.pendingVows || []).some((x) => x.petitionerId === id && x.type === 'firstVows'));
+    // After deferral expires: re-queued. (Check runs pre-increment, so two more years.)
+    resolveYear(s);
+    resolveYear(s);
+    ok('vows: deferred re-queued after expiry',
+      (s.pendingVows || []).some((x) => x.petitionerId === id && x.type === 'firstVows'));
+  }
+
+  // 5. Dismiss: removed, status DISMISSED, never returns.
+  {
+    const s = newGame({ mode: 'campaign', seed: 'vows-dismiss' });
+    const id = vowsMan(s, 'nov2', 2, 'novice');
+    resolveYear(s);
+    decideVows(s, id, 'firstVows', 'dismiss');
+    ok('vows: dismissed removed from europeanLabor',
+      !(s.europeanLabor || []).some((e) => e.petitionerId === id));
+    ok('vows: dismissed status set', s.petitioners[id].status === 'dismissed');
+    ok('vows: dismissed pending cleared',
+      !(s.pendingVows || []).some((x) => x.petitionerId === id));
+  }
+
+  // 6. Ordination threshold: 10 years NOT eligible, 12 years eligible.
+  {
+    const s = newGame({ mode: 'campaign', seed: 'vows-ord10' });
+    // hist-67 is a scholastic in the fixtures (deterministic grade).
+    const pid = 'hist-67';
+    s.petitioners[pid] = {
+      id: pid, fictional: false, status: 'denied', history: [],
+      deniedCount: 1, usedLetters: [], voyages: [], archived: false,
+      yearsInSociety: 10, entryYear: s.year,
+    };
+    s.europeanLabor.push({
+      petitionerId: pid, name: 'Ord Test', year: s.year, via: 'denied',
+      vows: {
+        stage: 'scholastic', firstVows: s.year, philosophy: s.year, regency: s.year,
+        theology: null, ordination: null, finalVows: null, tertianshipUntil: null, deferredUntil: null,
+      },
+    });
+    ok('vows: 10-year scholastic NOT ordination-eligible', ordinationEligible(s, pid) === false);
+    s.petitioners[pid].yearsInSociety = 12;
+    ok('vows: 12-year scholastic IS ordination-eligible', ordinationEligible(s, pid) === true);
+  }
+
+  // 7. Full progression: novice -> scholastic -> ordained via milestones.
+  {
+    const s = newGame({ mode: 'campaign', seed: 'vows-full' });
+    const id = vowsMan(s, 'nov2', 2, 'novice');
+    // firstVows
+    resolveYear(s);
+    decideVows(s, id, 'firstVows', 'proceed');
+    let entry = s.europeanLabor.find((e) => e.petitionerId === id);
+    ok('vows: stage scholastic after firstVows', entry.vows.stage === 'scholastic');
+    // Fast-forward: bump years to 5, check philosophy queues.
+    s.petitioners[id].yearsInSociety = 5;
+    resolveYear(s);
+    ok('vows: philosophy queued at 5 years',
+      (s.pendingVows || []).some((x) => x.petitionerId === id && x.type === 'philosophy'));
+    const d0 = ensureDisposition(s, id);
+    const p0 = d0.current.prudence;
+    decideVows(s, id, 'philosophy', 'proceed');
+    ok('vows: philosophy +prudence',
+      ensureDisposition(s, id).current.prudence === Math.min(5, p0 + 1));
+    // 8 years: regency.
+    s.petitioners[id].yearsInSociety = 8;
+    resolveYear(s);
+    ok('vows: regency queued at 8 years',
+      (s.pendingVows || []).some((x) => x.petitionerId === id && x.type === 'regency'));
+    decideVows(s, id, 'regency', 'proceed');
+    entry = s.europeanLabor.find((e) => e.petitionerId === id);
+    ok('vows: regency recorded', entry.vows.regency === s.year);
+    // 12 years: theology then ordination.
+    s.petitioners[id].yearsInSociety = 12;
+    resolveYear(s);
+    ok('vows: theology queued at 12 years',
+      (s.pendingVows || []).some((x) => x.petitionerId === id && x.type === 'theology'));
+    decideVows(s, id, 'theology', 'proceed');
+    entry = s.europeanLabor.find((e) => e.petitionerId === id);
+    ok('vows: theology recorded', entry.vows.theology === s.year);
+    // Ordination should now queue (theology done, 12 years).
+    resolveYear(s);
+    ok('vows: ordination queued after theology',
+      (s.pendingVows || []).some((x) => x.petitionerId === id && x.type === 'ordination'));
+    decideVows(s, id, 'ordination', 'proceed');
+    entry = s.europeanLabor.find((e) => e.petitionerId === id);
+    ok('vows: ordination sets stage ordained', entry.vows.stage === 'ordained');
+    ok('vows: ordination sets override', s.petitioners[id].ordainedOverride === true);
+  }
+
+  // 8. Final vows: invite -> tertianship -> grade choice.
+  {
+    const s = newGame({ mode: 'campaign', seed: 'vows-final' });
+    const id = vowsMan(s, 'ord', 15, 'ordained');
+    const y0 = s.year;
+    inviteFinalVows(s, id);
+    let entry = s.europeanLabor.find((e) => e.petitionerId === id);
+    ok('vows: tertianshipUntil set +1', entry.vows.tertianshipUntil === y0 + 1);
+    // Too early: throws.
+    let threw = false;
+    try { completeFinalVows(s, id, 'coadjutor'); } catch { threw = true; }
+    ok('vows: completeFinalVows throws before tertianship ends', threw);
+    // Advance: tertianship completes after a full year (check runs pre-increment).
+    resolveYear(s);
+    resolveYear(s);
+    ok('vows: finalVowsGrade queued at tertianship end',
+      (s.pendingVows || []).some((x) => x.petitionerId === id && x.type === 'finalVowsGrade'));
+    completeFinalVows(s, id, 'professed');
+    entry = s.europeanLabor.find((e) => e.petitionerId === id);
+    ok('vows: final grade professed', entry.vows.stage === 'professed');
+    ok('vows: pending grade choice cleared',
+      !(s.pendingVows || []).some((x) => x.petitionerId === id && x.type === 'finalVowsGrade'));
+  }
+
+  // 9. rankSuffix: nSJ for novice, SJ otherwise.
+  {
+    const s = newGame({ mode: 'campaign', seed: 'vows-suffix' });
+    const novId = vowsMan(s, 'nov', 1, 'novice');
+    const schId = vowsMan(s, 'sch', 5, 'scholastic');
+    const broId = vowsMan(s, 'bro', 5, 'brother');
+    ok('vows: rankSuffix novice -> nSJ', rankSuffix(s, novId) === 'nSJ');
+    ok('vows: rankSuffix scholastic -> SJ', rankSuffix(s, schId) === 'SJ');
+    ok('vows: rankSuffix brother -> SJ', rankSuffix(s, broId) === 'SJ');
+    ok('vows: rankSuffix unknown -> SJ', rankSuffix(s, 'nope') === 'SJ');
+  }
+
+  // 10. Invalid inputs throw.
+  {
+    const s = newGame({ mode: 'campaign', seed: 'vows-err' });
+    const id = vowsMan(s, 'nov2', 2, 'novice');
+    let threw = false;
+    try { decideVows(s, id, 'firstVows', 'proceed'); } catch { threw = true; }
+    ok('vows: decideVows throws with no pending', threw);
+    threw = false;
+    try { decideVows(s, id, 'bogus', 'proceed'); } catch { threw = true; }
+    ok('vows: decideVows throws on bad milestone', threw);
+    threw = false;
+    try { inviteFinalVows(s, id); } catch { threw = true; }
+    ok('vows: inviteFinalVows throws for non-ordained', threw);
+    threw = false;
+    try { completeFinalVows(s, id, 'pope'); } catch { threw = true; }
+    ok('vows: completeFinalVows throws on bad grade', threw);
+  }
+
+  // 11. Save round-trip preserves vows.
+  {
+    const s = newGame({ mode: 'campaign', seed: 'vows-save' });
+    const id = vowsMan(s, 'nov2', 2, 'novice');
+    resolveYear(s);
+    decideVows(s, id, 'firstVows', 'proceed');
+    const back = deserialize(serialize(s));
+    const entry = back.europeanLabor.find((e) => e.petitionerId === id);
+    ok('vows: survive serialize round-trip',
+      entry && entry.vows && entry.vows.stage === 'scholastic' && entry.vows.firstVows != null);
+    ok('vows: pendingVows survive round-trip', Array.isArray(back.pendingVows));
+  }
+
+  // 12. Old save without vows gets backfilled.
+  {
+    const s = newGame({ mode: 'campaign', seed: 'vows-old' });
+    const id = vowsMan(s, 'nov2', 2, 'novice');
+    const entry = s.europeanLabor.find((e) => e.petitionerId === id);
+    delete entry.vows;
+    const back = deserialize(serialize(s));
+    const e2 = back.europeanLabor.find((e) => e.petitionerId === id);
+    ok('vows: old save backfilled', e2 && e2.vows && typeof e2.vows.stage === 'string');
+  }
 }
 
 console.log(`\n${failures === 0 ? 'ALL TESTS PASSED' : failures + ' FAILURES'}`);

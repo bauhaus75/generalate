@@ -531,3 +531,9 @@ body > .debug-panel .debug-json {
 #generalate-app .dc-note { margin-top: 0.4rem; }
 #generalate-app .dc-warn { color: rgba(255,190,90,0.95); }
 #generalate-app .deploy-card { margin-bottom: 0.6rem; }
+
+/* Formation decisions (General's Desk) */
+#generalate-app .vows-screen { margin-top: 2rem; padding-top: 1.5rem; border-top: 2px solid var(--rule); }
+#generalate-app .vows-list { list-style: none; padding: 0; margin: 1rem 0; }
+#generalate-app .vows-row { display: flex; align-items: center; gap: 0.8rem; padding: 0.6rem 0; border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
+#generalate-app .vows-label { font-style: italic; color: var(--ink-soft); flex: 1; min-width: 200px; }

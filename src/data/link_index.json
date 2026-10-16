@@ -1,0 +1,1106 @@
+[
+ {
+  "text": "our blessed Reverend Father Ignatius",
+  "kind": "person",
+  "id": "loyola-ignatius-of",
+  "label": "Ignatius of Loyola"
+ },
+ {
+  "text": "Bressani, Francesco Giuseppe",
+  "kind": "person",
+  "id": "bressani-francesco-giuseppe",
+  "label": "Francesco Giuseppe Bressani"
+ },
+ {
+  "text": "our Father Claudio Acquaviva",
+  "kind": "person",
+  "id": "acquaviva-claudio",
+  "label": "Claudio Acquaviva"
+ },
+ {
+  "text": "Barbarito, Giovanni Antonio",
+  "kind": "person",
+  "id": "barbarito-giovanni-antonio",
+  "label": "Giovanni Antonio Barbarito"
+ },
+ {
+  "text": "Astria, Giovanni Battista",
+  "kind": "person",
+  "id": "astria-giovanni-battista",
+  "label": "Giovanni Battista Astria"
+ },
+ {
+  "text": "Armillei, Francesco Maria",
+  "kind": "person",
+  "id": "armillei-francesco-maria",
+  "label": "Francesco Maria Armillei"
+ },
+ {
+  "text": "Father Marcello Mastrilli",
+  "kind": "person",
+  "id": "mastrilli-marcello",
+  "label": "Marcello Mastrilli"
+ },
+ {
+  "text": "Giovanni Battista Astria",
+  "kind": "person",
+  "id": "astria-giovanni-battista",
+  "label": "Giovanni Battista Astria"
+ },
+ {
+  "text": "Francesco Maria Armillei",
+  "kind": "person",
+  "id": "armillei-francesco-maria",
+  "label": "Francesco Maria Armillei"
+ },
+ {
+  "text": "Father Claudio Acquaviva",
+  "kind": "person",
+  "id": "acquaviva-claudio",
+  "label": "Claudio Acquaviva"
+ },
+ {
+  "text": "my Protector St. Francis",
+  "kind": "person",
+  "id": "xavier-francis",
+  "label": "Francis Xavier"
+ },
+ {
+  "text": "Basile, Giacomo Antonio",
+  "kind": "person",
+  "id": "basile-giacomo-antonio",
+  "label": "Giacomo Antonio Basile"
+ },
+ {
+  "text": "Blessed Father Ignatius",
+  "kind": "person",
+  "id": "loyola-ignatius-of",
+  "label": "Ignatius of Loyola"
+ },
+ {
+  "text": "St. Ignatius of Loyola",
+  "kind": "person",
+  "id": "loyola-ignatius-of",
+  "label": "Ignatius of Loyola"
+ },
+ {
+  "text": "Master Giovanni Scorso",
+  "kind": "person",
+  "id": "scorso-giovanni",
+  "label": "Giovanni Scorso"
+ },
+ {
+  "text": "Dempsterus, Francesco",
+  "kind": "person",
+  "id": "demstero-francesco",
+  "label": "Francesco Demstero"
+ },
+ {
+  "text": "Franciscus Dempsterus",
+  "kind": "person",
+  "id": "demstero-francesco",
+  "label": "Francesco Demstero"
+ },
+ {
+  "text": "Franceschi, Giacinto",
+  "kind": "person",
+  "id": "franceschi-giacinto",
+  "label": "Giacinto Franceschi"
+ },
+ {
+  "text": "Archinto, Alessandro",
+  "kind": "person",
+  "id": "archinto-alessandro",
+  "label": "Alessandro Archinto"
+ },
+ {
+  "text": "Arganantio, Domenico",
+  "kind": "person",
+  "id": "arganantio-domenico",
+  "label": "Domenico Arganantio"
+ },
+ {
+  "text": "Archinto, Cristoforo",
+  "kind": "person",
+  "id": "archinto-cristoforo",
+  "label": "Cristoforo Archinto"
+ },
+ {
+  "text": "Saint Francis Xavier",
+  "kind": "person",
+  "id": "xavier-francis",
+  "label": "Francis Xavier"
+ },
+ {
+  "text": "St. Aloysius Gonzaga",
+  "kind": "person",
+  "id": "gonzaga-aloysius",
+  "label": "Aloysius Gonzaga"
+ },
+ {
+  "text": "Father Alvaro Semedo",
+  "kind": "person",
+  "id": "semedo-alvaro",
+  "label": "Alvaro Semedo"
+ },
+ {
+  "text": "the kingdom of China",
+  "kind": "place",
+  "id": "china",
+  "label": "China"
+ },
+ {
+  "text": "Barletta, Francesco",
+  "kind": "person",
+  "id": "barletta-francesco",
+  "label": "Francesco Barletta"
+ },
+ {
+  "text": "Serafini, Fortunato",
+  "kind": "person",
+  "id": "serafini-fortunato",
+  "label": "Fortunato Serafini"
+ },
+ {
+  "text": "Demstero, Francesco",
+  "kind": "person",
+  "id": "demstero-francesco",
+  "label": "Francesco Demstero"
+ },
+ {
+  "text": "Albergati, Federico",
+  "kind": "person",
+  "id": "albergati-federico",
+  "label": "Federico Albergati"
+ },
+ {
+  "text": "Loyola, Ignatius of",
+  "kind": "person",
+  "id": "loyola-ignatius-of",
+  "label": "Ignatius of Loyola"
+ },
+ {
+  "text": "Mastrilli, Marcello",
+  "kind": "person",
+  "id": "mastrilli-marcello",
+  "label": "Marcello Mastrilli"
+ },
+ {
+  "text": "Antoglietta, Lelio",
+  "kind": "person",
+  "id": "antoglietta-lelio",
+  "label": "Lelio Antoglietta"
+ },
+ {
+  "text": "Angelucci, Ignazio",
+  "kind": "person",
+  "id": "angelucci-ignazio",
+  "label": "Ignazio Angelucci"
+ },
+ {
+  "text": "Ardoino, Francesco",
+  "kind": "person",
+  "id": "ardoino-francesco",
+  "label": "Francesco Ardoino"
+ },
+ {
+  "text": "Balione, Francesco",
+  "kind": "person",
+  "id": "balione-francesco",
+  "label": "Francesco Balione"
+ },
+ {
+  "text": "Gargano, Francesco",
+  "kind": "person",
+  "id": "gargano-francesco",
+  "label": "Francesco Gargano"
+ },
+ {
+  "text": "Archinto, Gabriele",
+  "kind": "person",
+  "id": "archinto-gabriele",
+  "label": "Gabriele Archinto"
+ },
+ {
+  "text": "Taverna, Francesco",
+  "kind": "person",
+  "id": "taverna-francesco",
+  "label": "Francesco Taverna"
+ },
+ {
+  "text": "Marius Finechiarus",
+  "kind": "person",
+  "id": "finechiaro-mario",
+  "label": "Mario Finechiaro"
+ },
+ {
+  "text": "Arcolino, Domenico",
+  "kind": "person",
+  "id": "arcolino-domenico",
+  "label": "Domenico Arcolino"
+ },
+ {
+  "text": "Lubelli, Francesco",
+  "kind": "person",
+  "id": "lubelli-francesco",
+  "label": "Francesco Lubelli"
+ },
+ {
+  "text": "Archinto, Giuseppe",
+  "kind": "person",
+  "id": "archinto-giuseppe",
+  "label": "Giuseppe Archinto"
+ },
+ {
+  "text": "Vitelleschi, Mutio",
+  "kind": "person",
+  "id": "vitelleschi-mutio",
+  "label": "Mutio Vitelleschi"
+ },
+ {
+  "text": "Acquaviva, Claudio",
+  "kind": "person",
+  "id": "acquaviva-claudio",
+  "label": "Claudio Acquaviva"
+ },
+ {
+  "text": "St. Francis Xavier",
+  "kind": "person",
+  "id": "xavier-francis",
+  "label": "Francis Xavier"
+ },
+ {
+  "text": "Ignatius of Loyola",
+  "kind": "person",
+  "id": "loyola-ignatius-of",
+  "label": "Ignatius of Loyola"
+ },
+ {
+  "text": "Marcello Mastrilli",
+  "kind": "person",
+  "id": "mastrilli-marcello",
+  "label": "Marcello Mastrilli"
+ },
+ {
+  "text": "Father Magaglianes",
+  "kind": "person",
+  "id": "magaglianes",
+  "label": "Magaglianes"
+ },
+ {
+  "text": "Lelio Antoglietta",
+  "kind": "person",
+  "id": "antoglietta-lelio",
+  "label": "Lelio Antoglietta"
+ },
+ {
+  "text": "Baraona, Roderico",
+  "kind": "person",
+  "id": "baraona-roderico",
+  "label": "Roderico Baraona"
+ },
+ {
+  "text": "Ignazio Angelucci",
+  "kind": "person",
+  "id": "angelucci-ignazio",
+  "label": "Ignazio Angelucci"
+ },
+ {
+  "text": "Comentali, Pietro",
+  "kind": "person",
+  "id": "comentali-pietro",
+  "label": "Pietro Comentali"
+ },
+ {
+  "text": "Francesco Ardoino",
+  "kind": "person",
+  "id": "ardoino-francesco",
+  "label": "Francesco Ardoino"
+ },
+ {
+  "text": "Francesco Balione",
+  "kind": "person",
+  "id": "balione-francesco",
+  "label": "Francesco Balione"
+ },
+ {
+  "text": "Amodei, Benedetto",
+  "kind": "person",
+  "id": "amodei-benedetto",
+  "label": "Benedetto Amodei"
+ },
+ {
+  "text": "Alfieri, Giuseppe",
+  "kind": "person",
+  "id": "alfieri-giuseppe",
+  "label": "Giuseppe Alfieri"
+ },
+ {
+  "text": "Antonio Rondonius",
+  "kind": "person",
+  "id": "rondonio-antonio",
+  "label": "Antonio Rondonio"
+ },
+ {
+  "text": "Rondonio, Antonio",
+  "kind": "person",
+  "id": "rondonio-antonio",
+  "label": "Antonio Rondonio"
+ },
+ {
+  "text": "Fassari, Vincenzo",
+  "kind": "person",
+  "id": "fassari-vincenzo",
+  "label": "Vincenzo Fassari"
+ },
+ {
+  "text": "Abellone, Hermete",
+  "kind": "person",
+  "id": "abellone-hermete",
+  "label": "Hermete Abellone"
+ },
+ {
+  "text": "Bartoli, Daniello",
+  "kind": "person",
+  "id": "bartoli-daniello",
+  "label": "Daniello Bartoli"
+ },
+ {
+  "text": "Vimercati, Orazio",
+  "kind": "person",
+  "id": "vimercati-orazio",
+  "label": "Orazio Vimercati"
+ },
+ {
+  "text": "Gabriele Archinto",
+  "kind": "person",
+  "id": "archinto-gabriele",
+  "label": "Gabriele Archinto"
+ },
+ {
+  "text": "Finechiaro, Mario",
+  "kind": "person",
+  "id": "finechiaro-mario",
+  "label": "Mario Finechiaro"
+ },
+ {
+  "text": "Amabilina, Marzio",
+  "kind": "person",
+  "id": "amabilina-marzio",
+  "label": "Marzio Amabilina"
+ },
+ {
+  "text": "Barbarito, Felice",
+  "kind": "person",
+  "id": "barbarito-felice",
+  "label": "Felice Barbarito"
+ },
+ {
+  "text": "Barberito, Felice",
+  "kind": "person",
+  "id": "barbarito-felice",
+  "label": "Felice Barbarito"
+ },
+ {
+  "text": "Arcamone, Ignatio",
+  "kind": "person",
+  "id": "arcamone-ignatio",
+  "label": "Ignatio Arcamone"
+ },
+ {
+  "text": "Berni, Sebastiano",
+  "kind": "person",
+  "id": "berni-sebastiano",
+  "label": "Sebastiano Berni"
+ },
+ {
+  "text": "Gioseppe Archinto",
+  "kind": "person",
+  "id": "archinto-giuseppe",
+  "label": "Giuseppe Archinto"
+ },
+ {
+  "text": "Mutio Vitelleschi",
+  "kind": "person",
+  "id": "vitelleschi-mutio",
+  "label": "Mutio Vitelleschi"
+ },
+ {
+  "text": "Claudio Acquaviva",
+  "kind": "person",
+  "id": "acquaviva-claudio",
+  "label": "Claudio Acquaviva"
+ },
+ {
+  "text": "Gonzaga, Aloysius",
+  "kind": "person",
+  "id": "gonzaga-aloysius",
+  "label": "Aloysius Gonzaga"
+ },
+ {
+  "text": "Trigault, Nicolas",
+  "kind": "person",
+  "id": "trigault-nicolas",
+  "label": "Nicolas Trigault"
+ },
+ {
+  "text": "Roderico Baraona",
+  "kind": "person",
+  "id": "baraona-roderico",
+  "label": "Roderico Baraona"
+ },
+ {
+  "text": "Pietro Comentali",
+  "kind": "person",
+  "id": "comentali-pietro",
+  "label": "Pietro Comentali"
+ },
+ {
+  "text": "Benedetto Amodei",
+  "kind": "person",
+  "id": "amodei-benedetto",
+  "label": "Benedetto Amodei"
+ },
+ {
+  "text": "Asiano, Vincenzo",
+  "kind": "person",
+  "id": "asiano-vincenzo",
+  "label": "Vincenzo Asiano"
+ },
+ {
+  "text": "Cinami, Leonardo",
+  "kind": "person",
+  "id": "cinami-leonardo",
+  "label": "Leonardo Cinami"
+ },
+ {
+  "text": "Daniello Bartoli",
+  "kind": "person",
+  "id": "bartoli-daniello",
+  "label": "Daniello Bartoli"
+ },
+ {
+  "text": "Orazio Vimercati",
+  "kind": "person",
+  "id": "vimercati-orazio",
+  "label": "Orazio Vimercati"
+ },
+ {
+  "text": "Heredia, Antonio",
+  "kind": "person",
+  "id": "heredia-antonio",
+  "label": "Antonio Heredia"
+ },
+ {
+  "text": "Thomaso Busciemi",
+  "kind": "person",
+  "id": "buscemi-tomaso",
+  "label": "Tomaso Buscemi"
+ },
+ {
+  "text": "Aliotta, Ignazio",
+  "kind": "person",
+  "id": "aliotta-ignazio",
+  "label": "Ignazio Aliotta"
+ },
+ {
+  "text": "Aloysius Gonzaga",
+  "kind": "person",
+  "id": "gonzaga-aloysius",
+  "label": "Aloysius Gonzaga"
+ },
+ {
+  "text": "Blessed Aloysius",
+  "kind": "person",
+  "id": "gonzaga-aloysius",
+  "label": "Aloysius Gonzaga"
+ },
+ {
+  "text": "Father Mastrilli",
+  "kind": "person",
+  "id": "mastrilli-marcello",
+  "label": "Marcello Mastrilli"
+ },
+ {
+  "text": "Scorso, Giovanni",
+  "kind": "person",
+  "id": "scorso-giovanni",
+  "label": "Giovanni Scorso"
+ },
+ {
+  "text": "Nicolas Trigault",
+  "kind": "person",
+  "id": "trigault-nicolas",
+  "label": "Nicolas Trigault"
+ },
+ {
+  "text": "Balami, Ignazio",
+  "kind": "person",
+  "id": "balami-ignazio",
+  "label": "Ignazio Balami"
+ },
+ {
+  "text": "Antonio Rondoni",
+  "kind": "person",
+  "id": "rondonio-antonio",
+  "label": "Antonio Rondonio"
+ },
+ {
+  "text": "Antonio Heredia",
+  "kind": "person",
+  "id": "heredia-antonio",
+  "label": "Antonio Heredia"
+ },
+ {
+  "text": "Arisco, Lorenzo",
+  "kind": "person",
+  "id": "arisco-lorenzo",
+  "label": "Lorenzo Arisco"
+ },
+ {
+  "text": "Buscemi, Tomaso",
+  "kind": "person",
+  "id": "buscemi-tomaso",
+  "label": "Tomaso Buscemi"
+ },
+ {
+  "text": "Spinelli, Luigi",
+  "kind": "person",
+  "id": "spinelli-luigi",
+  "label": "Luigi Spinelli"
+ },
+ {
+  "text": "Lazari, Giacomo",
+  "kind": "person",
+  "id": "lazari-giacomo",
+  "label": "Giacomo Lazari"
+ },
+ {
+  "text": "Xavier, Francis",
+  "kind": "person",
+  "id": "xavier-francis",
+  "label": "Francis Xavier"
+ },
+ {
+  "text": "Father Ignatius",
+  "kind": "person",
+  "id": "loyola-ignatius-of",
+  "label": "Ignatius of Loyola"
+ },
+ {
+  "text": "Giovanni Scorso",
+  "kind": "person",
+  "id": "scorso-giovanni",
+  "label": "Giovanni Scorso"
+ },
+ {
+  "text": "Father Trigault",
+  "kind": "person",
+  "id": "trigault-nicolas",
+  "label": "Nicolas Trigault"
+ },
+ {
+  "text": "St. [illegible]",
+  "kind": "place",
+  "id": "st-illegible",
+  "label": "St. [illegible]"
+ },
+ {
+  "text": "the Philippines",
+  "kind": "place",
+  "id": "philippines",
+  "label": "Philippines"
+ },
+ {
+  "text": "Ignatio Balami",
+  "kind": "person",
+  "id": "balami-ignazio",
+  "label": "Ignazio Balami"
+ },
+ {
+  "text": "Ignazio Balami",
+  "kind": "person",
+  "id": "balami-ignazio",
+  "label": "Ignazio Balami"
+ },
+ {
+  "text": "Camassa, Diego",
+  "kind": "person",
+  "id": "camassa-diego",
+  "label": "Diego Camassa"
+ },
+ {
+  "text": "Lonardo Cinami",
+  "kind": "person",
+  "id": "cinami-leonardo",
+  "label": "Leonardo Cinami"
+ },
+ {
+  "text": "Your Paternity",
+  "kind": "person",
+  "id": "vitelleschi-mutio",
+  "label": "Mutio Vitelleschi"
+ },
+ {
+  "text": "Blessed Xavier",
+  "kind": "person",
+  "id": "xavier-francis",
+  "label": "Francis Xavier"
+ },
+ {
+  "text": "Francis Xavier",
+  "kind": "person",
+  "id": "xavier-francis",
+  "label": "Francis Xavier"
+ },
+ {
+  "text": "Saint Ignatius",
+  "kind": "person",
+  "id": "loyola-ignatius-of",
+  "label": "Ignatius of Loyola"
+ },
+ {
+  "text": "Saint Aloysius",
+  "kind": "person",
+  "id": "gonzaga-aloysius",
+  "label": "Aloysius Gonzaga"
+ },
+ {
+  "text": "Semedo, Alvaro",
+  "kind": "person",
+  "id": "semedo-alvaro",
+  "label": "Alvaro Semedo"
+ },
+ {
+  "text": "Diego Camassa",
+  "kind": "person",
+  "id": "camassa-diego",
+  "label": "Diego Camassa"
+ },
+ {
+  "text": "Stella, Marco",
+  "kind": "person",
+  "id": "stella-marco",
+  "label": "Marco Stella"
+ },
+ {
+  "text": "Father Xavier",
+  "kind": "person",
+  "id": "xavier-francis",
+  "label": "Francis Xavier"
+ },
+ {
+  "text": "Alvaro Semedo",
+  "kind": "person",
+  "id": "semedo-alvaro",
+  "label": "Alvaro Semedo"
+ },
+ {
+  "text": "Father Semedo",
+  "kind": "person",
+  "id": "semedo-alvaro",
+  "label": "Alvaro Semedo"
+ },
+ {
+  "text": "Caltanissetta",
+  "kind": "place",
+  "id": "caltanissetta",
+  "label": "Caltanissetta"
+ },
+ {
+  "text": "the New World",
+  "kind": "place",
+  "id": "new-world",
+  "label": "New World"
+ },
+ {
+  "text": "Saint Xavier",
+  "kind": "person",
+  "id": "xavier-francis",
+  "label": "Francis Xavier"
+ },
+ {
+  "text": "St. Ignatius",
+  "kind": "person",
+  "id": "loyola-ignatius-of",
+  "label": "Ignatius of Loyola"
+ },
+ {
+  "text": "St. Aloysius",
+  "kind": "person",
+  "id": "gonzaga-aloysius",
+  "label": "Aloysius Gonzaga"
+ },
+ {
+  "text": "Vitelleschi",
+  "kind": "person",
+  "id": "vitelleschi-mutio",
+  "label": "Mutio Vitelleschi"
+ },
+ {
+  "text": "St. Francis",
+  "kind": "person",
+  "id": "xavier-francis",
+  "label": "Francis Xavier"
+ },
+ {
+  "text": "Magaglianes",
+  "kind": "person",
+  "id": "magaglianes",
+  "label": "Magaglianes"
+ },
+ {
+  "text": "Caltagirone",
+  "kind": "place",
+  "id": "caltagirone",
+  "label": "Caltagirone"
+ },
+ {
+  "text": "San [Solio]",
+  "kind": "place",
+  "id": "san-solio",
+  "label": "San [Solio]"
+ },
+ {
+  "text": "East Indies",
+  "kind": "place",
+  "id": "east-indies",
+  "label": "East Indies"
+ },
+ {
+  "text": "West Indies",
+  "kind": "place",
+  "id": "west-indies",
+  "label": "West Indies"
+ },
+ {
+  "text": "Philippines",
+  "kind": "place",
+  "id": "philippines",
+  "label": "Philippines"
+ },
+ {
+  "text": "the Indies",
+  "kind": "place",
+  "id": "the-indies",
+  "label": "the Indies"
+ },
+ {
+  "text": "Acquaviva",
+  "kind": "person",
+  "id": "acquaviva-claudio",
+  "label": "Claudio Acquaviva"
+ },
+ {
+  "text": "Mastrilli",
+  "kind": "person",
+  "id": "mastrilli-marcello",
+  "label": "Marcello Mastrilli"
+ },
+ {
+  "text": "the Mogul",
+  "kind": "place",
+  "id": "the-mogul",
+  "label": "the Mogul"
+ },
+ {
+  "text": "New World",
+  "kind": "place",
+  "id": "new-world",
+  "label": "New World"
+ },
+ {
+  "text": "Ignatius",
+  "kind": "person",
+  "id": "loyola-ignatius-of",
+  "label": "Ignatius of Loyola"
+ },
+ {
+  "text": "Trigault",
+  "kind": "person",
+  "id": "trigault-nicolas",
+  "label": "Nicolas Trigault"
+ },
+ {
+  "text": "Barletta",
+  "kind": "place",
+  "id": "barletta",
+  "label": "Barletta"
+ },
+ {
+  "text": "Paraguay",
+  "kind": "place",
+  "id": "paraguay",
+  "label": "Paraguay"
+ },
+ {
+  "text": "Ethiopia",
+  "kind": "place",
+  "id": "ethiopia",
+  "label": "Ethiopia"
+ },
+ {
+  "text": "Portugal",
+  "kind": "place",
+  "id": "portugal",
+  "label": "Portugal"
+ },
+ {
+  "text": "Messina",
+  "kind": "place",
+  "id": "messina",
+  "label": "Messina"
+ },
+ {
+  "text": "Palermo",
+  "kind": "place",
+  "id": "palermo",
+  "label": "Palermo"
+ },
+ {
+  "text": "Ferrara",
+  "kind": "place",
+  "id": "ferrara",
+  "label": "Ferrara"
+ },
+ {
+  "text": "Salerno",
+  "kind": "place",
+  "id": "salerno",
+  "label": "Salerno"
+ },
+ {
+  "text": "Spoleto",
+  "kind": "place",
+  "id": "spoleto",
+  "label": "Spoleto"
+ },
+ {
+  "text": "Vicenza",
+  "kind": "place",
+  "id": "vicenza",
+  "label": "Vicenza"
+ },
+ {
+  "text": "Trapani",
+  "kind": "place",
+  "id": "trapani",
+  "label": "Trapani"
+ },
+ {
+  "text": "Cremona",
+  "kind": "place",
+  "id": "cremona",
+  "label": "Cremona"
+ },
+ {
+  "text": "Bologna",
+  "kind": "place",
+  "id": "bologna",
+  "label": "Bologna"
+ },
+ {
+  "text": "England",
+  "kind": "place",
+  "id": "england",
+  "label": "England"
+ },
+ {
+  "text": "Xavier",
+  "kind": "person",
+  "id": "xavier-francis",
+  "label": "Francis Xavier"
+ },
+ {
+  "text": "Semedo",
+  "kind": "person",
+  "id": "semedo-alvaro",
+  "label": "Alvaro Semedo"
+ },
+ {
+  "text": "Scorso",
+  "kind": "person",
+  "id": "scorso-giovanni",
+  "label": "Giovanni Scorso"
+ },
+ {
+  "text": "Naples",
+  "kind": "place",
+  "id": "naples",
+  "label": "Naples"
+ },
+ {
+  "text": "Mantua",
+  "kind": "place",
+  "id": "mantua",
+  "label": "Mantua"
+ },
+ {
+  "text": "Modena",
+  "kind": "place",
+  "id": "modena",
+  "label": "Modena"
+ },
+ {
+  "text": "Piazza",
+  "kind": "place",
+  "id": "piazza",
+  "label": "Piazza"
+ },
+ {
+  "text": "Faenza",
+  "kind": "place",
+  "id": "faenza",
+  "label": "Faenza"
+ },
+ {
+  "text": "Sicily",
+  "kind": "place",
+  "id": "sicily",
+  "label": "Sicily"
+ },
+ {
+  "text": "Indies",
+  "kind": "place",
+  "id": "the-indies",
+  "label": "the Indies"
+ },
+ {
+  "text": "Brazil",
+  "kind": "place",
+  "id": "brazil",
+  "label": "Brazil"
+ },
+ {
+  "text": "Cochin",
+  "kind": "place",
+  "id": "cochin",
+  "label": "Cochin"
+ },
+ {
+  "text": "Europe",
+  "kind": "place",
+  "id": "europe",
+  "label": "Europe"
+ },
+ {
+  "text": "Loreto",
+  "kind": "place",
+  "id": "loreto",
+  "label": "Loreto"
+ },
+ {
+  "text": "Genoa",
+  "kind": "place",
+  "id": "genoa",
+  "label": "Genoa"
+ },
+ {
+  "text": "Sezze",
+  "kind": "place",
+  "id": "sezze",
+  "label": "Sezze"
+ },
+ {
+  "text": "Parma",
+  "kind": "place",
+  "id": "parma",
+  "label": "Parma"
+ },
+ {
+  "text": "Milan",
+  "kind": "place",
+  "id": "milan",
+  "label": "Milan"
+ },
+ {
+  "text": "Massa",
+  "kind": "place",
+  "id": "massa",
+  "label": "Massa"
+ },
+ {
+  "text": "Mineo",
+  "kind": "place",
+  "id": "mineo",
+  "label": "Mineo"
+ },
+ {
+  "text": "China",
+  "kind": "place",
+  "id": "china",
+  "label": "China"
+ },
+ {
+  "text": "Japan",
+  "kind": "place",
+  "id": "japan",
+  "label": "Japan"
+ },
+ {
+  "text": "Chile",
+  "kind": "place",
+  "id": "chile",
+  "label": "Chile"
+ },
+ {
+  "text": "India",
+  "kind": "place",
+  "id": "india",
+  "label": "India"
+ },
+ {
+  "text": "Mogul",
+  "kind": "place",
+  "id": "the-mogul",
+  "label": "the Mogul"
+ },
+ {
+  "text": "Italy",
+  "kind": "place",
+  "id": "italy",
+  "label": "Italy"
+ },
+ {
+  "text": "Spain",
+  "kind": "place",
+  "id": "spain",
+  "label": "Spain"
+ },
+ {
+  "text": "Rome",
+  "kind": "place",
+  "id": "rome",
+  "label": "Rome"
+ },
+ {
+  "text": "Nola",
+  "kind": "place",
+  "id": "nola",
+  "label": "Nola"
+ },
+ {
+  "text": "Bari",
+  "kind": "place",
+  "id": "bari",
+  "label": "Bari"
+ },
+ {
+  "text": "Noto",
+  "kind": "place",
+  "id": "noto",
+  "label": "Noto"
+ },
+ {
+  "text": "Peru",
+  "kind": "place",
+  "id": "peru",
+  "label": "Peru"
+ },
+ {
+  "text": "Asia",
+  "kind": "place",
+  "id": "asia",
+  "label": "Asia"
+ }
+]

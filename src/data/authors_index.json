@@ -1,0 +1,847 @@
+[
+ {
+  "author_raw": "Abellone, Hermete",
+  "letter": 40,
+  "date": "January 2, 1618"
+ },
+ {
+  "author_raw": "Albergati, Federico",
+  "letter": 112,
+  "date": "April 3, 1640"
+ },
+ {
+  "author_raw": "Alfieri, Giuseppe",
+  "letter": 21,
+  "date": "July 7, 1616"
+ },
+ {
+  "author_raw": "Aliotta, Ignazio",
+  "letter": 128,
+  "date": "December 18, 1640"
+ },
+ {
+  "author_raw": "Amabilina, Marzio",
+  "letter": 106,
+  "date": "January 23, 1640"
+ },
+ {
+  "author_raw": "Antonio Heredia",
+  "letter": 72,
+  "date": "March 2, 1630"
+ },
+ {
+  "author_raw": "Arcamone, Ignatio",
+  "letter": 118,
+  "date": "June 9, 1640"
+ },
+ {
+  "author_raw": "Archinto, Alessandro",
+  "letter": 82,
+  "date": "April 11, 1634"
+ },
+ {
+  "author_raw": "Archinto, Cristoforo",
+  "letter": 130,
+  "date": "1641"
+ },
+ {
+  "author_raw": "Archinto, Gabriele",
+  "letter": 81,
+  "date": "June 28, 1633"
+ },
+ {
+  "author_raw": "Archinto, Gabriele",
+  "letter": 84,
+  "date": "January 2, 1635"
+ },
+ {
+  "author_raw": "Archinto, Giuseppe",
+  "letter": 169,
+  "date": "February 20, 1647"
+ },
+ {
+  "author_raw": "Arcolino, Domenico",
+  "letter": 119,
+  "date": "July 5, 1640"
+ },
+ {
+  "author_raw": "Arganantio, Domenico",
+  "letter": 105,
+  "date": "January 5, 1640"
+ },
+ {
+  "author_raw": "Arganantio, Domenico",
+  "letter": 109,
+  "date": "February 18, 1640"
+ },
+ {
+  "author_raw": "Arganantio, Domenico",
+  "letter": 115,
+  "date": "May 17, 1640"
+ },
+ {
+  "author_raw": "Arisco, Lorenzo",
+  "letter": 110,
+  "date": "February 22, 1640"
+ },
+ {
+  "author_raw": "Arisco, Lorenzo",
+  "letter": 120,
+  "date": "July 13, 1640"
+ },
+ {
+  "author_raw": "Arisco, Lorenzo",
+  "letter": 127,
+  "date": "October 28, 1640"
+ },
+ {
+  "author_raw": "Asiano, Vincenzo",
+  "letter": 31,
+  "date": "April 29, 1617"
+ },
+ {
+  "author_raw": "Balami, Ignazio",
+  "letter": 25,
+  "date": "January 4, 1617"
+ },
+ {
+  "author_raw": "Balami, Ignazio",
+  "letter": 39,
+  "date": "December 31, 1617"
+ },
+ {
+  "author_raw": "Balami, Ignazio",
+  "letter": 62,
+  "date": "January 15, 1626"
+ },
+ {
+  "author_raw": "Barbarito, Felice",
+  "letter": 122,
+  "date": "July 31, 1640"
+ },
+ {
+  "author_raw": "Barbarito, Giovanni Antonio",
+  "letter": 108,
+  "date": "February 4, 1640"
+ },
+ {
+  "author_raw": "Barbarito, Giovanni Antonio",
+  "letter": 124,
+  "date": "September 29, 1640"
+ },
+ {
+  "author_raw": "Barberito, Felice",
+  "letter": 117,
+  "date": "May 29, 1640"
+ },
+ {
+  "author_raw": "Barletta, Francesco",
+  "letter": 36,
+  "date": "October 16, 1617"
+ },
+ {
+  "author_raw": "Barletta, Francesco",
+  "letter": 46,
+  "date": "July 17, 1618"
+ },
+ {
+  "author_raw": "Barletta, Francesco",
+  "letter": 52,
+  "date": "August 3, 1619"
+ },
+ {
+  "author_raw": "Barletta, Francesco",
+  "letter": 53,
+  "date": "May 16, 1620"
+ },
+ {
+  "author_raw": "Bartoli, Daniello (1608-1685)",
+  "letter": 64,
+  "date": "February 2, 1627"
+ },
+ {
+  "author_raw": "Bartoli, Daniello (1608-1685)",
+  "letter": 66,
+  "date": "February 1, 1628"
+ },
+ {
+  "author_raw": "Bartoli, Daniello (1608-1685)",
+  "letter": 85,
+  "date": "October 5, 1635"
+ },
+ {
+  "author_raw": "Basile, Giacomo Antonio",
+  "letter": 111,
+  "date": "February 24, 1640"
+ },
+ {
+  "author_raw": "Basile, Giacomo Antonio",
+  "letter": 129,
+  "date": "December 29, 1640"
+ },
+ {
+  "author_raw": "Benedetto Amodei",
+  "letter": 20,
+  "date": "July 6, 1616"
+ },
+ {
+  "author_raw": "Berni, Sebastiano",
+  "letter": 159,
+  "date": "April 3, 1643"
+ },
+ {
+  "author_raw": "Berni, Sebastiano",
+  "letter": 164,
+  "date": "September 9, 1643"
+ },
+ {
+  "author_raw": "Berni, Sebastiano",
+  "letter": 166,
+  "date": "October 10, 1643"
+ },
+ {
+  "author_raw": "Berni, Sebastiano",
+  "letter": 167,
+  "date": "November 14, 1643"
+ },
+ {
+  "author_raw": "Berni, Sebastiano",
+  "letter": 168,
+  "date": "January 13, 1644"
+ },
+ {
+  "author_raw": "Bressani, Francesco Giuseppe (1612-1672)",
+  "letter": 65,
+  "date": "July 1627"
+ },
+ {
+  "author_raw": "Bressani, Francesco Giuseppe (1612-1672)",
+  "letter": 68,
+  "date": "September 1628"
+ },
+ {
+  "author_raw": "Bressani, Francesco Giuseppe (1612-1672)",
+  "letter": 70,
+  "date": "October 1628"
+ },
+ {
+  "author_raw": "Bressani, Francesco Giuseppe (1612-1672)",
+  "letter": 87,
+  "date": "May 1636"
+ },
+ {
+  "author_raw": "Bressani, Francesco Giuseppe (1612-1672)",
+  "letter": 88,
+  "date": "July 1636"
+ },
+ {
+  "author_raw": "Buscemi, Tomaso",
+  "letter": 114,
+  "date": "May 7, 1640"
+ },
+ {
+  "author_raw": "Buscemi, Tomaso",
+  "letter": 121,
+  "date": "July 26, 1640"
+ },
+ {
+  "author_raw": "Camassa, Diego",
+  "letter": 29,
+  "date": "April 21, 1617"
+ },
+ {
+  "author_raw": "Camassa, Diego",
+  "letter": 30,
+  "date": "April 21, 1617"
+ },
+ {
+  "author_raw": "Camassa, Diego",
+  "letter": 33,
+  "date": "May 12, 1617"
+ },
+ {
+  "author_raw": "Camassa, Diego",
+  "letter": 34,
+  "date": "June 16, 1617"
+ },
+ {
+  "author_raw": "Camassa, Diego",
+  "letter": 37,
+  "date": "October 24, 1617"
+ },
+ {
+  "author_raw": "Camassa, Diego",
+  "letter": 42,
+  "date": "April 6, 1618"
+ },
+ {
+  "author_raw": "Cinami, Leonardo",
+  "letter": 57,
+  "date": "January 26, 1624"
+ },
+ {
+  "author_raw": "Cinami, Leonardo",
+  "letter": 69,
+  "date": "September 9, 1628"
+ },
+ {
+  "author_raw": "Cinami, Leonardo",
+  "letter": 90,
+  "date": "October 9, 1637"
+ },
+ {
+  "author_raw": "Cinami, Leonardo",
+  "letter": 92,
+  "date": "January 16, 1638"
+ },
+ {
+  "author_raw": "Cinami, Leonardo",
+  "letter": 96,
+  "date": "June 19, 1638"
+ },
+ {
+  "author_raw": "Cinami, Leonardo",
+  "letter": 98,
+  "date": "November 25, 1638"
+ },
+ {
+  "author_raw": "Cinami, Leonardo",
+  "letter": 101,
+  "date": "July 20, 1639"
+ },
+ {
+  "author_raw": "Cinami, Leonardo",
+  "letter": 103,
+  "date": "October 27, 1639"
+ },
+ {
+  "author_raw": "Cinami, Leonardo",
+  "letter": 104,
+  "date": "November 1, 1639"
+ },
+ {
+  "author_raw": "Cinami, Leonardo",
+  "letter": 132,
+  "date": "July 13, 1641"
+ },
+ {
+  "author_raw": "Cinami, Leonardo",
+  "letter": 139,
+  "date": "September 7, 1641"
+ },
+ {
+  "author_raw": "Cinami, Leonardo",
+  "letter": 142,
+  "date": "September 14, 1641"
+ },
+ {
+  "author_raw": "Cinami, Leonardo",
+  "letter": 145,
+  "date": "October 15, 1641"
+ },
+ {
+  "author_raw": "Cinami, Leonardo",
+  "letter": 162,
+  "date": "June 13, 1643 (letter signed June 13, 1642)"
+ },
+ {
+  "author_raw": "Cinami, Leonardo",
+  "letter": 163,
+  "date": "July 25, 1643"
+ },
+ {
+  "author_raw": "Cinami, Leonardo",
+  "letter": 165,
+  "date": "October 3, 1643"
+ },
+ {
+  "author_raw": "Daniello Bartoli",
+  "letter": 76,
+  "date": "February 2, 1632"
+ },
+ {
+  "author_raw": "Daniello Bartoli",
+  "letter": 79,
+  "date": "May 16, 1633"
+ },
+ {
+  "author_raw": "Dempsterus, Francesco",
+  "letter": 93,
+  "date": "May 15, 1638"
+ },
+ {
+  "author_raw": "Dempsterus, Francesco",
+  "letter": 97,
+  "date": "July 31, 1638"
+ },
+ {
+  "author_raw": "Demstero, Francesco",
+  "letter": 100,
+  "date": "May 15, 1639 (not translated: the database transcription is"
+ },
+ {
+  "author_raw": "Diego Camassa",
+  "letter": 12,
+  "date": "February 28, 1616"
+ },
+ {
+  "author_raw": "Fassari, Vincenzo",
+  "letter": 27,
+  "date": "March 10, 1617"
+ },
+ {
+  "author_raw": "Fassari, Vincenzo",
+  "letter": 32,
+  "date": "May 5, 1617"
+ },
+ {
+  "author_raw": "Fassari, Vincenzo",
+  "letter": 41,
+  "date": "February 9, 1618"
+ },
+ {
+  "author_raw": "Fassari, Vincenzo",
+  "letter": 44,
+  "date": "May 25, 1618"
+ },
+ {
+  "author_raw": "Fassari, Vincenzo",
+  "letter": 50,
+  "date": "December 1618"
+ },
+ {
+  "author_raw": "Finechiaro, Mario",
+  "letter": 89,
+  "date": "June 8, 1637"
+ },
+ {
+  "author_raw": "Finechiaro, Mario",
+  "letter": 91,
+  "date": "November 12, 1637"
+ },
+ {
+  "author_raw": "Finechiaro, Mario",
+  "letter": 94,
+  "date": "June 9, 1638"
+ },
+ {
+  "author_raw": "Finechiaro, Mario",
+  "letter": 95,
+  "date": "June 9, 1638"
+ },
+ {
+  "author_raw": "Finechiaro, Mario",
+  "letter": 99,
+  "date": "December 19, 1638"
+ },
+ {
+  "author_raw": "Finechiaro, Mario",
+  "letter": 102,
+  "date": "October 16, 1639"
+ },
+ {
+  "author_raw": "Finechiaro, Mario",
+  "letter": 107,
+  "date": "January 29, 1640"
+ },
+ {
+  "author_raw": "Finechiaro, Mario",
+  "letter": 116,
+  "date": "May 27, 1640"
+ },
+ {
+  "author_raw": "Finechiaro, Mario",
+  "letter": 123,
+  "date": "September 9, 1640"
+ },
+ {
+  "author_raw": "Finechiaro, Mario",
+  "letter": 125,
+  "date": "October 1, 1640"
+ },
+ {
+  "author_raw": "Finechiaro, Mario",
+  "letter": 126,
+  "date": "October 14, 1640"
+ },
+ {
+  "author_raw": "Finechiaro, Mario",
+  "letter": 146,
+  "date": "February 7, 1642"
+ },
+ {
+  "author_raw": "Franceschi, Giacinto",
+  "letter": 23,
+  "date": "1617"
+ },
+ {
+  "author_raw": "Francesco Ardoino",
+  "letter": 14,
+  "date": "March 5, 1616"
+ },
+ {
+  "author_raw": "Francesco Balione",
+  "letter": 15,
+  "date": "March 21, 1616"
+ },
+ {
+  "author_raw": "Francesco Maria Armillei",
+  "letter": 6,
+  "date": "January 27, 1616"
+ },
+ {
+  "author_raw": "Gabriele Archinto",
+  "letter": 71,
+  "date": "December 25, 1629"
+ },
+ {
+  "author_raw": "Gabriele Archinto",
+  "letter": 73,
+  "date": "January 12, 1631"
+ },
+ {
+  "author_raw": "Gabriele Archinto",
+  "letter": 74,
+  "date": "March 2, 1631"
+ },
+ {
+  "author_raw": "Gabriele Archinto",
+  "letter": 77,
+  "date": "January 29, 1633"
+ },
+ {
+  "author_raw": "Gabriele Archinto",
+  "letter": 78,
+  "date": "May 12, 1633"
+ },
+ {
+  "author_raw": "Gargano, Francesco",
+  "letter": 22,
+  "date": "December 9, 1616"
+ },
+ {
+  "author_raw": "Gargano, Francesco",
+  "letter": 28,
+  "date": "March 23, 1617"
+ },
+ {
+  "author_raw": "Gargano, Francesco",
+  "letter": 47,
+  "date": "July 25, 1618"
+ },
+ {
+  "author_raw": "Gargano, Francesco",
+  "letter": 51,
+  "date": "January 3, 1619"
+ },
+ {
+  "author_raw": "Gargano, Francesco",
+  "letter": 54,
+  "date": "May 29, 1620"
+ },
+ {
+  "author_raw": "Gargano, Francesco",
+  "letter": 56,
+  "date": "September 30, 1621"
+ },
+ {
+  "author_raw": "Gargano, Francesco",
+  "letter": 60,
+  "date": "December 5, 1624"
+ },
+ {
+  "author_raw": "Giovanni Battista Astria",
+  "letter": 1,
+  "date": "January 3, 1616"
+ },
+ {
+  "author_raw": "Giovanni Battista Astria",
+  "letter": 2,
+  "date": "January 5, 1616"
+ },
+ {
+  "author_raw": "Ignazio Angelucci",
+  "letter": 7,
+  "date": "February 3, 1616"
+ },
+ {
+  "author_raw": "Ignazio Balami",
+  "letter": 4,
+  "date": "January 14, 1616"
+ },
+ {
+  "author_raw": "Ignazio Balami",
+  "letter": 11,
+  "date": "February 27, 1616"
+ },
+ {
+  "author_raw": "Ignazio Balami",
+  "letter": 19,
+  "date": "June 2, 1616"
+ },
+ {
+  "author_raw": "Lazari, Giacomo",
+  "letter": 147,
+  "date": "April 28, 1642"
+ },
+ {
+  "author_raw": "Lazari, Giacomo",
+  "letter": 148,
+  "date": "May 5, 1642"
+ },
+ {
+  "author_raw": "Lazari, Giacomo",
+  "letter": 149,
+  "date": "May 19, 1642"
+ },
+ {
+  "author_raw": "Lazari, Giacomo",
+  "letter": 150,
+  "date": "May 26, 1642"
+ },
+ {
+  "author_raw": "Lazari, Giacomo",
+  "letter": 151,
+  "date": "June 16, 1642"
+ },
+ {
+  "author_raw": "Lazari, Giacomo",
+  "letter": 152,
+  "date": "June 30, 1642"
+ },
+ {
+  "author_raw": "Lazari, Giacomo",
+  "letter": 153,
+  "date": "July 16, 1642"
+ },
+ {
+  "author_raw": "Lazari, Giacomo",
+  "letter": 154,
+  "date": "July 21, 1642"
+ },
+ {
+  "author_raw": "Lazari, Giacomo",
+  "letter": 155,
+  "date": "August 12, 1642"
+ },
+ {
+  "author_raw": "Lazari, Giacomo",
+  "letter": 156,
+  "date": "August 25, 1642"
+ },
+ {
+  "author_raw": "Lazari, Giacomo",
+  "letter": 157,
+  "date": "September 1, 1642"
+ },
+ {
+  "author_raw": "Lazari, Giacomo",
+  "letter": 158,
+  "date": "September 15, 1642"
+ },
+ {
+  "author_raw": "Lazari, Giacomo",
+  "letter": 160,
+  "date": "April 6, 1643"
+ },
+ {
+  "author_raw": "Lelio Antoglietta",
+  "letter": 3,
+  "date": "January 8, 1616"
+ },
+ {
+  "author_raw": "Lubelli, Francesco",
+  "letter": 131,
+  "date": "March 12, 1641"
+ },
+ {
+  "author_raw": "Orazio Vimercati",
+  "letter": 75,
+  "date": "November 5, 1631"
+ },
+ {
+  "author_raw": "Orazio Vimercati",
+  "letter": 80,
+  "date": "May 17, 1633"
+ },
+ {
+  "author_raw": "Pietro Comentali",
+  "letter": 8,
+  "date": "February 5, 1616"
+ },
+ {
+  "author_raw": "Pietro Comentali",
+  "letter": 9,
+  "date": "February 19, 1616"
+ },
+ {
+  "author_raw": "Pietro Comentali",
+  "letter": 10,
+  "date": "February 25, 1616"
+ },
+ {
+  "author_raw": "Pietro Comentali",
+  "letter": 13,
+  "date": "March 4, 1616"
+ },
+ {
+  "author_raw": "Pietro Comentali",
+  "letter": 16,
+  "date": "April 8, 1616"
+ },
+ {
+  "author_raw": "Pietro Comentali",
+  "letter": 17,
+  "date": "April 15, 1616"
+ },
+ {
+  "author_raw": "Pietro Comentali",
+  "letter": 18,
+  "date": "April 29, 1616"
+ },
+ {
+  "author_raw": "Roderico Baraona",
+  "letter": 5,
+  "date": "January 24, 1616"
+ },
+ {
+  "author_raw": "Rondonio, Antonio",
+  "letter": 26,
+  "date": "February 13, 1617"
+ },
+ {
+  "author_raw": "Rondonio, Antonio",
+  "letter": 35,
+  "date": "October 6, 1617"
+ },
+ {
+  "author_raw": "Rondonio, Antonio",
+  "letter": 38,
+  "date": "November 26, 1617"
+ },
+ {
+  "author_raw": "Rondonio, Antonio",
+  "letter": 43,
+  "date": "May 18, 1618"
+ },
+ {
+  "author_raw": "Rondonio, Antonio",
+  "letter": 45,
+  "date": "June 27, 1618"
+ },
+ {
+  "author_raw": "Rondonio, Antonio",
+  "letter": 48,
+  "date": "August 23, 1618"
+ },
+ {
+  "author_raw": "Rondonio, Antonio",
+  "letter": 49,
+  "date": "October 30, 1618"
+ },
+ {
+  "author_raw": "Serafini, Fortunato",
+  "letter": 86,
+  "date": "April 20, 1636"
+ },
+ {
+  "author_raw": "Serafini, Fortunato",
+  "letter": 161,
+  "date": "July 11, 1643 (database indexes as April 11, 1643)"
+ },
+ {
+  "author_raw": "Spinelli, Luigi",
+  "letter": 133,
+  "date": "July 22, 1641"
+ },
+ {
+  "author_raw": "Spinelli, Luigi",
+  "letter": 134,
+  "date": "August 4, 1641"
+ },
+ {
+  "author_raw": "Spinelli, Luigi",
+  "letter": 135,
+  "date": "August 12, 1641"
+ },
+ {
+  "author_raw": "Spinelli, Luigi",
+  "letter": 136,
+  "date": "August 26, 1641"
+ },
+ {
+  "author_raw": "Spinelli, Luigi",
+  "letter": 137,
+  "date": "August 26, 1641"
+ },
+ {
+  "author_raw": "Spinelli, Luigi",
+  "letter": 138,
+  "date": "September 7, 1641"
+ },
+ {
+  "author_raw": "Spinelli, Luigi",
+  "letter": 140,
+  "date": "September 9, 1641"
+ },
+ {
+  "author_raw": "Spinelli, Luigi",
+  "letter": 141,
+  "date": "September 13, 1641"
+ },
+ {
+  "author_raw": "Spinelli, Luigi",
+  "letter": 143,
+  "date": "September 15, 1641"
+ },
+ {
+  "author_raw": "Spinelli, Luigi",
+  "letter": 144,
+  "date": "September 23, 1641"
+ },
+ {
+  "author_raw": "Stella, Marco",
+  "letter": 24,
+  "date": "1617"
+ },
+ {
+  "author_raw": "Stella, Marco",
+  "letter": 55,
+  "date": "June 9, 1620"
+ },
+ {
+  "author_raw": "Stella, Marco",
+  "letter": 58,
+  "date": "April 9, 1624"
+ },
+ {
+  "author_raw": "Stella, Marco",
+  "letter": 59,
+  "date": "April 15, 1624"
+ },
+ {
+  "author_raw": "Stella, Marco",
+  "letter": 61,
+  "date": "December 8, 1625"
+ },
+ {
+  "author_raw": "Stella, Marco",
+  "letter": 63,
+  "date": "June 7, 1626"
+ },
+ {
+  "author_raw": "Taverna, Francesco",
+  "letter": 83,
+  "date": "1635"
+ },
+ {
+  "author_raw": "Vimercati, Orazio",
+  "letter": 67,
+  "date": "July 24, 1628"
+ },
+ {
+  "author_raw": "Vimercati, Orazio",
+  "letter": 113,
+  "date": "May 5, 1640"
+ }
+]

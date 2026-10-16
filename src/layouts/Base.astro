@@ -1,0 +1,374 @@
+---
+import '@fontsource/eb-garamond/latin-400.css';
+import '@fontsource/eb-garamond/latin-400-italic.css';
+import '@fontsource/eb-garamond/latin-ext-400.css';
+import '@fontsource/eb-garamond/latin-ext-400-italic.css';
+import '@fontsource/eb-garamond/latin-500.css';
+import '@fontsource/eb-garamond/latin-ext-500.css';
+import '@fontsource/eb-garamond/latin-600.css';
+import '@fontsource/eb-garamond/latin-ext-600.css';
+
+interface Props {
+  title: string;
+  description?: string;
+  noindex?: boolean;
+}
+const { title, description, noindex } = Astro.props;
+const pageTitle = title === 'Home' ? 'Indipetae to Mutio Vitelleschi — A Research Archive' : `${title} · Indipetae to Mutio Vitelleschi`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{pageTitle}</title>
+    {description && <meta name="description" content={description} />}
+    {noindex && <meta name="robots" content="noindex" />}
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✠</text></svg>" />
+    <slot name="head" />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="wrap header-inner">
+        <a class="brand" href="/" aria-label="Indipetae archive home">
+          <span class="brand-mark" aria-hidden="true">✠</span>
+          <span class="brand-text">
+            <span class="brand-title">Indipetae</span>
+            <span class="brand-sub">to Mutio Vitelleschi · 1616–1647</span>
+          </span>
+        </a>
+        <nav class="site-nav" aria-label="Primary">
+          <a href="/letters/">Letters</a>
+          <a href="/people/">People</a>
+          <a href="/places/">Places</a>
+          <a href="/topics/">Topics</a>
+          <a href="/destinations/">Destinations</a>
+          <a href="/models/">Models</a>
+          <a href="/grades/">Grades</a>
+          <a href="/timeline/">Timeline</a>
+          <a href="/graph/">Graph</a>
+          <a href="/exhortations/">Exhortations</a>
+          <a href="/about/">About</a>
+        </nav>
+        <form class="site-search" action="/search/" method="get" role="search">
+          <label class="visually-hidden" for="q">Search the letters</label>
+          <div class="search-wrap">
+            <input id="q" name="q" type="search" placeholder="Search letters, people, places…" autocomplete="off"
+                   role="combobox" aria-expanded="false" aria-controls="q-results" aria-autocomplete="list" />
+            <div id="q-results" class="search-results" hidden></div>
+          </div>
+          <button type="submit" aria-label="Search">Search</button>
+        </form>
+      </div>
+    </header>
+    <main id="main" class="wrap">
+      <slot />
+    </main>
+    <footer class="site-footer">
+      <div class="wrap footer-inner">
+        <p>
+          English translations of the <em>litterae indipetae</em> addressed to Mutio Vitelleschi,
+          Superior General of the Society of Jesus (1616–1647). Translated from the Digital
+          Indipetae Database, Institute for Advanced Jesuit Studies, Boston College.
+        </p>
+        <p class="footer-links">
+          <a href="/about/">About this archive</a> ·
+          <a href="/about/#editorial-method">Editorial method</a> ·
+          <a href="/about/#sources">Sources</a>
+        </p>
+        <p class="ai-note">
+          Translations and this website were produced with the assistance of multiple AI
+          agents — offered for exploration and personal study, not intended for academic use.
+        </p>
+      </div>
+    </footer>
+
+    <style is:global>
+      :root {
+        --paper: #faf7f0;
+        --paper-deep: #f3eee2;
+        --ink: #221c15;
+        --ink-soft: #4a4238;
+        --ink-faint: #7a6f60;
+        --muted: #8a8578;
+        --rule: #ddd3bf;
+        --accent: #7a2e2e;          /* burgundy */
+        --accent-deep: #5c2121;
+        --accent-soft: #f5e9e4;
+        --blue: #2e4a7a;            /* deep blue */
+        --blue-soft: #e9eef7;
+        --gold: #8a6d3b;
+        --radius: 6px;
+        --serif: "EB Garamond", "Iowan Old Style", Palatino, "Palatino Linotype", Georgia, serif;
+        --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      }
+      *, *::before, *::after { box-sizing: border-box; }
+      html { -webkit-text-size-adjust: 100%; }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: var(--sans);
+        font-size: 16px;
+        line-height: 1.6;
+      }
+      .wrap { max-width: 1080px; margin: 0 auto; padding: 0 1.25rem; }
+      .visually-hidden {
+        position: absolute; width: 1px; height: 1px; overflow: hidden;
+        clip: rect(0 0 0 0); white-space: nowrap;
+      }
+      .skip {
+        position: absolute; left: -9999px; top: 0; background: var(--ink);
+        color: #fff; padding: .5rem 1rem; z-index: 100; border-radius: 0 0 6px 0;
+      }
+      .skip:focus { left: 0; }
+
+      /* ---------- header ---------- */
+      .site-header {
+        background: var(--ink);
+        color: #f3eee2;
+        border-bottom: 3px solid var(--accent);
+      }
+      .header-inner {
+        display: flex; align-items: center; gap: 1.5rem;
+        padding-top: .8rem; padding-bottom: .8rem; flex-wrap: wrap;
+      }
+      .brand { display: flex; align-items: center; gap: .7rem; text-decoration: none; color: inherit; }
+      .brand-mark { font-size: 1.9rem; color: #d8b46a; line-height: 1; }
+      .brand-text { display: flex; flex-direction: column; line-height: 1.2; }
+      .brand-title { font-family: var(--serif); font-size: 1.5rem; letter-spacing: .04em; }
+      .brand-sub { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: #c9bfa9; }
+      .site-nav { display: flex; gap: 1.1rem; flex-wrap: wrap; margin-left: auto; }
+      .site-nav a {
+        color: #e8e0cd; text-decoration: none; font-size: .92rem;
+        padding: .25rem 0; border-bottom: 2px solid transparent;
+      }
+      .site-nav a:hover { color: #fff; border-bottom-color: #d8b46a; }
+      .site-search { display: flex; gap: .4rem; margin-left: 1rem; }
+      .search-wrap { position: relative; }
+      .site-search input {
+        font: inherit; font-size: .9rem; padding: .4rem .6rem; border-radius: var(--radius);
+        border: 1px solid #5a5348; background: #2e2820; color: #f3eee2; width: 13rem;
+      }
+      .site-search input::placeholder { color: #9a8f7c; }
+      .site-search button {
+        font: inherit; font-size: .9rem; padding: .4rem .8rem; border-radius: var(--radius);
+        border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer;
+      }
+      .site-search button:hover { background: var(--accent-deep); }
+      .search-results {
+        position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 60;
+        background: #fffdf8; border: 1px solid var(--rule); border-radius: var(--radius);
+        box-shadow: 0 10px 30px rgba(60, 45, 25, .22); overflow: hidden;
+        max-height: 22rem; overflow-y: auto;
+      }
+      .sr-item {
+        display: block; padding: .55rem .8rem; text-decoration: none; color: inherit;
+        border-bottom: 1px solid var(--paper-deep);
+      }
+      .sr-item:hover, .sr-item:focus-visible { background: var(--accent-soft); }
+      .sr-title { display: block; font-family: var(--serif); font-weight: 600; font-size: .95rem; color: var(--accent-deep); }
+      .sr-ex {
+        display: block; font-size: .82rem; color: var(--ink-soft); margin-top: .15rem;
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+      }
+      .sr-ex mark { background: #f5e6c4; }
+      .sr-all {
+        display: block; padding: .55rem .8rem; font-size: .88rem; font-weight: 600;
+        background: var(--paper-deep); text-align: center;
+      }
+      .sr-empty { padding: .7rem .8rem; font-size: .88rem; color: var(--ink-faint); margin: 0; }
+
+      /* ---------- footer ---------- */
+      .site-footer {
+        margin-top: 4rem; border-top: 1px solid var(--rule);
+        background: var(--paper-deep); color: var(--ink-soft); font-size: .88rem;
+      }
+      .footer-inner { padding-top: 1.5rem; padding-bottom: 2rem; }
+      .footer-inner a { color: var(--accent); }
+      .footer-links { margin-top: .4rem; }
+      .ai-note { font-size: .8rem; color: var(--ink-faint); margin-top: .6rem; max-width: 44rem; }
+
+      /* ---------- typography ---------- */
+      h1, h2, h3 { font-family: var(--serif); font-weight: 600; line-height: 1.25; color: var(--ink); }
+      h1 { font-size: 2.1rem; margin: 1.6rem 0 .8rem; }
+      h2 { font-size: 1.45rem; margin: 2rem 0 .6rem; padding-bottom: .3rem; border-bottom: 1px solid var(--rule); }
+      h3 { font-size: 1.15rem; margin: 1.4rem 0 .4rem; }
+      p { margin: .7rem 0; }
+      a { color: var(--accent); }
+      a:hover { color: var(--accent-deep); }
+
+      /* entity links inside letter text */
+      a.el { text-decoration: none; border-bottom: 1px dotted var(--accent); color: inherit; }
+      a.el:hover { background: var(--accent-soft); border-bottom-style: solid; color: var(--accent-deep); }
+      a.el[data-kind="place"] { border-bottom-color: var(--blue); }
+      a.el[data-kind="place"]:hover { background: var(--blue-soft); color: var(--blue); }
+
+      .kicker {
+        font-size: .78rem; letter-spacing: .14em; text-transform: uppercase;
+        color: var(--ink-faint); margin-bottom: .2rem;
+      }
+      .lede { font-family: var(--serif); font-size: 1.2rem; color: var(--ink-soft); }
+
+      /* ---------- metadata tables ---------- */
+      .meta-grid {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+        gap: .1rem 2rem; background: var(--paper-deep);
+        border: 1px solid var(--rule); border-radius: var(--radius);
+        padding: 1rem 1.25rem; margin: 1.2rem 0;
+      }
+      .meta-grid dt { font-size: .75rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+      .meta-grid dd { margin: .1rem 0 .7rem; font-size: .98rem; }
+
+      /* ---------- letter text ---------- */
+      .letter-text {
+        font-family: var(--serif); font-size: 1.16rem; line-height: 1.75; color: var(--ink);
+        max-width: 44rem;
+      }
+      .letter-text p { margin: 0 0 1em; text-align: left; }
+      .letter-text .salutation, .letter-text .rubric {
+        font-variant: small-caps; letter-spacing: .06em; font-size: 1.02rem; color: var(--ink-soft);
+      }
+      .letter-text .rubric { text-align: left; margin-bottom: .4em; }
+      .letter-text .signoff { text-align: center; font-style: italic; color: var(--ink-soft); margin-top: 1.6em; }
+      .letter-text .editorial-note {
+        font-family: var(--sans); font-size: .85rem; color: var(--ink-faint);
+        border-left: 3px solid var(--rule); padding-left: .8rem; font-style: italic;
+      }
+
+      /* ---------- cards & lists ---------- */
+      .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 1rem; margin: 1.2rem 0; }
+      .card {
+        background: #fffdf8; border: 1px solid var(--rule); border-radius: var(--radius);
+        padding: .9rem 1rem; text-decoration: none; color: inherit; display: block;
+      }
+      .card:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(90,40,40,.08); }
+      .card h3 { margin: 0 0 .3rem; font-size: 1.08rem; }
+      .card h3 a { color: var(--ink); text-decoration: none; }
+      .card h3 a:hover { color: var(--accent); }
+      .card p { margin: .3rem 0; font-size: .9rem; color: var(--ink-soft); }
+      .card .count { font-size: .78rem; color: var(--ink-faint); letter-spacing: .06em; text-transform: uppercase; }
+
+      .index-list { list-style: none; padding: 0; margin: 1rem 0; columns: 2; column-gap: 2.5rem; }
+      .index-list li { break-inside: avoid; margin-bottom: .45rem; font-size: .96rem; }
+      .index-list .n { color: var(--ink-faint); font-size: .85em; }
+      @media (max-width: 640px) { .index-list { columns: 1; } }
+
+      .pill {
+        display: inline-block; font-size: .8rem; padding: .12rem .6rem; border-radius: 999px;
+        background: var(--paper-deep); border: 1px solid var(--rule); color: var(--ink-soft);
+        text-decoration: none; margin: 0 .3rem .35rem 0;
+      }
+      .pill:hover { border-color: var(--accent); color: var(--accent-deep); }
+      .pill.topic { background: var(--blue-soft); border-color: #c9d4e8; }
+      .pill.topic:hover { border-color: var(--blue); color: var(--blue); }
+      .pill.place { background: #eef4ec; border-color: #cfdcc9; }
+
+      .rel-type {
+        font-size: .72rem; letter-spacing: .08em; text-transform: uppercase;
+        color: var(--ink-faint); display: block; margin-bottom: .15rem;
+      }
+
+      .pager { display: flex; justify-content: space-between; gap: 1rem; margin: 2.5rem 0 1rem; }
+      .pager a {
+        text-decoration: none; border: 1px solid var(--rule); border-radius: var(--radius);
+        padding: .6rem 1rem; background: #fffdf8; color: var(--ink); font-size: .92rem; max-width: 45%;
+      }
+      .pager a:hover { border-color: var(--accent); color: var(--accent-deep); }
+      .pager .next { margin-left: auto; text-align: right; }
+
+      .notice {
+        border: 1px solid var(--rule); border-left: 4px solid var(--gold);
+        background: #fffdf4; border-radius: var(--radius); padding: .8rem 1rem; margin: 1rem 0;
+        font-size: .94rem;
+      }
+      .notice strong { color: var(--ink); }
+
+      .breadcrumb { font-size: .85rem; color: var(--ink-faint); margin: 1.2rem 0 0; }
+      .breadcrumb a { color: var(--ink-faint); }
+      .breadcrumb a:hover { color: var(--accent); }
+
+      table.data { width: 100%; border-collapse: collapse; font-size: .94rem; margin: 1rem 0; }
+      table.data th, table.data td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--rule); }
+      table.data th { font-size: .75rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+      table.data tr:hover td { background: #fffdf8; }
+
+      @media (max-width: 720px) {
+        .header-inner { gap: .8rem; }
+        .site-nav { margin-left: 0; gap: .8rem; }
+        .site-search { margin-left: 0; width: 100%; }
+        .site-search input { flex: 1; width: auto; }
+        h1 { font-size: 1.7rem; }
+        .letter-text { font-size: 1.08rem; }
+      }
+    </style>
+    <script is:inline>
+      // Live header search: dropdown suggestions via Pagefind; Enter submits to /search/.
+      (function () {
+        var input = document.getElementById('q');
+        var box = document.getElementById('q-results');
+        if (!input || !box) return;
+        var pf = null, timer = null, lastQ = '';
+        function pfLoad() {
+          if (!pf) {
+            pf = import('/pagefind/pagefind.js').then(function (m) { return m.init().then(function () { return m; }); });
+          }
+          return pf;
+        }
+        function esc(s) {
+          return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+        function hide() {
+          box.hidden = true;
+          input.setAttribute('aria-expanded', 'false');
+        }
+        function run(q) {
+          if (q.length < 2) { hide(); return; }
+          pfLoad().then(function (pagefind) {
+            return pagefind.search(q);
+          }).then(function (res) {
+            if (input.value.trim() !== q) return; // stale
+            return Promise.all(res.results.slice(0, 6).map(function (r) { return r.data(); }))
+              .then(function (items) {
+                if (input.value.trim() !== q) return; // stale
+                if (!items.length) {
+                  box.innerHTML = '<p class="sr-empty">No quick matches — press Enter for full search.</p>';
+                } else {
+                  box.innerHTML = items.map(function (d) {
+                    return '<a class="sr-item" href="' + esc(d.url) + '">' +
+                      '<span class="sr-title">' + esc(d.meta.title) + '</span>' +
+                      '<span class="sr-ex">' + d.excerpt + '</span></a>';
+                  }).join('') +
+                    '<a class="sr-all" href="/search/?q=' + encodeURIComponent(q) + '">See all results →</a>';
+                }
+                box.hidden = false;
+                input.setAttribute('aria-expanded', 'true');
+              });
+          }).catch(function () { /* pagefind unavailable; plain form submit still works */ });
+        }
+        input.addEventListener('input', function () {
+          clearTimeout(timer);
+          var q = input.value.trim();
+          if (q === lastQ) return;
+          lastQ = q;
+          timer = setTimeout(function () { run(q); }, 220);
+        });
+        input.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape') { hide(); input.blur(); }
+        });
+        input.addEventListener('focus', function () {
+          if (box.innerHTML && input.value.trim().length >= 2) {
+            box.hidden = false;
+            input.setAttribute('aria-expanded', 'true');
+          }
+        });
+        document.addEventListener('click', function (e) {
+          if (!e.target.closest('.search-wrap')) hide();
+        });
+      })();
+    </script>
+  </body>
+</html>

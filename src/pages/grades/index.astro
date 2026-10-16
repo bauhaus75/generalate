@@ -1,0 +1,32 @@
+---
+import Base from '../../layouts/Base.astro';
+import { gradeList } from '../../lib/data';
+---
+
+<Base title="Grades in the Society" description="The Jesuit grades of the letter writers, as cataloged by the Digital Indipetae Database.">
+  <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a> · Grades</nav>
+  <p class="kicker">Their standing in the Society</p>
+  <h1>Grades in the Society</h1>
+  <p class="lede">
+    The writer's grade in the Society of Jesus at the time of writing — brother, scholastic,
+    novice, professed father, and more — as cataloged by the Digital Indipetae Database
+    (Boston College).
+  </p>
+  <p class="src">
+    These tags are the database's own cataloging, not this site's. Most letters are
+    "Undetermined" in the source catalog.
+  </p>
+  <div class="card-grid">
+    {gradeList.map((g) => (
+      <a class="card" href={`/grades/${g.id}/`}>
+        <h3>{g.name}</h3>
+        <p class="count">{g.letters.length} {g.letters.length === 1 ? 'letter' : 'letters'}</p>
+      </a>
+    ))}
+  </div>
+</Base>
+
+<style>
+  .src { font-size: .9rem; color: var(--ink-faint); }
+  .count { color: var(--ink-faint); }
+</style>

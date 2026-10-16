@@ -42,7 +42,13 @@ function gradeChip(app, petitionerId) {
     const stageLabels = { novice: 'Novice', scholastic: 'Scholastic', brother: 'Brother', ordained: 'Ordained scholastic', coadjutor: 'Spiritual coadjutor', professed: 'Professed' };
     const label = stageLabels[entry.vows.stage] || entry.vows.stage;
     const suffix = app.Engine.rankSuffix ? app.Engine.rankSuffix(app.state, petitionerId) : '';
-    return `<span class="grade-chip" title="Formation rank">${esc(label)} ${esc(suffix)}</span>`;
+    // Distinguish novice vocation tracks: brother-track vs scholastic-track.
+    let trackNote = '';
+    if (entry.vows.stage === 'novice' && app.Engine.vowsTrackFor) {
+      const track = app.Engine.vowsTrackFor(app.state, petitionerId);
+      if (track === 'brother') trackNote = ' (brother track)';
+    }
+    return `<span class="grade-chip" title="Formation rank">${esc(label)}${esc(trackNote)} ${esc(suffix)}</span>`;
   }
   const g = app.Engine.gradeFor(app.state, petitionerId);
   const ord = g.ordained === true ? 'ordained priest'
@@ -1021,15 +1027,69 @@ function formationDecisionsHTML(app) {
   </section>`;
 }
 
+/** Attach handlers for formation vows decision buttons. Used by both renderDesk paths. */
+function attachVowsHandlers(app, root) {
+  root.querySelectorAll('.vows-decide').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      try {
+        const decision = btn.dataset.decision;
+        if (decision === 'dismiss' && !confirm('Dismiss this man from the Society? This is permanent.')) return;
+        app.Engine.decideVows(app.state, btn.dataset.id, btn.dataset.type, decision);
+        app.Engine.refreshBriefing(app.state);
+        app.save();
+        app.sound(decision === 'dismiss' ? 'error' : 'page');
+        app.go('desk');
+      } catch (e) {
+        app.sound('error');
+        alert(e.message);
+      }
+    });
+  });
+  root.querySelectorAll('.vows-invite').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      try {
+        if (!confirm('Invite this man to tertianship (one year) for final vows?')) return;
+        app.Engine.inviteFinalVows(app.state, btn.dataset.id);
+        app.Engine.refreshBriefing(app.state);
+        app.save();
+        app.sound('page');
+        app.go('desk');
+      } catch (e) {
+        app.sound('error');
+        alert(e.message);
+      }
+    });
+  });
+  root.querySelectorAll('.vows-grade').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      try {
+        const grade = btn.dataset.grade;
+        if (!confirm(`Assign as ${grade === 'coadjutor' ? 'spiritual coadjutor' : 'professed'}? This is permanent.`)) return;
+        app.Engine.completeFinalVows(app.state, btn.dataset.id, grade);
+        app.Engine.refreshBriefing(app.state);
+        app.save();
+        app.sound('coin');
+        app.go('desk');
+      } catch (e) {
+        app.sound('error');
+        alert(e.message);
+      }
+    });
+  });
+}
+
 export function renderDesk(app, root, terna) {
   // If no terna is awaiting decision (already sealed), show decided state, not interactive UI.
   // This prevents the dead end where SEAL button appears but decide() throws.
+  // Formation decisions are always shown below, with or without an active terna.
   if (!app.state.currentTerna) {
     root.innerHTML = `
     <section class="gscreen desk-screen">
       <p class="kicker px">THE TERNA · ANNO ${app.state.year}</p>
       <p class="desk-instr">The terna for this year has been sealed. Receive next year's terna from the Briefing tab.</p>
-    </section>`;
+    </section>
+    ${formationDecisionsHTML(app)}`;
+    attachVowsHandlers(app, root);
     return;
   }
   // decisions: id -> {verdict:'approve'|'deny', destination, companions}.
@@ -1228,53 +1288,7 @@ export function renderDesk(app, root, terna) {
   refresh();
 
   // Formation vows decisions
-  root.querySelectorAll('.vows-decide').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      try {
-        const decision = btn.dataset.decision;
-        if (decision === 'dismiss' && !confirm('Dismiss this man from the Society? This is permanent.')) return;
-        app.Engine.decideVows(app.state, btn.dataset.id, btn.dataset.type, decision);
-        app.Engine.refreshBriefing(app.state);
-        app.save();
-        app.sound(decision === 'dismiss' ? 'error' : 'page');
-        app.go('desk');
-      } catch (e) {
-        app.sound('error');
-        alert(e.message);
-      }
-    });
-  });
-  root.querySelectorAll('.vows-invite').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      try {
-        if (!confirm('Invite this man to tertianship (one year) for final vows?')) return;
-        app.Engine.inviteFinalVows(app.state, btn.dataset.id);
-        app.Engine.refreshBriefing(app.state);
-        app.save();
-        app.sound('page');
-        app.go('desk');
-      } catch (e) {
-        app.sound('error');
-        alert(e.message);
-      }
-    });
-  });
-  root.querySelectorAll('.vows-grade').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      try {
-        const grade = btn.dataset.grade;
-        if (!confirm(`Assign as ${grade === 'coadjutor' ? 'spiritual coadjutor' : 'professed'}? This is permanent.`)) return;
-        app.Engine.completeFinalVows(app.state, btn.dataset.id, grade);
-        app.Engine.refreshBriefing(app.state);
-        app.save();
-        app.sound('coin');
-        app.go('desk');
-      } catch (e) {
-        app.sound('error');
-        alert(e.message);
-      }
-    });
-  });
+  attachVowsHandlers(app, root);
 }
 
 /* ---------------- letter reader overlay ---------------- */

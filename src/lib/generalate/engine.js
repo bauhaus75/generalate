@@ -487,6 +487,7 @@ export function assignDomestic(state, petitionerId, roleId) {
   if (!role) throw new Error(`assignDomestic: unknown role "${roleId}".`);
   const entry = (state.europeanLabor || []).find((e) => e.petitionerId === petitionerId);
   if (!entry) throw new Error('Domestic assignment is for men laboring in Europe.');
+  if (entry.ill) throw new Error(`${entry.name} is recovering from illness and cannot take an assignment.`);
   if (entry.assignment) throw new Error(`${entry.name} already holds a domestic assignment (${entry.assignment}). Release him first.`);
   if (entry.formation && entry.formation.until >= state.year) {
     throw new Error(`${entry.name} is in formation until ${entry.formation.until}; interrupt formation or wait.`);
@@ -543,6 +544,9 @@ export function unassignDomestic(state, petitionerId) {
 export function dispatchFromFormation(state, petitionerId, destId) {
   const entry = (state.europeanLabor || []).find((e) => e.petitionerId === petitionerId);
   if (!entry) throw new Error('Emergency dispatch is for men laboring in Europe.');
+  if (entry.ill) {
+    throw new Error(`${entry.name} is recovering from illness and cannot be dispatched.`);
+  }
   if (!entry.formation || entry.formation.until < state.year) {
     throw new Error(`${entry.name} is not currently in formation.`);
   }
@@ -576,6 +580,47 @@ export function dispatchFromFormation(state, petitionerId, destId) {
     text: `${entry.name} dispatched from formation to ${dest.name || destId} — formation interrupted (forfeited), ${cost} scudi from the chest.`,
   });
   return { petitionerId, destId, grade, cost, forfeitedFormation: fName };
+}
+
+/**
+ * Dispatch a man from European labor directly to a mission.
+ * For men who have completed formation or were never in formation.
+ * Unlike terna approvals, this does not create a voyage — the man
+ * is placed directly at the mission (representing arranged travel).
+ * The man must not be ill, in formation, or holding a domestic assignment.
+ */
+export function dispatchFromEurope(state, petitionerId, destId) {
+  const entry = (state.europeanLabor || []).find((e) => e.petitionerId === petitionerId);
+  if (!entry) throw new Error('Dispatch is for men laboring in Europe.');
+  if (entry.ill) throw new Error(`${entry.name} is recovering from illness and cannot be dispatched.`);
+  if (entry.formation && entry.formation.until >= state.year) {
+    throw new Error(`${entry.name} is in formation until ${entry.formation.until}; use emergency dispatch or wait.`);
+  }
+  if (entry.assignment) {
+    throw new Error(`${entry.name} holds a domestic assignment; release him first.`);
+  }
+  const g = ensureData();
+  const dest = g.destinations.find((d) => d.id === destId);
+  if (!dest) throw new Error(`dispatchFromEurope: unknown destination "${destId}"`);
+  const dst = state.destState[destId];
+  if (dst && dst.access === 'closed') throw new Error(`dispatchFromEurope: ${dest.name || destId} is closed to new men`);
+  const grade = staffGradeFor(state, petitionerId);
+  const cost = rules.MISSION_GRADES[grade].cost;
+  if (state.resources.funds < cost) {
+    throw new Error(`dispatchFromEurope: ${cost} scudi needed, the chest holds ${state.resources.funds}`);
+  }
+  state.europeanLabor = state.europeanLabor.filter((e) => e.petitionerId !== petitionerId);
+  state.resources.funds -= cost;
+  const st = missionStaff(state, destId);
+  st[grade] += 1;
+  const rec = ensureRecord(state, petitionerId, false);
+  rec.status = STATUS.ACTIVE;
+  rec.history.push({ year: state.year, decision: 'dispatch-europe', destination: destId });
+  addLedger(state, {
+    year: state.year, type: 'dispatch', petitionerId, decision: 'europe',
+    text: `${entry.name} dispatched from Europe to ${dest.name || destId} — ${cost} scudi from the chest.`,
+  });
+  return { petitionerId, destId, grade, cost };
 }
 
 /**
@@ -1518,11 +1563,13 @@ function deliverNews(state, g, voyage, outcomes) {
   // Diminishing returns: thriving beyond THRIVING_DIMINISH_AFTER at a single
   // mission gives reduced score. Encourages spreading men across missions.
   let fruitDelta = rules.SCORE.FRUIT[voyage.outcome] ?? 0;
+  let diminishNote = '';
   if (voyage.outcome === 'thriving') {
     const st = missionStaff(state, voyage.destination);
     const priorThriving = st.thrivingCount || 0;
     if (priorThriving >= rules.SCORE.THRIVING_DIMINISH_AFTER) {
       fruitDelta = rules.SCORE.THRIVING_DIMINISHED;
+      diminishNote = ` (diminishing returns: ${priorThriving + 1}th thriving at ${dName}, +${fruitDelta} instead of +${rules.SCORE.FRUIT.thriving})`;
     }
     st.thrivingCount = priorThriving + 1;
   }
@@ -1535,7 +1582,7 @@ function deliverNews(state, g, voyage, outcomes) {
     petitionerId: voyage.petitionerId, destination: voyage.destination,
     decision: 'approved', status: voyage.outcome,
     counterfactual: true, delta: fruitDelta,
-    note,
+    note: note + diminishNote,
   });
   outcomes.push({
     voyageId: voyage.id,
@@ -1777,7 +1824,15 @@ export function resolveYear(state) {
       state.stats.returns += 1;
       state.available = (state.available || 0) + 1;
     }
-    if (outcome === 'ill') state.stats.illnesses += 1;
+    if (outcome === 'ill') {
+      state.stats.illnesses += 1;
+      // Ill survivors remain in the personnel system: they are in Europe
+      // recovering, not stationed at the mission, not available for dispatch.
+      const illName = v.petitionerName || cardName(state, g, v.petitionerId);
+      const illRec = addEuropeanLabor(state, v.petitionerId, illName, 'ill');
+      illRec.ill = true;
+      illRec.illYear = y;
+    }
     if (outcome === 'reassigned') state.stats.reassignments += 1;
     if (outcome === 'thriving') {
       state.stats.thriving += 1;
@@ -2191,6 +2246,13 @@ export function dbgForceOutcome(state, voyageId, outcome) {
     state.society = Math.max(0, (state.society || 0) - 1);
   }
   if (outcome === 'returned') state.available = (state.available || 0) + 1; // rejoins the mission-eligible pool
+  if (outcome === 'ill') {
+    state.stats.illnesses += 1;
+    const illName = v.petitionerName || cardName(state, g, v.petitionerId);
+    const illRec = addEuropeanLabor(state, v.petitionerId, illName, 'ill');
+    illRec.ill = true;
+    illRec.illYear = state.year;
+  }
   const rec = getRecord(state, v.petitionerId);
   rec.status =
     outcome === 'deceased' ? STATUS.DECEASED

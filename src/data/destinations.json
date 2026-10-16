@@ -1,0 +1,174 @@
+{
+  "east-indies": {
+    "id": "east-indies",
+    "name": "East Indies",
+    "modern_name": null,
+    "letters": [
+      1,
+      5,
+      41,
+      56,
+      85,
+      90,
+      98,
+      101,
+      114,
+      132,
+      139
+    ]
+  },
+  "china": {
+    "id": "china",
+    "name": "China",
+    "modern_name": null,
+    "letters": [
+      2,
+      3,
+      14,
+      16,
+      20,
+      26,
+      35,
+      43,
+      45,
+      48,
+      49,
+      66,
+      79,
+      98,
+      101,
+      107,
+      109,
+      118,
+      132,
+      134,
+      136,
+      138,
+      141,
+      143,
+      144,
+      146
+    ]
+  },
+  "japan": {
+    "id": "japan",
+    "name": "Japan",
+    "modern_name": null,
+    "letters": [
+      2,
+      3,
+      14,
+      20,
+      23,
+      30,
+      34,
+      37,
+      42,
+      43,
+      46,
+      48,
+      49,
+      66,
+      71,
+      73,
+      74,
+      79,
+      82,
+      96,
+      102,
+      106,
+      116,
+      121,
+      123,
+      125,
+      126,
+      131,
+      146,
+      157,
+      159,
+      164,
+      169
+    ]
+  },
+  "india": {
+    "id": "india",
+    "name": "India",
+    "modern_name": null,
+    "letters": [
+      3,
+      45,
+      79
+    ]
+  },
+  "paraguay": {
+    "id": "paraguay",
+    "name": "Paraguay",
+    "modern_name": null,
+    "letters": [
+      16,
+      18,
+      82
+    ]
+  },
+  "brazil": {
+    "id": "brazil",
+    "name": "Brazil",
+    "modern_name": null,
+    "letters": [
+      43,
+      45,
+      48,
+      49
+    ]
+  },
+  "aethiopia": {
+    "id": "aethiopia",
+    "name": "Aethiopia",
+    "modern_name": "Ethiopia",
+    "letters": [
+      60,
+      161
+    ]
+  },
+  "england": {
+    "id": "england",
+    "name": "England",
+    "modern_name": null,
+    "letters": [
+      66,
+      79
+    ]
+  },
+  "west-indies": {
+    "id": "west-indies",
+    "name": "West Indies",
+    "modern_name": null,
+    "letters": [
+      69
+    ]
+  },
+  "peru": {
+    "id": "peru",
+    "name": "Peru",
+    "modern_name": null,
+    "letters": [
+      79
+    ]
+  },
+  "asia": {
+    "id": "asia",
+    "name": "Asia",
+    "modern_name": null,
+    "letters": [
+      96
+    ]
+  },
+  "chile": {
+    "id": "chile",
+    "name": "Chile",
+    "modern_name": null,
+    "letters": [
+      169
+    ]
+  }
+}

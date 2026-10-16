@@ -1496,13 +1496,14 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 // --- 39. Vows and career milestones -------------------------------------------
 {
   // Helper: create a europeanLabor man with controlled years and vows stage.
-  function vowsMan(s, tag, yearsInSoc, stage) {
+  function vowsMan(s, tag, yearsInSoc, stage, grade) {
     const id = `vows-${tag}-${s.year}`;
     s.petitioners[id] = {
       id, fictional: true, status: 'denied', history: [],
       deniedCount: 1, usedLetters: [], voyages: [], archived: false,
       yearsInSociety: yearsInSoc, entryYear: s.year,
     };
+    if (grade) s.petitioners[id].vowsTrack = grade;
     const entry = {
       petitionerId: id, name: `Vows Man ${tag}`, year: s.year, via: 'denied',
       vows: {
@@ -1517,7 +1518,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   // 1. Milestone detection: 2-year novice queues firstVows.
   {
     const s = newGame({ mode: 'campaign', seed: 'vows-detect' });
-    const id = vowsMan(s, 'nov2', 2, 'novice');
+    const id = vowsMan(s, 'nov2', 2, 'novice', 'scholastic');
     resolveYear(s);
     const p = (s.pendingVows || []).find((x) => x.petitionerId === id && x.type === 'firstVows');
     ok('vows: 2-year novice queues firstVows', !!p);
@@ -1526,7 +1527,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   // 2. firstVows proceed: novice -> scholastic, +zeal/+humility.
   {
     const s = newGame({ mode: 'campaign', seed: 'vows-first' });
-    const id = vowsMan(s, 'nov2', 2, 'novice');
+    const id = vowsMan(s, 'nov2', 2, 'novice', 'scholastic');
     resolveYear(s);
     const d0 = ensureDisposition(s, id);
     const z0 = d0.current.zeal, h0 = d0.current.humility;
@@ -1557,7 +1558,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   // 4. Defer: +humility, deferredUntil, re-queued after 2 years.
   {
     const s = newGame({ mode: 'campaign', seed: 'vows-defer' });
-    const id = vowsMan(s, 'nov2', 2, 'novice');
+    const id = vowsMan(s, 'nov2', 2, 'novice', 'scholastic');
     resolveYear(s);
     const d0 = ensureDisposition(s, id);
     const h0 = d0.current.humility;
@@ -1581,7 +1582,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   // 5. Dismiss: removed, status DISMISSED, never returns.
   {
     const s = newGame({ mode: 'campaign', seed: 'vows-dismiss' });
-    const id = vowsMan(s, 'nov2', 2, 'novice');
+    const id = vowsMan(s, 'nov2', 2, 'novice', 'scholastic');
     resolveYear(s);
     decideVows(s, id, 'firstVows', 'dismiss');
     ok('vows: dismissed removed from europeanLabor',
@@ -1616,7 +1617,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   // 7. Full progression: novice -> scholastic -> ordained via milestones.
   {
     const s = newGame({ mode: 'campaign', seed: 'vows-full' });
-    const id = vowsMan(s, 'nov2', 2, 'novice');
+    const id = vowsMan(s, 'nov2', 2, 'novice', 'scholastic');
     // firstVows
     resolveYear(s);
     decideVows(s, id, 'firstVows', 'proceed');
@@ -1697,7 +1698,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   // 10. Invalid inputs throw.
   {
     const s = newGame({ mode: 'campaign', seed: 'vows-err' });
-    const id = vowsMan(s, 'nov2', 2, 'novice');
+    const id = vowsMan(s, 'nov2', 2, 'novice', 'scholastic');
     let threw = false;
     try { decideVows(s, id, 'firstVows', 'proceed'); } catch { threw = true; }
     ok('vows: decideVows throws with no pending', threw);
@@ -1715,7 +1716,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   // 11. Save round-trip preserves vows.
   {
     const s = newGame({ mode: 'campaign', seed: 'vows-save' });
-    const id = vowsMan(s, 'nov2', 2, 'novice');
+    const id = vowsMan(s, 'nov2', 2, 'novice', 'scholastic');
     resolveYear(s);
     decideVows(s, id, 'firstVows', 'proceed');
     const back = deserialize(serialize(s));
@@ -1728,7 +1729,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   // 12. Old save without vows gets backfilled.
   {
     const s = newGame({ mode: 'campaign', seed: 'vows-old' });
-    const id = vowsMan(s, 'nov2', 2, 'novice');
+    const id = vowsMan(s, 'nov2', 2, 'novice', 'scholastic');
     const entry = s.europeanLabor.find((e) => e.petitionerId === id);
     delete entry.vows;
     const back = deserialize(serialize(s));

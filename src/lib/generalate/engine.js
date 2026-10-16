@@ -1,20 +1,5 @@
-/**
- * engine.js — GENERALATE simulation engine (real engine; replaces the UI
- * worker's mockEngine.js stand-in — the UI imports '../engine.js' only).
- *
- * You are the Father General. Each year a terna of three petitioners begs
- * for the missions; you may approve exactly one. The approved enters a
- * departure queue (not an instant sailing); voyages resolve travelYears
- * later; news arrives later still. Historical events mutate destination
- * access/danger, which gates terna eligibility and voyage outcomes.
- *
- * Pure logic: no DOM, no network, no LLM. All randomness is seeded and
- * serialized with the state, so any playthrough is reproducible.
- *
- * The engine only selects/shuffles data records — it never generates
- * historical text. Simulated voyage outcomes are labeled counterfactual
- * in the ledger (see rules.js).
- */
+/** engine.js — GENERALATE simulation engine. Pure logic: no DOM, no network.
+ * All randomness is seeded and serialized; playthroughs are reproducible. */
 
 import { makeRng } from './rng.js';
 import { getGameData } from './data.js';
@@ -22,8 +7,8 @@ import * as rules from './rules.js';
 import * as dice from './dice.js';
 import * as dispositions from './dispositions.js';
 import { fictionalPetitioner, archiveFictional, MAX_ACTIVE_FICTIONAL } from './generator.js';
-import {decideVows,inviteFinalVows,completeFinalVows,rankSuffix,checkVowsMilestones,ensureVows} from './vows.js';
-export {decideVows,inviteFinalVows,completeFinalVows,rankSuffix};
+import {decideVows,inviteFinalVows,completeFinalVows,rankSuffix,checkVowsMilestones,ensureVows,purgeVowsState,vowsTrackFor} from './vows.js';
+export {decideVows,inviteFinalVows,completeFinalVows,rankSuffix,purgeVowsState,vowsTrackFor};
 
 export const CAMPAIGN_START = 1615;
 export const CAMPAIGN_END = 1645;
@@ -326,7 +311,7 @@ function addEuropeanLabor(state, petitionerId, name, via) {
     return existing;
   }
   const rec = { petitionerId, name, year: state.year, via, assignment: null };
-  // Track Society entry for milestone years BEFORE ensureVows (which auto-resolves past milestones).
+  // entryYear must precede ensureVows (it auto-resolves past milestones by years).
   const pr0 = state.petitioners[petitionerId];
   if (pr0 && pr0.entryYear == null) pr0.entryYear = state.year;
   rec.vows = ensureVows(state, petitionerId);
@@ -725,21 +710,7 @@ export function selectDeploymentMembers(state, sel = {}) {
   return picked.map((c) => c.petitionerId);
 }
 
-/**
- * Order a collective deployment: commit named eligible men to a destination.
- *
- * Personnel accounting follows the terna convention exactly:
- * - At order: men are removed from europeanLabor (they cannot be selected
- *   again) and pushed into the departure queue with status 'awaiting'.
- *   state.available is NOT changed here — mirrors decide().
- * - At departure: the existing loop decrements state.available by 1 per man
- *   and charges DEPARTURE_COST per man. Exactly once per member.
- *
- * Queue entries carry deploymentId and companions: 0. No terna approval or
- * denial seal costs apply. There is no cancellation in Stage 1: the order is
- * irreversible and the men sail as berths, men to spare, funds, and hulls
- * allow, oldest approval year first (no deployment priority).
- */
+/** Order a collective deployment of named eligible men to a destination. */
 export function orderDeployment(state, { destId, purpose, memberIds }) {
   const g = ensureData();
   const dest = g.destinations.find((d) => d.id === destId);
@@ -1536,23 +1507,9 @@ export function startYear(state) {
 // Decision
 // ---------------------------------------------------------------------------
 
-/**
- * Decide the fate of the current terna. The General may approve any number
- * of the three petitioners — one, two, all three, or none — and may redirect
- * each approved man to a different open mission. Everyone not approved is
- * denied and may petition again.
- *
- * Approved men enter the departure queue (NOT an instant sailing); sailing
- * happens at year resolution, oldest approval first, limited by berths and
- * the mission chest. Approvals bound for the same destination sail as a
- * team: men in company steady each other, reducing the voyage's effective
- * danger.
- *
- * @param {object} state
- * @param {Array<{id:string, destination?:string, companions?:number}>} approvals approved petitioners;
- *   companions sail with the man, strengthening his voyage check.
- * @returns {{approved:object[], denied:object[], teams:object[], report:object, scoreDelta:number}}
- */
+/** Seal the current terna: approve any subset (0-3), redirect destinations.
+ * @param {object} state @param {Array} approvals ({id, destination?, companions?}).
+ * @returns {{approved, denied, teams, report, scoreDelta}} */
 export function decide(state, approvals) {
   const t = state.currentTerna;
   if (!t) throw new Error('No terna is awaiting decision.');
@@ -1628,6 +1585,8 @@ export function decide(state, approvals) {
     const teamSize = destGroups.get(destination).length;
     const cRec = getRecord(state, card.petitionerId);
     cRec.status = STATUS.APPROVED;
+    // entryYear baseline for years-in-Society.
+    if (cRec.entryYear == null) cRec.entryYear = state.year;
     cRec.history.push({ year: state.year, decision: 'approved', destination });
     // He sails: no longer laboring in Europe.
     if (Array.isArray(state.europeanLabor)) {
@@ -2127,6 +2086,7 @@ export function resolveYear(state) {
       : outcome === 'returned' ? STATUS.RETURNED
       : outcome === 'ill' ? STATUS.ILL
       : STATUS.ACTIVE;
+    if (outcome === 'deceased') purgeVowsState(state, v.petitionerId);
     state.stats.arrivals += 1;
     if (outcome === 'deceased') {
       state.stats.deaths += 1;
@@ -2411,22 +2371,7 @@ const REFLECTIONS = Object.freeze({
 // End-of-generalate report card (Stage 2)
 // ---------------------------------------------------------------------------
 
-/**
- * Build the end-of-generalate report card: a plain-data summary of the
- * campaign for the closing screen. Uses only data already in game state or
- * safely derivable from it (stats, voyages, novitiates, fired events).
- *
- * The report states actual outcomes; the closing narrative is descriptive,
- * never a grade or a judgment. It introduces no new score, no modifier, and
- * no assessment vocabulary ("wasteful", "efficient", ...). The internal
- * uncapped audit score is deliberately NOT exposed here.
- *
- * Missing historical data (saves predating a tracking field) is marked
- * unavailable, never fabricated.
- *
- * @param {object} state
- * @returns {object} plain-data report (JSON-safe)
- */
+/** Build the end-of-generalate report card (plain-data summary). */
 export function generalateReport(state) {
   const g = ensureData();
   const s = state.stats || {};
@@ -2756,6 +2701,7 @@ export function dbgForceOutcome(state, voyageId, outcome) {
     : outcome === 'returned' ? STATUS.RETURNED
     : outcome === 'ill' ? STATUS.ILL
     : STATUS.ACTIVE;
+  if (outcome === 'deceased') purgeVowsState(state, v.petitionerId);
   const outcomes = [];
   deliverNews(state, g, v, outcomes);
   return outcomes[0];

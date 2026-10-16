@@ -1,0 +1,42 @@
+---
+import Base from '../../layouts/Base.astro';
+import LetterList from '../../components/LetterList.astro';
+import { grades, gradeList } from '../../lib/data';
+
+export function getStaticPaths() {
+  return gradeList.map((g) => ({ params: { id: g.id } }));
+}
+
+const grade = grades[Astro.params.id];
+---
+
+<Base title={grade.name} description={`Letters written by ${grade.name}s in the Indipetae to Mutio Vitelleschi.`}>
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="/">Home</a> · <a href="/grades/">Grades</a> · {grade.name}
+  </nav>
+  <p class="kicker">Grade in the Society · as cataloged by the Digital Indipetae Database</p>
+  <h1>{grade.name}</h1>
+  <p class="src">
+    Writers cataloged as {grade.id === 'undetermined' ? 'of undetermined grade' : `“${grade.name}”`} in the source database.
+  </p>
+
+  <section aria-label="Letters">
+    <h2>Letters <span class="count">({grade.letters.length})</span></h2>
+    <LetterList numbers={grade.letters} />
+  </section>
+
+  <section aria-label="Other grades">
+    <h2>Other grades</h2>
+    <p>
+      {gradeList.filter((g) => g.id !== grade.id).map((g) => (
+        <a class="pill topic" href={`/grades/${g.id}/`}>{g.name} <span class="n">({g.letters.length})</span></a>
+      ))}
+    </p>
+  </section>
+</Base>
+
+<style>
+  .src { font-size: .9rem; color: var(--ink-faint); }
+  .count { color: var(--ink-faint); font-size: 1rem; font-weight: 400; }
+  .n { color: var(--ink-faint); }
+</style>

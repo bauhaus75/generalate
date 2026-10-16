@@ -1,0 +1,562 @@
+---
+import Base from '../layouts/Base.astro';
+import { personList, placeList, topicList, letterNumbers } from '../lib/data';
+---
+
+<Base title="Graph explorer" description="Explore the Indipetae collection as an interactive network of letters, people, places, and themes.">
+  <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a> · Graph</nav>
+  <p class="kicker">Knowledge graph</p>
+  <h1>Graph explorer</h1>
+  <p class="lede">
+    The collection as a living web. Every node is real, every link is documented —
+    wander from a letter to its author, from a theme to the letters that share it,
+    from a place to everyone who wrote there. Click anything to inspect it.
+  </p>
+
+  <a class="skip" href="#edge-table">Skip to connections list</a>
+  <div class="graph-shell">
+    <div id="cy" aria-label="Interactive network graph. The same connections are listed in an accessible table below.">
+      <p class="graph-loading">Loading the network…</p>
+    </div>
+
+    <div class="graph-topbar">
+      <div class="search-wrap">
+        <input id="gsearch" type="search" placeholder="Search letters, people, places, themes…" autocomplete="off" aria-label="Search the graph" />
+        <div id="gresults" class="search-results" hidden></div>
+      </div>
+      <div class="top-actions">
+        <button id="fit-btn" type="button" title="Fit graph to screen">⤢ Fit</button>
+        <button id="reset-btn" type="button" title="Reset view and filters">⟲ Reset</button>
+      </div>
+    </div>
+
+    <button id="panel-toggle" type="button" aria-expanded="true" aria-controls="control-panel">⚙ Controls</button>
+    <aside id="control-panel" class="control-panel" aria-label="Graph controls">
+      <div class="ctl">
+        <label for="mode">View</label>
+        <select id="mode">
+          <option value="full" selected>Whole web (filtered)</option>
+          <option value="missions">Mission desires only</option>
+          <option value="ego">Explore from an entity…</option>
+        </select>
+      </div>
+      <div class="ctl" id="ego-picker" hidden>
+        <label for="ego">Start from</label>
+        <select id="ego">
+          <optgroup label="People">
+            {personList.map((p) => <option value={`person:${p.id}`}>{`${p.display_name} (${p.role})`}</option>)}
+          </optgroup>
+          <optgroup label="Places">
+            {placeList.map((p) => <option value={`place:${p.id}`}>{`${p.name} (${p.kind})`}</option>)}
+          </optgroup>
+          <optgroup label="Topics">
+            {topicList.map((t) => <option value={`topic:${t.id}`}>{t.name}</option>)}
+          </optgroup>
+          <optgroup label="Letters">
+            {letterNumbers.map((n) => <option value={`letter:${n}`}>Letter {n}</option>)}
+          </optgroup>
+        </select>
+      </div>
+      <div class="ctl">
+        <label for="depth">Highlight depth</label>
+        <select id="depth">
+          <option value="1">1 step</option>
+          <option value="2" selected>2 steps</option>
+          <option value="3">3 steps</option>
+        </select>
+      </div>
+      <fieldset class="ctl">
+        <legend>Relationships</legend>
+        <label><input type="checkbox" data-rel="written_by" checked /> written by</label>
+        <label><input type="checkbox" data-rel="written_in" checked /> written in</label>
+        <label><input type="checkbox" data-rel="aspires_to" checked /> desires to travel to</label>
+        <label><input type="checkbox" data-rel="mentions_person" checked /> mentions (person)</label>
+        <label><input type="checkbox" data-rel="mentions_place" checked /> mentions (place)</label>
+        <label><input type="checkbox" data-rel="indexed_under" checked /> indexed under</label>
+        <label><input type="checkbox" data-rel="recipient" /> addressed to</label>
+      </fieldset>
+      <fieldset class="ctl">
+        <legend>Show</legend>
+        <label><input type="checkbox" data-kind="letter" checked /> letters</label>
+        <label><input type="checkbox" data-kind="person" checked /> people</label>
+        <label><input type="checkbox" data-kind="place" checked /> places</label>
+        <label><input type="checkbox" data-kind="topic" checked /> themes</label>
+      </fieldset>
+      <div class="ctl">
+        <label for="year-min">Letters <span id="year-min-v">1616</span>–<span id="year-max-v">1647</span></label>
+        <div class="years">
+          <input type="range" id="year-min" min="1616" max="1647" value="1616" aria-label="From year" />
+          <input type="range" id="year-max" min="1616" max="1647" value="1647" aria-label="To year" />
+        </div>
+      </div>
+      <p class="hint">Drag to pan · scroll to zoom · drag nodes to rearrange · click for details.</p>
+    </aside>
+
+    <aside id="detail" class="detail" hidden aria-live="polite" aria-label="Selection details">
+      <button id="detail-close" type="button" aria-label="Close details">×</button>
+      <div id="detail-body"></div>
+    </aside>
+
+    <div id="tooltip" class="tooltip" hidden></div>
+  </div>
+
+  <section>
+    <h2>Connections as a list</h2>
+    <p>An accessible, screen-reader-friendly alternative to the graph: every relationship currently shown.</p>
+    <div class="table-wrap">
+      <table class="data" id="edge-table">
+        <thead><tr><th>Letter</th><th>Relationship</th><th>Connected entity</th><th>Evidence</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <script>
+    // cytoscape is code-split: loaded on demand so the 400KB+ library
+    // never blocks first paint of this page.
+    let cytoscape = null;
+
+    // ——— Obsidian-inspired dark palette ———
+    const KIND = {
+      letter: { color: '#c9a86a', label: 'letter' },
+      person: { color: '#d4776a', label: 'person' },
+      place:  { color: '#6a9bd4', label: 'place' },
+      topic:  { color: '#7fb069', label: 'theme' },
+    };
+    const BG = '#0d1017';
+    const EDGE = '#4a5160';
+    const LABEL = '#9aa3b2';
+
+    let DATA = null, cy = null, selected = null;
+
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const relChecked = () => [...document.querySelectorAll('[data-rel]:checked')].map((el) => el.dataset.rel);
+    const kindChecked = () => [...document.querySelectorAll('[data-kind]:checked')].map((el) => el.dataset.kind);
+    const nodeById = (id) => DATA.nodes.find((n) => n.id === id);
+
+    async function load() {
+      // Fetch the graph data and the cytoscape library in parallel so
+      // neither blocks the other; the page paints before either finishes.
+      const cyEl = $('cy');
+      cyEl.setAttribute('aria-busy', 'true');
+      try {
+        const [dataRes, cyMod] = await Promise.all([
+          fetch('/graph.json'),
+          import('cytoscape'),
+        ]);
+        DATA = await dataRes.json();
+        cytoscape = cyMod.default;
+        build();
+      } catch (err) {
+        cyEl.innerHTML = '<p class="graph-error">The interactive graph could not be loaded. ' +
+          'The <a href="#edge-table">connections list</a> below contains the same data.</p>';
+      } finally {
+        cyEl.removeAttribute('aria-busy');
+      }
+    }
+
+    function visibleEdges() {
+      const rels = new Set(relChecked());
+      const y0 = +$('year-min').value, y1 = +$('year-max').value;
+      return DATA.edges.filter((e) => {
+        if (!rels.has(e.type)) return false;
+        const yr = nodeById(e.source).year;
+        if (yr != null && (yr < y0 || yr > y1)) return false;
+        return true;
+      });
+    }
+
+    function egoSet(centerId, depth) {
+      const edges = visibleEdges();
+      const adj = new Map();
+      for (const e of edges) {
+        if (!adj.has(e.source)) adj.set(e.source, []);
+        if (!adj.has(e.target)) adj.set(e.target, []);
+        adj.get(e.source).push(e); adj.get(e.target).push(e);
+      }
+      const seen = new Set([centerId]);
+      let frontier = [centerId];
+      const keep = new Set();
+      for (let d = 0; d < depth; d++) {
+        const next = [];
+        for (const id of frontier) for (const e of adj.get(id) || []) {
+          keep.add(e.id);
+          const other = e.source === id ? e.target : e.source;
+          if (!seen.has(other)) { seen.add(other); next.push(other); }
+        }
+        frontier = next;
+      }
+      return { nodes: seen, edges: keep };
+    }
+
+    function neighborhood(center, depth) {
+      // BFS from center up to depth steps; returns {nodes:Set, edges:Set}
+      const adj = new Map();
+      cy.edges().forEach((e) => {
+        const s = e.source().id(), t = e.target().id();
+        if (!adj.has(s)) adj.set(s, []);
+        if (!adj.has(t)) adj.set(t, []);
+        adj.get(s).push({ e, other: t }); adj.get(t).push({ e, other: s });
+      });
+      const seen = new Set([center.id()]);
+      const keepE = new Set();
+      let frontier = [center.id()];
+      for (let d = 0; d < depth; d++) {
+        const next = [];
+        for (const id of frontier) for (const { e, other } of adj.get(id) || []) {
+          keepE.add(e.id());
+          if (!seen.has(other)) { seen.add(other); next.push(other); }
+        }
+        frontier = next;
+      }
+      return { nodes: seen, edges: keepE };
+    }
+
+    function build() {
+      if (!DATA || !cytoscape) return; // library or data not ready yet
+      const mode = $('mode').value;
+      const kinds = new Set(kindChecked());
+      let keepNodes, keepEdges;
+      if (mode === 'missions') {
+        keepEdges = new Set(DATA.edges.filter((e) => e.type === 'aspires_to').map((e) => e.id));
+        keepNodes = new Set();
+        for (const e of DATA.edges) if (keepEdges.has(e.id)) { keepNodes.add(e.source); keepNodes.add(e.target); }
+      } else if (mode === 'ego') {
+        const r = egoSet($('ego').value, +$('depth').value);
+        keepNodes = r.nodes; keepEdges = r.edges;
+      } else {
+        const edges = visibleEdges();
+        keepEdges = new Set(edges.map((e) => e.id));
+        keepNodes = new Set();
+        for (const e of edges) { keepNodes.add(e.source); keepNodes.add(e.target); }
+      }
+      const nodeData = DATA.nodes.filter((n) => keepNodes.has(n.id) && kinds.has(n.kind));
+      const nodeIds = new Set(nodeData.map((n) => n.id));
+      const edgeData = DATA.edges.filter((e) => keepEdges.has(e.id) && nodeIds.has(e.source) && nodeIds.has(e.target));
+
+      // deterministic initial positions: phyllotaxis spiral
+      nodeData.forEach((n, i) => {
+        const a = i * 2.399963, r = 14 * Math.sqrt(i);
+        n._x = 400 + r * Math.cos(a); n._y = 300 + r * Math.sin(a);
+      });
+
+      // degree for sizing (computed from filtered edges, before init)
+      const degCount = {};
+      for (const e of edgeData) { degCount[e.source] = (degCount[e.source] || 0) + 1; degCount[e.target] = (degCount[e.target] || 0) + 1; }
+      nodeData.forEach((n) => { n.degree = degCount[n.id] || 1; });
+
+      if (cy) cy.destroy();
+      selected = null; hideDetail();
+      $('cy').innerHTML = ''; // clear the loading placeholder
+      cy = cytoscape({
+        container: $('cy'),
+        elements: {
+          nodes: nodeData.map((n) => ({ data: { ...n }, position: { x: n._x, y: n._y } })),
+          edges: edgeData.map((e) => ({ data: { ...e } })),
+        },
+        style: [
+          { selector: 'node', style: {
+            'label': 'data(label)',
+            'font-size': 10, 'min-zoomed-font-size': 7,
+            'font-family': 'EB Garamond, Georgia, serif',
+            'text-valign': 'bottom', 'text-margin-y': 5,
+            'color': LABEL, 'text-outline-width': 2, 'text-outline-color': BG,
+            'background-color': (el) => KIND[el.data('kind')].color,
+            'width': 'mapData(degree, 1, 40, 10, 34)',
+            'height': 'mapData(degree, 1, 40, 10, 34)',
+            'border-width': 0,
+            'overlay-opacity': 0,
+          }},
+          { selector: 'node[kind="letter"]', style: { 'shape': 'ellipse', 'width': 9, 'height': 9 } },
+          { selector: 'node[kind="topic"]', style: { 'shape': 'diamond' } },
+          { selector: 'node[kind="place"]', style: { 'shape': 'round-rectangle' } },
+          { selector: 'edge', style: {
+            'width': 1, 'line-color': EDGE, 'opacity': 0.35,
+            'curve-style': 'bezier', 'target-arrow-shape': 'none',
+          }},
+          { selector: 'edge[type="aspires_to"]', style: { 'line-color': '#8a5a6a', 'opacity': 0.5, 'width': 1.4 } },
+          { selector: '.dim', style: { 'opacity': 0.12 } },
+          { selector: 'node.highlight', style: {
+            'border-width': 2, 'border-color': '#e8e4da', 'border-opacity': 0.9,
+          }},
+          { selector: 'edge.highlight', style: { 'opacity': 0.9, 'width': 1.8, 'line-color': '#8f98a8' } },
+          { selector: 'node:selected', style: { 'border-width': 2.5, 'border-color': '#fff' } },
+        ],
+        layout: {
+          name: 'cose',
+          randomize: false,          // deterministic: start from our spiral
+          animate: true,
+          animationDuration: 1400,
+          animationEasing: 'ease-out',
+          nodeRepulsion: 16000,
+          idealEdgeLength: 110,
+          edgeElasticity: 120,
+          nestingFactor: 1.2,
+          gravity: 0.35,
+          numIter: 1800,
+          initialTemp: 220,
+          coolingFactor: 0.96,
+          minTemp: 1.0,
+        },
+        minZoom: 0.25, maxZoom: 4,
+        wheelSensitivity: 0.25,
+      });
+
+      // degree for sizing is in n.degree (set above); no post-init pass needed
+      wireInteractions();
+      renderTable(edgeData);
+      cy.fit(null, 40);
+    }
+
+    function clearHighlight() {
+      if (!cy) return;
+      cy.elements().removeClass('dim highlight');
+    }
+
+    function applyHighlight(center) {
+      clearHighlight();
+      if (!center) return;
+      const depth = +$('depth').value;
+      const { nodes, edges } = neighborhood(center, depth);
+      cy.elements().addClass('dim');
+      nodes.forEach((id) => cy.getElementById(id).removeClass('dim').addClass('highlight'));
+      edges.forEach((id) => cy.getElementById(id).removeClass('dim').addClass('highlight'));
+      center.removeClass('dim').addClass('highlight');
+    }
+
+    function showNodeDetail(d) {
+      const k = KIND[d.kind];
+      const conns = cy.getElementById(d.id).connectedEdges()
+        .map((e) => {
+          const other = e.source().id() === d.id ? e.target() : e.source();
+          const od = other.data();
+          return { rel: e.data('label'), type: e.data('type'), other: od, letter: e.data('letter'), letter_url: e.data('letter_url') };
+        });
+      const groups = {};
+      for (const c of conns) { (groups[c.type] ||= []).push(c); }
+      const typeName = { written_by: 'Written by', written_in: 'Written in', aspires_to: 'Desires', indexed_under: 'Themes', mentions_person: 'Mentions', mentions_place: 'Mentions', recipient: 'Addressed to' };
+      $('detail-body').innerHTML = `
+        <p class="d-kind" style="--kc:${k.color}">${k.label}</p>
+        <h3>${esc(d.label)}</h3>
+        ${d.sub ? `<p class="d-sub">${esc(d.sub)}</p>` : ''}
+        <p class="d-meta">${[d.year, d.n_letters ? `${d.n_letters} letters` : null].filter(Boolean).map(esc).join(' · ')}</p>
+        <p class="d-actions"><a href="${d.url}">Open ${k.label} page →</a></p>
+        <div class="d-conns">
+          ${Object.entries(groups).map(([t, cs]) => `
+            <h4>${esc(typeName[t] || t)} (${cs.length})</h4>
+            <ul>${cs.slice(0, 12).map((c) => `<li><a href="${c.other.url}" data-node="${c.other.id}">${esc(c.other.label)}</a>${c.letter_url ? ` <span class="d-via">via <a href="${c.letter_url}">Letter ${c.letter}</a></span>` : ''}</li>`).join('')}</ul>
+            ${cs.length > 12 ? `<p class="dim">+ ${cs.length - 12} more</p>` : ''}
+          `).join('')}
+        </div>
+        <button type="button" id="explore-btn" class="d-btn">Explore from here</button>`;
+      $('detail').hidden = false;
+      $('explore-btn').addEventListener('click', () => {
+        $('mode').value = 'ego'; $('ego-picker').hidden = false;
+        const sel = $('ego');
+        if ([...sel.options].some((o) => o.value === d.id)) sel.value = d.id;
+        build();
+      });
+      $('detail-body').querySelectorAll('[data-node]').forEach((a) => {
+        a.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          const n = cy.getElementById(a.dataset.node);
+          if (n.length) { selectNode(n); cy.animate({ center: { eles: n } }, { duration: 400 }); }
+        });
+      });
+    }
+
+    function showEdgeDetail(d) {
+      const src = nodeById(d.source), tgt = nodeById(d.target);
+      $('detail-body').innerHTML = `
+        <p class="d-kind">relationship</p>
+        <h3 class="d-rel">${esc(src.label)} <span>—${esc(d.label)}→</span> ${esc(tgt.label)}</h3>
+        ${d.evidence && d.evidence.length ? `<blockquote class="d-ev">“${esc(d.evidence[0])}”</blockquote>` : '<p class="dim">No quoted evidence.</p>'}
+        <p class="d-actions">${d.letter_url ? `<a href="${d.letter_url}">Letter ${d.letter} →</a> · ` : ''}<a href="${tgt.url}">Open ${esc(tgt.label)} →</a></p>`;
+      $('detail').hidden = false;
+    }
+
+    function hideDetail() { $('detail').hidden = true; }
+
+    function selectNode(n) {
+      selected = n;
+      cy.elements().unselect(); n.select();
+      applyHighlight(n);
+      showNodeDetail(n.data());
+    }
+
+    function wireInteractions() {
+      const tip = $('tooltip');
+
+      cy.on('tap', 'node', (ev) => selectNode(ev.target));
+      cy.on('tap', 'edge', (ev) => {
+        clearHighlight();
+        const e = ev.target;
+        e.addClass('highlight');
+        e.source().addClass('highlight'); e.target().addClass('highlight');
+        showEdgeDetail(e.data());
+      });
+      cy.on('tap', (ev) => {
+        if (ev.target === cy) { clearHighlight(); hideDetail(); selected = null; cy.elements().unselect(); }
+      });
+
+      // hover tooltip
+      cy.on('mouseover', 'node', (ev) => {
+        const d = ev.target.data();
+        tip.innerHTML = `<strong>${esc(d.label)}</strong><span>${KIND[d.kind].label}${d.year ? ` · ${d.year}` : ''}</span>`;
+        tip.hidden = false;
+      });
+      cy.on('mouseout', 'node', () => { tip.hidden = true; });
+      cy.on('mousemove', (ev) => {
+        const r = $('cy').getBoundingClientRect();
+        tip.style.left = (ev.originalEvent.clientX - r.left + 14) + 'px';
+        tip.style.top = (ev.originalEvent.clientY - r.top + 10) + 'px';
+      });
+
+      // keep labels readable: cytoscape handles via min-zoomed-font-size
+    }
+
+    function renderTable(edges) {
+      const tb = document.querySelector('#edge-table tbody');
+      const rows = edges.slice(0, 400).map((e) => {
+        const tgt = nodeById(e.target);
+        return `<tr><td><a href="${e.letter_url}">Letter ${e.letter}</a></td><td>${esc(e.label)}</td><td><a href="${tgt.url}">${esc(tgt.label)}</a></td><td class="ev">${esc((e.evidence && e.evidence[0]) || '')}</td></tr>`;
+      }).join('');
+      tb.innerHTML = rows || '<tr><td colspan="4" class="dim">No relationships match the current filters.</td></tr>';
+      if (edges.length > 400) tb.innerHTML += `<tr><td colspan="4" class="dim">Showing 400 of ${edges.length} — narrow the filters to see more.</td></tr>`;
+    }
+
+    // ——— search ———
+    function doSearch(q) {
+      if (!cy) return; // graph not built yet
+      const box = $('gresults');
+      q = q.trim().toLowerCase();
+      if (q.length < 2) { box.hidden = true; return; }
+      const hits = cy.nodes()
+        .filter((n) => n.data('label').toLowerCase().includes(q))
+        .slice(0, 8);
+      if (!hits.length) { box.innerHTML = '<p class="dim">No matches.</p>'; box.hidden = false; return; }
+      box.innerHTML = hits.map((n) => {
+        const d = n.data();
+        return `<button type="button" data-id="${d.id}"><span class="dot" style="background:${KIND[d.kind].color}"></span>${esc(d.label)} <span class="dim">${KIND[d.kind].label}</span></button>`;
+      }).join('');
+      box.hidden = false;
+      box.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+        const n = cy.getElementById(b.dataset.id);
+        box.hidden = true; $('gsearch').value = '';
+        cy.animate({ center: { eles: n }, zoom: Math.max(cy.zoom(), 1.1) }, { duration: 500 });
+        selectNode(n);
+      }));
+    }
+    $('gsearch').addEventListener('input', (e) => doSearch(e.target.value));
+    $('gsearch').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { const b = $('gresults').querySelector('button'); if (b) b.click(); }
+      if (e.key === 'Escape') $('gresults').hidden = true;
+    });
+    document.addEventListener('click', (e) => {
+      if (!$('gresults').hidden && !$('gresults').contains(e.target) && e.target !== $('gsearch')) {
+        $('gresults').hidden = true;
+      }
+    });
+
+    // ——— controls ———
+    $('fit-btn').addEventListener('click', () => cy && cy.animate({ fit: { padding: 40 } }, { duration: 500 }));
+    $('reset-btn').addEventListener('click', () => {
+      $('mode').value = 'full'; $('ego-picker').hidden = true;
+      $('depth').value = '2';
+      document.querySelectorAll('[data-rel]').forEach((el) => { el.checked = el.dataset.rel !== 'recipient'; });
+      document.querySelectorAll('[data-kind]').forEach((el) => { el.checked = true; });
+      $('year-min').value = 1616; $('year-max').value = 1647; yv();
+      build();
+    });
+    $('panel-toggle').addEventListener('click', () => {
+      const p = $('control-panel');
+      const open = p.classList.toggle('open');
+      $('panel-toggle').setAttribute('aria-expanded', open);
+    });
+    $('detail-close').addEventListener('click', () => { hideDetail(); clearHighlight(); selected = null; cy && cy.elements().unselect(); });
+
+    $('mode').addEventListener('change', () => { $('ego-picker').hidden = $('mode').value !== 'ego'; build(); });
+    $('ego').addEventListener('change', build);
+    $('depth').addEventListener('change', () => { if (selected && cy) applyHighlight(selected); if ($('mode').value === 'ego') build(); });
+    document.querySelectorAll('[data-rel],[data-kind]').forEach((el) => el.addEventListener('change', build));
+    const yv = () => { $('year-min-v').textContent = $('year-min').value; $('year-max-v').textContent = $('year-max').value; };
+    $('year-min').addEventListener('input', yv);
+    $('year-max').addEventListener('input', yv);
+    $('year-min').addEventListener('change', build);
+    $('year-max').addEventListener('change', build);
+
+    // keyboard: Escape clears selection
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && cy) { clearHighlight(); hideDetail(); selected = null; cy.elements().unselect(); $('gresults').hidden = true; }
+    });
+
+    load();
+  </script>
+</Base>
+
+<style>
+  .graph-shell { position: relative; margin: 1.2rem 0; border: 1px solid #232833; border-radius: 12px; overflow: hidden; background: #0d1017; }
+  #cy { height: 38rem; display: block; touch-action: none; }
+  #cy canvas { cursor: grab; }
+  .graph-loading, .graph-error { color: #8b94a5; text-align: center; padding: 8rem 1rem; margin: 0; font-size: .95rem; }
+  .graph-error a { color: #6a9bd4; }
+
+  .graph-topbar { position: absolute; top: .8rem; left: .8rem; right: .8rem; display: flex; gap: .6rem; align-items: flex-start; pointer-events: none; }
+  .search-wrap { position: relative; flex: 1; max-width: 26rem; pointer-events: auto; }
+  #gsearch { width: 100%; font: inherit; font-size: .92rem; padding: .55rem .9rem; border-radius: 999px; border: 1px solid #2c3340; background: rgba(16, 20, 29, .92); color: #dfe4ec; outline: none; }
+  #gsearch::placeholder { color: #7c8598; }
+  #gsearch:focus { border-color: #6a9bd4; }
+  .search-results { position: absolute; top: 110%; left: 0; right: 0; background: #141922; border: 1px solid #2c3340; border-radius: 10px; overflow: hidden; z-index: 30; }
+  .search-results button { display: flex; width: 100%; gap: .5rem; align-items: center; text-align: left; font: inherit; font-size: .9rem; color: #dfe4ec; background: none; border: 0; padding: .55rem .9rem; cursor: pointer; }
+  .search-results button:hover { background: #1d2431; }
+  .search-results .dot { width: .6rem; height: .6rem; border-radius: 50%; flex: none; }
+  .search-results .dim { color: #8b94a5; font-size: .8rem; }
+  .top-actions { display: flex; gap: .5rem; pointer-events: auto; }
+  .top-actions button, #panel-toggle { font: inherit; font-size: .85rem; padding: .55rem .9rem; border-radius: 999px; border: 1px solid #2c3340; background: rgba(16, 20, 29, .92); color: #c7cdd8; cursor: pointer; white-space: nowrap; }
+  .top-actions button:hover, #panel-toggle:hover { border-color: #6a9bd4; color: #fff; }
+
+  #panel-toggle { position: absolute; bottom: .8rem; left: .8rem; z-index: 20; }
+  .control-panel { position: absolute; top: 3.6rem; left: .8rem; width: 16rem; max-height: calc(100% - 8rem); overflow-y: auto; background: rgba(16, 20, 29, .94); border: 1px solid #2c3340; border-radius: 12px; padding: 1rem; display: none; flex-direction: column; gap: .85rem; z-index: 20; backdrop-filter: blur(6px); }
+  .control-panel.open { display: flex; }
+  .control-panel .ctl label { display: block; font-size: .82rem; color: #9aa3b2; margin-bottom: .25rem; }
+  .control-panel select { width: 100%; font: inherit; font-size: .88rem; padding: .4rem .55rem; border-radius: 8px; border: 1px solid #2c3340; background: #0d1017; color: #dfe4ec; }
+  .control-panel fieldset { border: 1px solid #232833; border-radius: 8px; padding: .55rem .75rem; margin: 0; }
+  .control-panel legend { font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: #8b94a5; padding: 0 .4rem; }
+  .control-panel fieldset label { display: flex; gap: .45rem; align-items: baseline; font-size: .86rem; color: #c7cdd8; margin-bottom: .22rem; cursor: pointer; }
+  .control-panel input[type="checkbox"] { accent-color: #6a9bd4; }
+  .control-panel .years { display: flex; gap: .5rem; }
+  .control-panel .years input { flex: 1; accent-color: #6a9bd4; }
+  .control-panel .hint { font-size: .78rem; color: #8b94a5; margin: 0; }
+
+  .detail { position: absolute; top: 3.6rem; right: .8rem; width: 19rem; max-height: calc(100% - 4.4rem); overflow-y: auto; background: rgba(16, 20, 29, .96); border: 1px solid #2c3340; border-radius: 12px; padding: 1rem 1.1rem; z-index: 20; backdrop-filter: blur(6px); }
+  #detail-close { position: absolute; top: .45rem; right: .7rem; font-size: 1.3rem; line-height: 1; background: none; border: 0; color: #8b94a5; cursor: pointer; }
+  #detail-close:hover { color: #fff; }
+  .d-kind { font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: var(--kc, #9aa3b2); margin: 0 0 .2rem; }
+  .detail h3 { margin: 0 0 .3rem; font-size: 1.25rem; color: #eef1f6; }
+  .d-rel span { color: #6a9bd4; font-size: .85em; }
+  .d-sub { color: #9aa3b2; font-size: .92rem; margin: 0 0 .3rem; }
+  .d-meta { color: #8b94a5; font-size: .82rem; margin: 0 0 .6rem; }
+  .d-actions a { color: #6a9bd4; font-size: .9rem; }
+  .d-conns h4 { font-size: .75rem; letter-spacing: .1em; text-transform: uppercase; color: #8b94a5; margin: .9rem 0 .3rem; }
+  .d-conns ul { list-style: none; margin: 0; padding: 0; }
+  .d-conns li { font-size: .88rem; padding: .18rem 0; color: #c7cdd8; }
+  .d-conns li a { color: #dfe4ec; }
+  .d-conns li a:hover { color: #6a9bd4; }
+  .d-via { color: #8b94a5; font-size: .8rem; }
+  .d-ev { border-left: 2px solid #6a9bd4; margin: .7rem 0; padding: .2rem 0 .2rem .8rem; font-family: var(--serif); font-style: italic; color: #b9c1cf; font-size: .92rem; }
+  .d-btn { margin-top: .9rem; width: 100%; font: inherit; font-size: .88rem; padding: .55rem; border-radius: 8px; border: 1px solid #2c3340; background: #1a2230; color: #dfe4ec; cursor: pointer; }
+  .d-btn:hover { border-color: #6a9bd4; }
+  .detail .dim { color: #8b94a5; font-size: .85rem; }
+
+  .tooltip { position: absolute; z-index: 40; pointer-events: none; background: #141922; border: 1px solid #2c3340; border-radius: 8px; padding: .4rem .7rem; font-size: .85rem; color: #dfe4ec; }
+  .tooltip strong { display: block; font-weight: 600; }
+  .tooltip span { color: #8b94a5; font-size: .75rem; }
+
+  .table-wrap { overflow-x: auto; }
+  @media (max-width: 700px) {
+    #cy { height: 30rem; }
+    .detail { left: .8rem; width: auto; }
+    .control-panel { width: calc(100% - 1.6rem); }
+  }
+</style>

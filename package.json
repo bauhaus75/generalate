@@ -1,0 +1,20 @@
+{
+  "name": "site",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "astro build && npx pagefind --site dist",
+    "prebuild": "gunzip -kf src/data/letters.json.gz src/data/edges.json.gz public/graph.json.gz"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@fontsource/eb-garamond": "^5.3.0",
+    "astro": "^7.3.8",
+    "cytoscape": "^3.34.3",
+    "pagefind": "^1.5.2"
+  }
+}

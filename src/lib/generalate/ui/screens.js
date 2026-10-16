@@ -944,6 +944,62 @@ function cardHTML(app, c) {
   </article>`;
 }
 
+/* ---------------- formation decisions (General's Desk) ---------------- */
+const VOWS_MILESTONE_LABELS = {
+  firstVows: 'First vows',
+  philosophy: 'Philosophy complete — approve regency',
+  regency: 'Regency complete — approve theology',
+  theology: 'Theology complete — approve ordination',
+  ordination: 'Ordination',
+  finalVowsGrade: 'Final vows — choose grade',
+};
+
+function formationDecisionsHTML(app) {
+  const pending = app.state.pendingVows || [];
+  if (!pending.length) return '';
+  const E = app.Engine;
+  const rows = pending.map((p) => {
+    const entry = (app.state.europeanLabor || []).find((e) => e.petitionerId === p.petitionerId);
+    const name = entry ? entry.name : p.petitionerId;
+    const suffix = E.rankSuffix ? E.rankSuffix(app.state, p.petitionerId) : '';
+    const label = VOWS_MILESTONE_LABELS[p.type] || p.type;
+    if (p.type === 'finalVowsGrade') {
+      return `<li class="vows-row">
+        <strong>${esc(name)}</strong> <span class="grade-chip">${esc(suffix)}</span>
+        <span class="vows-label">${esc(label)}</span>
+        <button class="gbtn small primary vows-grade" data-id="${esc(p.petitionerId)}" data-grade="coadjutor">Spiritual coadjutor</button>
+        <button class="gbtn small primary vows-grade" data-id="${esc(p.petitionerId)}" data-grade="professed">Professed</button>
+      </li>`;
+    }
+    return `<li class="vows-row">
+      <strong>${esc(name)}</strong> <span class="grade-chip">${esc(suffix)}</span>
+      <span class="vows-label">${esc(label)}</span>
+      <button class="gbtn small primary vows-decide" data-id="${esc(p.petitionerId)}" data-type="${esc(p.type)}" data-decision="proceed">Proceed</button>
+      <button class="gbtn small vows-decide" data-id="${esc(p.petitionerId)}" data-type="${esc(p.type)}" data-decision="defer">Defer</button>
+      <button class="gbtn small warn vows-decide" data-id="${esc(p.petitionerId)}" data-type="${esc(p.type)}" data-decision="dismiss">Dismiss</button>
+    </li>`;
+  }).join('');
+  // Final vows invitations for ordained men not yet invited
+  const invitable = (app.state.europeanLabor || []).filter((e) => {
+    const v = e.vows;
+    return v && v.stage === 'ordained' && !v.finalVows && !v.tertianshipUntil;
+  });
+  const invRows = invitable.map((e) => {
+    const suffix = E.rankSuffix ? E.rankSuffix(app.state, e.petitionerId) : '';
+    return `<li class="vows-row">
+      <strong>${esc(e.name)}</strong> <span class="grade-chip">${esc(suffix)}</span>
+      <span class="vows-label">Eligible for final vows invitation</span>
+      <button class="gbtn small primary vows-invite" data-id="${esc(e.petitionerId)}">Invite to tertianship</button>
+    </li>`;
+  }).join('');
+  if (!rows && !invRows) return '';
+  return `<section class="gscreen vows-screen">
+    <p class="kicker px">FORMATION DECISIONS</p>
+    <p class="desk-instr">These men await your judgment on their formation. Deferral grants humility and reconsideration in two years; dismissal is permanent.</p>
+    <ul class="vows-list">${rows}${invRows}</ul>
+  </section>`;
+}
+
 export function renderDesk(app, root, terna) {
   // decisions: id -> {verdict:'approve'|'deny', destination, companions}.
   // Preserved when the General steps away to the House/Missions tabs mid-terna;
@@ -973,7 +1029,8 @@ export function renderDesk(app, root, terna) {
         <button class="gbtn primary" id="confirm" disabled>SEAL THE DECISIONS ⛪</button>
       </span>
     </div>
-  </section>`;
+  </section>
+  ${formationDecisionsHTML(app)}`;
 
   const bar = root.querySelector('#review-bar');
   const summary = root.querySelector('#review-summary');
@@ -1138,6 +1195,55 @@ export function renderDesk(app, root, terna) {
   // Restore any decisions made before stepping away to the House/Missions tabs.
   for (const c of terna) applyVerdictToCard(c.id);
   refresh();
+
+  // Formation vows decisions
+  root.querySelectorAll('.vows-decide').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      try {
+        const decision = btn.dataset.decision;
+        if (decision === 'dismiss' && !confirm('Dismiss this man from the Society? This is permanent.')) return;
+        app.Engine.decideVows(app.state, btn.dataset.id, btn.dataset.type, decision);
+        app.Engine.refreshBriefing(app.state);
+        app.save();
+        app.sound(decision === 'dismiss' ? 'error' : 'page');
+        app.go('desk');
+      } catch (e) {
+        app.sound('error');
+        alert(e.message);
+      }
+    });
+  });
+  root.querySelectorAll('.vows-invite').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      try {
+        if (!confirm('Invite this man to tertianship (one year) for final vows?')) return;
+        app.Engine.inviteFinalVows(app.state, btn.dataset.id);
+        app.Engine.refreshBriefing(app.state);
+        app.save();
+        app.sound('page');
+        app.go('desk');
+      } catch (e) {
+        app.sound('error');
+        alert(e.message);
+      }
+    });
+  });
+  root.querySelectorAll('.vows-grade').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      try {
+        const grade = btn.dataset.grade;
+        if (!confirm(`Assign as ${grade === 'coadjutor' ? 'spiritual coadjutor' : 'professed'}? This is permanent.`)) return;
+        app.Engine.completeFinalVows(app.state, btn.dataset.id, grade);
+        app.Engine.refreshBriefing(app.state);
+        app.save();
+        app.sound('coin');
+        app.go('desk');
+      } catch (e) {
+        app.sound('error');
+        alert(e.message);
+      }
+    });
+  });
 }
 
 /* ---------------- letter reader overlay ---------------- */

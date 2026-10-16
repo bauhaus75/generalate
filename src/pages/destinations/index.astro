@@ -1,0 +1,31 @@
+---
+import Base from '../../layouts/Base.astro';
+import { destinationList } from '../../lib/data';
+---
+
+<Base title="Destinations" description="The mission destinations requested in the Indipetae to Mutio Vitelleschi, as cataloged by the Digital Indipetae Database.">
+  <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a> · Destinations</nav>
+  <p class="kicker">Where they asked to go</p>
+  <h1>Destinations</h1>
+  <p class="lede">
+    The mission lands writers asked to be sent to — Japan, China, the East Indies, and more —
+    as cataloged by the Digital Indipetae Database (Boston College).
+  </p>
+  <p class="src">
+    These tags are the database's own cataloging, not this site's. A request is not evidence
+    the journey took place.
+  </p>
+  <div class="card-grid">
+    {destinationList.map((d) => (
+      <a class="card" href={`/destinations/${d.id}/`}>
+        <h3>{d.name}{d.modern_name && d.modern_name !== d.name ? ` (${d.modern_name})` : ''}</h3>
+        <p class="count">{d.letters.length} {d.letters.length === 1 ? 'letter' : 'letters'}</p>
+      </a>
+    ))}
+  </div>
+</Base>
+
+<style>
+  .src { font-size: .9rem; color: var(--ink-faint); }
+  .count { color: var(--ink-faint); }
+</style>

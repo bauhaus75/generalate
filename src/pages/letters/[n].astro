@@ -1,0 +1,210 @@
+---
+import Base from '../../layouts/Base.astro';
+import LetterList from '../../components/LetterList.astro';
+import {
+  getLetter, letterNumbers, letterEdges, people, places, topics,
+  formatDate, personList, topicList, facetsForLetter, destinations, models, grades,
+} from '../../lib/data';
+import { linkifyParagraphs } from '../../lib/linkify';
+
+export function getStaticPaths() {
+  return letterNumbers.map((n) => ({ params: { n: String(n) } }));
+}
+
+const n = Number(Astro.params.n);
+const letter = getLetter(n);
+const idx = letterNumbers.indexOf(n);
+const prev = idx > 0 ? letterNumbers[idx - 1] : null;
+const next = idx < letterNumbers.length - 1 ? letterNumbers[idx + 1] : null;
+
+const author = personList.find((p) => p.letters_written.includes(n)) ?? null;
+const writtenIn = letterEdges(n, 'written_in');
+const aspirations = letterEdges(n, 'aspires_to');
+const indexed = letterEdges(n, 'indexed_under');
+const recipient = letterEdges(n, 'recipient');
+const facets = facetsForLetter(n);
+
+const bodyHtml = linkifyParagraphs(letter.body);
+const salutHtml = linkifyParagraphs(letter.salutation);
+const signoffHtml = linkifyParagraphs(letter.signoff);
+
+// related letters
+function relatedBy(fn: (m: number) => boolean, exclude = [n]): number[] {
+  return letterNumbers.filter((m) => m !== n && !exclude.includes(m) && fn(m));
+}
+const sameAuthor = author ? author.letters_written.filter((m) => m !== n) : [];
+const samePlaceIds = writtenIn.map((e) => e.target);
+const samePlace = relatedBy((m) =>
+  letterEdges(m, 'written_in').some((e) => samePlaceIds.includes(e.target)));
+const topicIds = indexed.map((e) => e.target);
+const sharedTopics = relatedBy((m) =>
+  letterEdges(m, 'indexed_under').some((e) => topicIds.includes(e.target)))
+  .sort((a, b) => {
+    const ca = letterEdges(a, 'indexed_under').filter((e) => topicIds.includes(e.target)).length;
+    const cb = letterEdges(b, 'indexed_under').filter((e) => topicIds.includes(e.target)).length;
+    return cb - ca;
+  })
+  .slice(0, 12);
+const aspIds = aspirations.map((e) => e.target);
+const sharedAsp = relatedBy((m) =>
+  letterEdges(m, 'aspires_to').some((e) => aspIds.includes(e.target))).slice(0, 12);
+
+const title = `Letter ${n}`;
+const desc = letter.author_raw
+  ? `Letter ${n} from ${letter.author_raw}${letter.date_only ? `, ${letter.date_only}` : ''} — English translation with notes.`
+  : `Letter ${n} — English translation with notes.`;
+---
+
+<Base title={title} description={desc}>
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="/">Home</a> · <a href="/letters/">Letters</a> · Letter {n}
+  </nav>
+
+  <p class="kicker">Litterae indipetae · {letter.language ?? 'Language not specified'}</p>
+  <h1>Letter {n}</h1>
+  {letter.status === 'not_translated' ? (
+    <div class="notice" role="note">
+      <strong>Not translated in this volume.</strong> {letter.missing_note}
+      What is known — author and date — comes from the printed indexes and is shown below.
+    </div>
+  ) : (
+    <p class="lede">
+      {author ? <a href={`/people/${author.id}/`}>{letter.author_raw ?? author.display_name}</a> : (letter.author_raw ?? 'Author not specified')}
+      {letter.place_raw ? <> — <a href={(() => { const w = writtenIn[0]; return w ? `/places/${w.target}/` : '/places/'; })()}>{letter.place_raw}</a></> : ' — place not specified in the source'}
+      {letter.date_only ? `, ${letter.date_only}` : ''}
+    </p>
+  )}
+
+  <dl class="meta-grid">
+    <div><dt>Author</dt><dd>{author ? <a href={`/people/${author.id}/`}>{letter.author_raw ?? author.display_name}</a> : (letter.author_raw ?? 'Not specified in the source')}</dd></div>
+    <div><dt>Date</dt><dd>{formatDate(letter)}{letter.date_note && <> <span class="datenote">({letter.date_note})</span></>}</dd></div>
+    <div><dt>Place of writing</dt><dd>
+      {writtenIn.length > 0
+        ? writtenIn.map((e) => <a href={`/places/${e.target}/`}>{places[e.target]?.name ?? e.target}</a>)
+        : 'Not specified in the source'}
+    </dd></div>
+    <div><dt>Recipient</dt><dd><a href="/people/vitelleschi-mutio/">Mutio Vitelleschi</a>, Superior General of the Society of Jesus</dd></div>
+    <div><dt>Original language</dt><dd>{letter.language ?? 'Not specified in the source'}</dd></div>
+    <div><dt>Archival reference</dt><dd>{letter.archival_ref ? letter.archival_ref : 'Not specified in the source'}</dd></div>
+    {letter.ijs_url && (
+      <div><dt>Source record</dt><dd><a href={letter.ijs_url}>View this letter in the IJS Digital Indipetae Database</a>
+      <br /><small>Catalog data from the Digital Indipetae Database, Institute for Advanced Jesuit Studies, Boston College.</small></dd></div>
+    )}
+    {letter.book_page_start != null && (
+      <div><dt>Source page</dt><dd>p. {letter.book_page_start} of the printed volume</dd></div>
+    )}
+  </dl>
+
+  {aspirations.length > 0 && (
+    <section aria-label="Mission aspirations">
+      <h2>Mission aspirations</h2>
+      <p>Destinations this writer <em>asks to be sent to</em> — a request, not evidence the journey took place.</p>
+      <p>
+        {aspirations.map((e) => (
+          <a class="pill place" href={`/places/${e.target}/`}>
+            {places[e.target]?.name ?? e.target}
+          </a>
+        ))}
+      </p>
+    </section>
+  )}
+
+  {indexed.length > 0 && (
+    <section aria-label="Indexed topics">
+      <h2>Indexed topics</h2>
+      <p>From the volume's printed <em>Index of Topics</em>, derived from the language of the letters themselves.</p>
+      <p>
+        {indexed.map((e) => (
+          <a class="pill topic" href={`/topics/${e.target}/`}>{topics[e.target]?.name ?? e.target}</a>
+        ))}
+      </p>
+    </section>
+  )}
+
+  {(facets.destinations.length > 0 || facets.models.length > 0 || facets.grades.length > 0) && (
+    <section aria-label="Catalog tags">
+      <h2>Catalog tags</h2>
+      <p>How the Digital Indipetae Database tags this letter — the archive's own system, not ours.</p>
+      <p>
+        {facets.destinations.map((id) => (
+          <a class="pill place" href={`/destinations/${id}/`}>{destinations[id]?.name ?? id}</a>
+        ))}
+        {facets.models.map((id) => (
+          <a class="pill topic" href={`/models/${id}/`}>{models[id]?.name ?? id}</a>
+        ))}
+        {facets.grades.map((id) => (
+          <a class="pill" href={`/grades/${id}/`}>{grades[id]?.name ?? id}</a>
+        ))}
+      </p>
+    </section>
+  )}
+
+  {letter.status !== 'not_translated' && (
+    <section aria-label="Letter text">
+      <h2>Text</h2>
+      <div class="letter-text">
+        {salutHtml.map((h) => <p class="salutation" set:html={h} />)}
+        {bodyHtml.map((h) => <p set:html={h} />)}
+        {letter.editorial_notes.map((note) => <p class="editorial-note">{note}</p>)}
+        {signoffHtml.map((h) => <p class="signoff" set:html={h} />)}
+      </div>
+      <p class="provenance">
+        Translated from the Digital Indipetae Database (Institute for Advanced Jesuit Studies,
+        Boston College). Names, places, and key terms above link to their archive pages.
+      </p>
+    </section>
+  )}
+
+  {(letter.date_note || letter.place_raw == null || letter.author_raw == null) && letter.status !== 'not_translated' && (
+    <section aria-label="Source notes">
+      <h2>Source notes</h2>
+      <ul>
+        {letter.date_note && <li><strong>Date:</strong> {letter.date_note}.</li>}
+        {letter.place_raw == null && <li><strong>Place of writing:</strong> not specified in the source.</li>}
+      </ul>
+    </section>
+  )}
+
+  <section aria-label="Related letters">
+    <h2>Related letters</h2>
+    {sameAuthor.length > 0 && (
+      <>
+        <h3>More by {author!.display_name}</h3>
+        <LetterList numbers={sameAuthor} showAuthor={false} />
+      </>
+    )}
+    {sharedAsp.length > 0 && (
+      <>
+        <h3>Others desiring the same destinations</h3>
+        <LetterList numbers={sharedAsp} />
+      </>
+    )}
+    {samePlace.length > 0 && (
+      <>
+        <h3>Others written from {writtenIn.map((e) => places[e.target]?.name).join(', ')}</h3>
+        <LetterList numbers={samePlace.slice(0, 12)} />
+      </>
+    )}
+    {sharedTopics.length > 0 && (
+      <>
+        <h3>Sharing indexed topics</h3>
+        <LetterList numbers={sharedTopics} />
+      </>
+    )}
+  </section>
+
+  <nav class="pager" aria-label="Letter navigation">
+    {prev != null
+      ? <a href={`/letters/${prev}/`} rel="prev">← Letter {prev}<br /><span class="meta">{getLetter(prev).author_raw ?? ''}</span></a>
+      : <span />}
+    {next != null
+      ? <a class="next" href={`/letters/${next}/`} rel="next">Letter {next} →<br /><span class="meta">{getLetter(next).author_raw ?? ''}</span></a>
+      : <span />}
+  </nav>
+</Base>
+
+<style>
+  .datenote { color: var(--ink-faint); font-size: .88em; }
+  .provenance { font-size: .85rem; color: var(--ink-faint); margin-top: 1.5rem; max-width: 44rem; }
+  .meta { font-size: .85rem; color: var(--ink-faint); }
+</style>

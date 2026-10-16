@@ -14,7 +14,7 @@ import {
   missionRequests, dispatchMission, staffGradeFor,
   assignDomestic, unassignDomestic, dispatchFromFormation, dispatchFromEurope,
   ordinationEligible, ordainPriest, careerStage, issueInstruction,
-  decideVows, inviteFinalVows, completeFinalVows, rankSuffix,
+  decideVows, inviteFinalVows, completeFinalVows, rankSuffix, purgeVowsState,
   orderDeployment, selectDeploymentMembers, deploymentCandidates, deploymentEligible,
   deploymentStatus, deploymentRoster, deploymentConstraints,
   DEPLOYMENT_PURPOSES, DEPLOYMENT_MIN_SIZE,
@@ -1754,6 +1754,195 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
       try { fn(); } catch (e) { if (/Finish deciding on the current terna first/.test(e.message)) blocked++; }
     }
     ok('deadend: terna blocks other actions with clear message', blocked === 3);
+  }
+
+  // --- 40. Audit repair regression tests --------------------------------------
+  // Helper: create an overseas (arrived, thriving) man with controlled years.
+  function overseasMan(s, tag, yearsInSoc, destId) {
+    const id = `ovs-${tag}-${s.year}`;
+    s.petitioners[id] = {
+      id, fictional: true, status: 'active', history: [],
+      deniedCount: 0, usedLetters: [], voyages: [], archived: false,
+      yearsInSociety: yearsInSoc, entryYear: s.year,
+      name: `Overseas Man ${tag}`,
+    };
+    const v = {
+      id: `voy-${tag}-${s.year}`, petitionerId: id, petitionerName: `Overseas Man ${tag}`,
+      destination: destId || 'goa', stage: 'arrived', status: 'arrived',
+      outcome: 'thriving', veteranReturned: false,
+      departYear: s.year - 2, arriveYear: s.year, resolvedYear: s.year,
+    };
+    if (!Array.isArray(s.voyages)) s.voyages = [];
+    s.voyages.push(v);
+    return id;
+  }
+
+  // 40a. Death purges vows queues (Stage 1).
+  {
+    const s = newGame({ mode: 'campaign', seed: 'death-purge' });
+    const id = overseasMan(s, 'dp', 8, 'goa');
+    // Manually queue in-transit news and a pending decision for him.
+    s.vowsNewsInTransit = [{ petitionerId: id, type: 'regency', name: 'Overseas Man dp', destId: 'goa', milestoneYear: s.year, arriveYear: s.year + 2, newsText: 'has completed regency' }];
+    s.pendingVows = [{ petitionerId: id, type: 'philosophy', year: s.year, name: 'Overseas Man dp' }];
+    purgeVowsState(s, id);
+    ok('death-purge: pendingVows cleared', !(s.pendingVows || []).some((x) => x.petitionerId === id));
+    ok('death-purge: vowsNewsInTransit cleared', !(s.vowsNewsInTransit || []).some((x) => x.petitionerId === id));
+  }
+
+  // 40b. decideVows on a dead man throws (Stage 1 defense in depth).
+  {
+    const s = newGame({ mode: 'campaign', seed: 'death-decide' });
+    const id = vowsMan(s, 'dd', 2, 'novice', 'scholastic');
+    s.pendingVows = [{ petitionerId: id, type: 'firstVows', year: s.year, name: 'Vows Man dd' }];
+    s.petitioners[id].status = 'deceased';
+    let threw = false;
+    try { decideVows(s, id, 'firstVows', 'proceed'); } catch (e) { threw = /cannot be applied/.test(e.message); }
+    ok('death-decide: decideVows on dead man throws', threw);
+  }
+
+  // 40c. Voyage death purges vows state end-to-end (Stage 1).
+  {
+    const s = newGame({ mode: 'campaign', seed: 'death-voyage' });
+    const { terna } = startYear(s);
+    const pick = terna[0];
+    decide(s, [{ id: pick.petitionerId }]);
+    resolveYear(s);
+    const v = s.voyages[0];
+    // Queue vows state for the voyager before he dies.
+    s.vowsNewsInTransit = [{ petitionerId: v.petitionerId, type: 'firstVows', name: 'x', destId: v.destination, milestoneYear: s.year, arriveYear: s.year + 2, newsText: 't' }];
+    s.pendingVows = [{ petitionerId: v.petitionerId, type: 'firstVows', year: s.year, name: 'x' }];
+    dbgForceOutcome(s, v.id, 'deceased');
+    ok('death-voyage: deceased status set', s.petitioners[v.petitionerId].status === 'deceased');
+    ok('death-voyage: pendingVows purged', !(s.pendingVows || []).some((x) => x.petitionerId === v.petitionerId));
+    ok('death-voyage: vowsNewsInTransit purged', !(s.vowsNewsInTransit || []).some((x) => x.petitionerId === v.petitionerId));
+  }
+
+  // 40d. entryYear set on approval; years advance for approved men (Stage 2).
+  {
+    const s = newGame({ mode: 'campaign', seed: 'entry-year' });
+    const { terna } = startYear(s);
+    const pick = terna[0];
+    // Give the petitioner known historical years.
+    s.petitioners[pick.petitionerId].yearsInSociety = 6;
+    decide(s, [{ id: pick.petitionerId }]);
+    const rec = s.petitioners[pick.petitionerId];
+    ok('entry-year: set on approval', rec.entryYear === s.year);
+    // Advance 5 years; the entryYear baseline must stay fixed so years advance.
+    const y0 = s.year;
+    for (let i = 0; i < 5; i++) { const { terna: t } = startYear(s); decide(s, []); resolveYear(s); }
+    ok('entry-year: 5 years elapsed', s.year === y0 + 5);
+    ok('entry-year: baseline preserved', rec.entryYear === y0);
+    ok('entry-year: derived years grew', (s.year - rec.entryYear + 6) === 11);
+  }
+
+  // 40e. Overseas milestone: detection -> transit -> Desk (Stage 2 + overseas flow).
+  {
+    const s = newGame({ mode: 'campaign', seed: 'ovs-mile' });
+    // 12-year scholastic stationed at Goa; theology milestone triggers.
+    const id = overseasMan(s, 'om', 12, 'goa');
+    s.petitioners[id].vows = {
+      stage: 'scholastic', firstVows: true, philosophy: true, regency: true,
+      theology: null, ordination: null, finalVows: null,
+      tertianshipUntil: null, deferredUntil: null,
+    };
+    resolveYear(s); // checkVowsMilestones runs inside
+    const transit = (s.vowsNewsInTransit || []).find((x) => x.petitionerId === id);
+    ok('ovs-mile: milestone news enters transit', !!transit);
+    ok('ovs-mile: transit type is theology', transit && transit.type === 'theology');
+    ok('ovs-mile: arriveYear 1-3 years out', transit && transit.arriveYear > s.year - 1 && transit.arriveYear <= s.year + 2);
+    const type0 = transit && transit.type;
+    const ay = transit && transit.arriveYear;
+    // Advance through the arrival year (news arrives when y === arriveYear).
+    while (s.year <= ay) { const { terna: t } = startYear(s); decide(s, []); resolveYear(s); }
+    const p = (s.pendingVows || []).find((x) => x.petitionerId === id && x.type === type0);
+    ok('ovs-mile: decision queued on arrival', !!p);
+  }
+
+  // 40f. Final vows: invitation -> tertianship -> coadjutor/professed (Stage 5).
+  {
+    const s = newGame({ mode: 'campaign', seed: 'final-vows-p' });
+    const id = vowsMan(s, 'fv', 13, 'ordained', 'scholastic');
+    const inv = inviteFinalVows(s, id);
+    ok('final-vows: invited', inv.invited === true);
+    const e0 = s.europeanLabor.find((e) => e.petitionerId === id);
+    ok('final-vows: tertianship set +1y', e0.vows.tertianshipUntil === s.year + 1);
+    const { terna: t } = startYear(s); decide(s, []); resolveYear(s); // complete tertianship year
+    const done = completeFinalVows(s, id, 'professed');
+    ok('final-vows: professed chosen', done.grade === 'professed' && e0.vows.stage === 'professed');
+  }
+  {
+    const s = newGame({ mode: 'campaign', seed: 'final-vows-c' });
+    const id = vowsMan(s, 'fv', 13, 'ordained', 'scholastic');
+    inviteFinalVows(s, id);
+    const { terna: t } = startYear(s); decide(s, []); resolveYear(s);
+    const done = completeFinalVows(s, id, 'coadjutor');
+    ok('final-vows: coadjutor chosen', done.grade === 'coadjutor' && s.europeanLabor.find((e) => e.petitionerId === id).vows.stage === 'coadjutor');
+  }
+  {
+    // Tertianship completion queues the finalVowsGrade Desk decision.
+    const s = newGame({ mode: 'campaign', seed: 'final-vows-q' });
+    const id = vowsMan(s, 'fv', 13, 'ordained', 'scholastic');
+    inviteFinalVows(s, id);
+    for (let i = 0; i < 2; i++) { const { terna: t } = startYear(s); decide(s, []); resolveYear(s); }
+    const p = (s.pendingVows || []).find((x) => x.petitionerId === id && x.type === 'finalVowsGrade');
+    ok('final-vows: grade decision queued after tertianship', !!p);
+  }
+
+  // 40g. Rank monotonicity: stages never regress across years (Stage 5).
+  {
+    const s = newGame({ mode: 'campaign', seed: 'mono' });
+    const order = { novice: 0, scholastic: 1, brother: 1, ordained: 2, coadjutor: 3, professed: 3 };
+    const ids = [
+      vowsMan(s, 'm1', 1, 'novice', 'scholastic'),
+      vowsMan(s, 'm2', 6, 'scholastic', 'scholastic'),
+      vowsMan(s, 'm3', 3, 'brother', 'brother'),
+    ];
+    let regressed = false;
+    for (let i = 0; i < 8; i++) {
+      const before = ids.map((id) => s.europeanLabor.find((e) => e.petitionerId === id).vows.stage);
+      const { terna: t } = startYear(s); decide(s, []); resolveYear(s);
+      // Auto-proceed any queued vows decisions to exercise transitions.
+      for (const p of [...(s.pendingVows || [])]) {
+        if (ids.includes(p.petitionerId) && p.type !== 'finalVowsGrade') {
+          try { decideVows(s, p.petitionerId, p.type, 'proceed'); } catch (e) { /* already handled */ }
+        }
+      }
+      ids.forEach((id, ix) => {
+        const after = s.europeanLabor.find((e) => e.petitionerId === id);
+        if (!after) return; // dismissed/dead is not regression
+        if (order[after.vows.stage] < order[before[ix]]) regressed = true;
+      });
+    }
+    ok('rank-monotonicity: no stage regression over 8 years', !regressed);
+  }
+
+  // 40h. Direct dispatch preserves years progression like terna approval (Stage 5).
+  {
+    const s = newGame({ mode: 'campaign', seed: 'dispatch-years' });
+    const id = vowsMan(s, 'de', 4, 'scholastic', 'scholastic');
+    const rec = s.petitioners[id];
+    ok('dispatch-years: entryYear set via europeanLabor', rec.entryYear === s.year);
+    const y0 = s.year;
+    for (let i = 0; i < 3; i++) { const { terna: t } = startYear(s); decide(s, []); resolveYear(s); }
+    // yearsInSociety = s.year - entryYear + 4 = 7 after 3 years.
+    ok('dispatch-years: years advance', (s.year - rec.entryYear + 4) === 7 && s.year === y0 + 3);
+  }
+
+  // 40i. Multi-man isolation: decisions on one man don't touch another (Stage 5).
+  {
+    const s = newGame({ mode: 'campaign', seed: 'isolation' });
+    const a = vowsMan(s, 'ia', 2, 'novice', 'scholastic');
+    const b = vowsMan(s, 'ib', 2, 'novice', 'scholastic');
+    s.pendingVows = [
+      { petitionerId: a, type: 'firstVows', year: s.year, name: 'A' },
+      { petitionerId: b, type: 'firstVows', year: s.year, name: 'B' },
+    ];
+    decideVows(s, a, 'firstVows', 'proceed');
+    const ea = s.europeanLabor.find((e) => e.petitionerId === a);
+    const eb = s.europeanLabor.find((e) => e.petitionerId === b);
+    ok('isolation: decided man advanced', ea.vows.stage === 'scholastic' && ea.vows.firstVows === s.year);
+    ok('isolation: other man untouched', eb.vows.stage === 'novice' && eb.vows.firstVows == null);
+    ok('isolation: other pending intact', (s.pendingVows || []).some((x) => x.petitionerId === b));
   }
 }
 

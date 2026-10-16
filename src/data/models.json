@@ -1,0 +1,185 @@
+{
+  "claudio-acquaviva": {
+    "id": "claudio-acquaviva",
+    "name": "Claudio Acquaviva",
+    "life_dates": "1543–1615",
+    "letters": [
+      1,
+      2,
+      8
+    ]
+  },
+  "jesus": {
+    "id": "jesus",
+    "name": "Jesus",
+    "life_dates": null,
+    "letters": [
+      1,
+      2,
+      3,
+      12,
+      14,
+      15,
+      29,
+      30,
+      34,
+      42,
+      48,
+      51,
+      59,
+      61,
+      63,
+      83,
+      95,
+      105,
+      108,
+      121,
+      123,
+      125,
+      126,
+      128,
+      141,
+      143,
+      144,
+      167
+    ]
+  },
+  "mary": {
+    "id": "mary",
+    "name": "Mary",
+    "life_dates": null,
+    "letters": [
+      1,
+      2,
+      3,
+      12,
+      14,
+      15,
+      24,
+      28,
+      29,
+      34,
+      42,
+      46,
+      49,
+      51,
+      54,
+      55,
+      58,
+      61,
+      63,
+      70,
+      75,
+      94,
+      95,
+      102,
+      105,
+      107,
+      116,
+      121,
+      138,
+      141,
+      144,
+      146
+    ]
+  },
+  "ignatius-of-loyola": {
+    "id": "ignatius-of-loyola",
+    "name": "Ignatius of Loyola",
+    "life_dates": "1491–1556",
+    "letters": [
+      4,
+      11,
+      12,
+      19,
+      29,
+      34,
+      46,
+      52,
+      122,
+      144
+    ]
+  },
+  "francis-xavier": {
+    "id": "francis-xavier",
+    "name": "Francis Xavier",
+    "life_dates": "1506–1552",
+    "letters": [
+      22,
+      47,
+      52,
+      68,
+      85,
+      96,
+      98,
+      101,
+      104,
+      119,
+      121,
+      127,
+      144,
+      163,
+      164,
+      165,
+      169
+    ]
+  },
+  "saint-anne": {
+    "id": "saint-anne",
+    "name": "Saint Anne",
+    "life_dates": null,
+    "letters": [
+      46
+    ]
+  },
+  "jacob": {
+    "id": "jacob",
+    "name": "Jacob",
+    "life_dates": null,
+    "letters": [
+      52
+    ]
+  },
+  "marcello-mastrilli": {
+    "id": "marcello-mastrilli",
+    "name": "Marcello Mastrilli",
+    "life_dates": "1603–1637",
+    "letters": [
+      101,
+      114
+    ]
+  },
+  "matthew-the-apostle": {
+    "id": "matthew-the-apostle",
+    "name": "Matthew the Apostle",
+    "life_dates": "1st century",
+    "letters": [
+      111
+    ]
+  },
+  "michael-archangel": {
+    "id": "michael-archangel",
+    "name": "Michael Archangel",
+    "life_dates": null,
+    "letters": [
+      124
+    ]
+  },
+  "aloysius-gonzaga": {
+    "id": "aloysius-gonzaga",
+    "name": "Aloysius Gonzaga",
+    "life_dates": "1568–1591",
+    "letters": [
+      144,
+      169
+    ]
+  },
+  "carlo-spinola": {
+    "id": "carlo-spinola",
+    "name": "Carlo Spinola",
+    "life_dates": "1564–1622",
+    "letters": [
+      164
+    ]
+  }
+}

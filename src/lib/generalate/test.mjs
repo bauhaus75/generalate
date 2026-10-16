@@ -14,6 +14,10 @@ import {
   missionRequests, dispatchMission, staffGradeFor,
   assignDomestic, unassignDomestic, dispatchFromFormation, dispatchFromEurope,
   ordinationEligible, ordainPriest, careerStage, issueInstruction,
+  orderDeployment, selectDeploymentMembers, deploymentCandidates, deploymentEligible,
+  deploymentStatus, deploymentRoster, deploymentConstraints,
+  DEPLOYMENT_PURPOSES, DEPLOYMENT_MIN_SIZE,
+  generalateReport,
   CAMPAIGN_START,
 } from './engine.js';
 import { RESOURCES } from './rules.js';
@@ -1243,6 +1247,249 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
     try { dispatchFromEurope(s2, pid2, 'goa'); } catch (e) { blocked = /recovering/.test(e.message); }
     ok('ill man cannot dispatch from Europe', blocked);
   }
+}
+
+// --- Collective deployment (Stage 1) regression tests -------------------------
+// Helper: seed N eligible men directly into europeanLabor (deterministic).
+function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
+  const ids = [];
+  for (let i = 0; i < n; i++) {
+    const id = `test-${tag}-${i}`;
+    s.petitioners[id] = {
+      id, fictional: true, status: 'denied', history: [],
+      deniedCount: 1, usedLetters: [], voyages: [], archived: false,
+    };
+    s.europeanLabor.push({
+      petitionerId: id, name: `Test Man ${tag}-${i}`, year: s.year, via: 'denied',
+      ...entryExtra,
+    });
+    ids.push(id);
+  }
+  return ids;
+}
+
+{
+  // A1. Accounting: order removes from europeanLabor, pool decrements once at departure.
+  const s = newGame({ mode: 'campaign', seed: 'dep-acct' });
+  const ids = seedLabor(s, 4);
+  const availBefore = s.available;
+  const laborBefore = s.europeanLabor.length;
+  const dep = orderDeployment(s, { destId: 'goa', purpose: 'reinforce', memberIds: ids });
+  ok('deployment ordered', dep && dep.id.startsWith('dep-'));
+  ok('order removes men from europeanLabor', s.europeanLabor.length === laborBefore - 4);
+  ok('order does NOT change the pool (terna convention)', s.available === availBefore);
+  ok('queue entries carry deploymentId', s.queue.filter(q => q.deploymentId === dep.id).length === 4);
+  const fundsBefore = s.resources.funds;
+  const { terna } = startYear(s);
+  decide(s, []); // deny terna so only deployment men sail
+  resolveYear(s); // departures: 4 men x 60 (berths 3/yr -> 3 sail this year)
+  const sailed = s.voyages.filter(v => v.deploymentId === dep.id);
+  ok('3 of 4 sail in year one (berth-bound)', sailed.length === 3, `${sailed.length}`);
+  ok('pool decremented exactly once per sailed man', s.available === availBefore - 3 + 1, `${s.available}`);
+  // 3 deployment men x 60 at departure; the 3 denied terna cards cost 15 each (seal);
+  // deployment men themselves incur no seal costs.
+  const upkeep = Object.keys(s.missions).reduce((n, id) => n + missionUpkeep(missionStaff(s, id)), 0);
+  ok('60 scudi per man charged at departure, no seal costs on deployment men',
+    s.resources.funds === fundsBefore - 180 - 3 * RESOURCES.DENIAL_COST + 240 - upkeep,
+    `${s.resources.funds} vs ${fundsBefore - 180 - 3 * RESOURCES.DENIAL_COST + 240 - upkeep}`);
+  ok('voyages stamped with deploymentId', sailed.every(v => v.deploymentId === dep.id));
+  const st1 = deploymentStatus(s, dep.id);
+  ok('status in-transit while men await berths', st1.status === 'in-transit' && st1.awaiting === 1, JSON.stringify(st1));
+  const roster1 = deploymentRoster(s, dep.id);
+  ok('roster tracks per-member states', roster1.filter(m => m.state === 'in-transit').length === 3 && roster1.filter(m => m.state === 'awaiting').length === 1);
+  ok('roster keeps names after europeanLabor removal', roster1.every(m => /^Test Man/.test(m.name)));
+}
+
+{
+  // A2. Eligibility: ill / in-formation / assigned men are excluded.
+  const s = newGame({ mode: 'campaign', seed: 'dep-elig' });
+  const okIds = seedLabor(s, 2, 'elig-ok');
+  const illIds = seedLabor(s, 1, 'elig-ill', { ill: 'recovering (ill 1615)' });
+  const formIds = seedLabor(s, 1, 'elig-form', { formation: { focus: 'exercises', until: s.year + 1 } });
+  const asgIds = seedLabor(s, 1, 'elig-asg', { assignment: 'rector of a college' });
+  ok('ill man ineligible', !deploymentEligible(s, s.europeanLabor.find(e => e.petitionerId === illIds[0])));
+  ok('man in formation ineligible', !deploymentEligible(s, s.europeanLabor.find(e => e.petitionerId === formIds[0])));
+  ok('assigned man ineligible', !deploymentEligible(s, s.europeanLabor.find(e => e.petitionerId === asgIds[0])));
+  ok('candidates exclude the ineligible', deploymentCandidates(s).length === 2);
+  let threw = false;
+  try { orderDeployment(s, { destId: 'goa', purpose: 'found', memberIds: [...okIds, illIds[0]] }); }
+  catch (e) { threw = /not eligible/.test(e.message); }
+  ok('order rejects an ineligible member', threw);
+  threw = false;
+  try { orderDeployment(s, { destId: 'goa', purpose: 'found', memberIds: [okIds[0]] }); }
+  catch (e) { threw = /at least 2/.test(e.message); }
+  ok('order enforces minimum size 2', threw);
+  threw = false;
+  try { orderDeployment(s, { destId: 'goa', purpose: 'nope', memberIds: okIds }); }
+  catch (e) { threw = /unknown purpose/.test(e.message); }
+  ok('order rejects unknown purpose', threw);
+  threw = false;
+  try { orderDeployment(s, { destId: 'goa', purpose: 'found', memberIds: [okIds[0], okIds[0]] }); }
+  catch (e) { threw = /twice/.test(e.message); }
+  ok('order rejects duplicate members', threw);
+}
+
+{
+  // A3. Deterministic selection: headcount and grade modes; fail loudly.
+  const s = newGame({ mode: 'campaign', seed: 'dep-sel' });
+  seedLabor(s, 6, 'sel');
+  const a = selectDeploymentMembers(s, { count: 4 });
+  const b = selectDeploymentMembers(s, { count: 4 });
+  ok('selection is deterministic', JSON.stringify(a) === JSON.stringify(b), a.join(','));
+  ok('headcount picks longest in Europe first', a[0] === 'test-sel-0');
+  let threw = false;
+  try { selectDeploymentMembers(s, { count: 99 }); } catch (e) { threw = /only 6 eligible/.test(e.message); }
+  ok('selection fails loudly when short', threw);
+  // Grade mode: request the majority grade among seeded men (grades come from
+  // the deterministic per-seed stream for fictional records).
+  const s2 = newGame({ mode: 'campaign', seed: 'dep-selg' });
+  const gids = seedLabor(s2, 8, 'selg');
+  const gcounts = {};
+  for (const id of gids) { const gr = staffGradeFor(s2, id); gcounts[gr] = (gcounts[gr] || 0) + 1; }
+  const majGrade = Object.entries(gcounts).sort((a, b) => b[1] - a[1])[0][0];
+  const gp = selectDeploymentMembers(s2, { grades: { [majGrade]: 2 } });
+  ok('grade mode picks the requested grade', gp.length === 2 && gp.every(id => staffGradeFor(s2, id) === majGrade), `${majGrade}: ${gp.join(',')}`);
+  let gthrew = false;
+  try { selectDeploymentMembers(s2, { grades: { fathers: 99 } }); } catch (e) { gthrew = /only \d+ eligible fathers/.test(e.message); }
+  ok('grade mode fails loudly when short', gthrew);
+}
+
+{
+  // A4. Partial departure across years; queue interleaving with terna approvals.
+  const s = newGame({ mode: 'campaign', seed: 'dep-partial' });
+  const ids = seedLabor(s, 6, 'part');
+  orderDeployment(s, { destId: 'goa', purpose: 'replace', memberIds: ids });
+  const t = startYear(s);
+  decide(s, [{ id: t.terna[0].petitionerId, destination: 'goa' }]); // one terna approval, same year
+  resolveYear(s);
+  const depVoy = s.voyages.filter(v => v.deploymentId);
+  ok('year 1: berths split 3 deployment men; terna approval waits (no priority)',
+    depVoy.length === 3, `${depVoy.length} deployment voyages`);
+  // Year 2: remaining 3 sail (one hull busy, two free).
+  startYear(s); decide(s, []);
+  resolveYear(s);
+  const depVoy2 = s.voyages.filter(v => v.deploymentId);
+  ok('year 2: remaining members sail', depVoy2.length === 6, `${depVoy2.length}`);
+  const st = deploymentStatus(s, s.deployments[0].id);
+  ok('status in-transit until all resolved', st.status === 'in-transit' && st.awaiting === 0, JSON.stringify(st));
+  // No double-counting: pool lost exactly 6 (+1 yearly intake each year, minus terna man).
+  // (asserted loosely: pool never went negative and departures match)
+  ok('no pool anomaly', s.available >= 0 && s.available < 131);
+}
+
+{
+  // A5. Save/load round-trip preserves deployments; old saves default safely.
+  const s = newGame({ mode: 'campaign', seed: 'dep-save' });
+  const ids = seedLabor(s, 3, 'save');
+  const dep = orderDeployment(s, { destId: 'goa', purpose: 'college', memberIds: ids });
+  const rt = deserialize(serialize(s));
+  ok('deployments survive save/load', rt.deployments.length === 1 && rt.deployments[0].id === dep.id);
+  ok('member roster survives save/load', (deploymentRoster(rt, dep.id) || []).length === 3);
+  ok('status derivable after load', deploymentStatus(rt, dep.id).status === 'ordered');
+  const legacy = JSON.parse(JSON.stringify(serialize(s)));
+  delete legacy.deployments; delete legacy.seq.deployment;
+  const rt2 = deserialize(legacy);
+  ok('legacy save defaults deployments to []', Array.isArray(rt2.deployments) && rt2.deployments.length === 0);
+  ok('legacy save defaults seq.deployment', rt2.seq.deployment === 0);
+}
+
+{
+  // A6. Single-fire resolution: no duplication or loss on re-resolve.
+  const s = newGame({ mode: 'campaign', seed: 'dep-once' });
+  const ids = seedLabor(s, 2, 'once');
+  const dep = orderDeployment(s, { destId: 'goa', purpose: 'reinforce', memberIds: ids });
+  startYear(s); decide(s, []);
+  resolveYear(s); // both sail (2 <= 3 berths)
+  const voy = s.voyages.filter(v => v.deploymentId === dep.id);
+  ok('both sailed', voy.length === 2);
+  for (const v of voy) { v.arriveYear = s.year; v.newsYear = s.year; }
+  const availPre = s.available;
+  const laborPre = s.europeanLabor.length;
+  dbgForceOutcome(s, voy[0].id, 'returned');
+  dbgForceOutcome(s, voy[1].id, 'thriving');
+  resolveYear(s);
+  const st = deploymentStatus(s, dep.id);
+  ok('all resolved -> arrived', st.status === 'arrived' && st.resolved === 2, JSON.stringify(st));
+  const roster = deploymentRoster(s, dep.id);
+  ok('outcomes recorded per member',
+    roster.find(m => m.petitionerId === ids[0]).state === 'returned' &&
+    roster.find(m => m.petitionerId === ids[1]).state === 'thriving');
+  // Returnee rejoins pool exactly once (existing convention).
+  ok('returnee rejoins pool once', s.available === availPre + 1 + 1, `${s.available} vs ${availPre}`);
+  const dupes = s.europeanLabor.filter(e => e.petitionerId === ids[0]);
+  ok('no duplicate europeanLabor entries', dupes.length <= 1, `${dupes.length}`);
+}
+
+{
+  // A7. Constraints analysis names the binding constraint; hull-fit != sail-ready.
+  const s = newGame({ mode: 'campaign', seed: 'dep-con' });
+  const c6 = deploymentConstraints(s, 6);
+  ok('6 men: berths bind (3/yr)', c6.bottleneck === 'berths' && c6.sailingYears === 2, JSON.stringify({ b: c6.bottleneck, y: c6.sailingYears }));
+  ok('6 souls fit one hull yet cannot sail at once', c6.hullSouls <= c6.hullCapacity && c6.bottleneck === 'berths');
+  const c2 = deploymentConstraints(s, 2);
+  ok('2 men: nothing binds', c2.bottleneck === null, JSON.stringify(c2.bottleneck));
+  s.resources.funds = 10;
+  const cF = deploymentConstraints(s, 4);
+  ok('empty chest: funds bind first', cF.bottleneck === 'funds', cF.bottleneck);
+  let threw = false;
+  try { orderDeployment(s, { destId: 'goa', purpose: 'found', memberIds: seedLabor(s, 4, 'confunds') }); }
+  catch (e) { threw = /scudi needed/.test(e.message); }
+  ok('order fails early on insufficient funds', threw);
+}
+
+// --- Report card (Stage 2): end-of-generalate account -----------------------
+{
+  // Fresh game: zeros, treasury 1000/1000, no missing-data flags on new saves.
+  const s = newGame({ mode: 'campaign', seed: 'rep-fresh' });
+  const r = generalateReport(s);
+  ok('report: fresh game score 50', r.score === 50 && r.scoreTitle === 'The Steady General');
+  ok('report: fresh game zeros', r.outcomes.thriving === 0 && r.personnel.dispatched === 0
+    && r.institutions.novitiates.length === 0 && r.events.length === 0);
+  ok('report: treasury 1000/1000/net 0', r.treasury.start === 1000 && r.treasury.end === 1000 && r.treasury.net === 0);
+  ok('report: new saves track dispatches (not unknown)', r.institutions.strengthenedUnknown === false
+    && r.institutions.strengthenedTotal === 0);
+  ok('report: narrative is prose, no judgments', typeof r.narrative === 'string' && r.narrative.length > 40
+    && !/wasteful|inefficient|prudent|imprudent/i.test(r.narrative));
+  ok('report: never exposes scoreUncapped', !JSON.stringify(r).includes('scoreUncapped'));
+  ok('report: JSON-safe', JSON.parse(JSON.stringify(r)).score === 50);
+
+  // Scripted campaign fragment: dispatch, novitiate, voyages.
+  const g = newGame({ mode: 'campaign', seed: 'rep-script' });
+  foundNovitiate(g, 'china');
+  dispatchMission(g, 'goa', { brothers: 2 });
+  ok('report: dispatch counter', g.stats.missionDispatches === 2 && g.stats.missionDispatchDests.goa === 2);
+  for (let y = 0; y < 3; y++) {
+    const { terna } = startYear(g);
+    decide(g, terna.length ? [{ id: terna[0].petitionerId }] : []);
+    resolveYear(g);
+  }
+  const r2 = generalateReport(g);
+  ok('report: novitiate listed', r2.institutions.novitiates.length === 1
+    && r2.institutions.novitiates[0].destination === 'china');
+  ok('report: strengthened listed', r2.institutions.strengthenedTotal === 2
+    && r2.institutions.strengthened[0].destId === 'goa');
+  ok('report: dispatched matches stats', r2.personnel.dispatched === g.stats.departures);
+  ok('report: treasury net consistent', r2.treasury.net === r2.treasury.end - r2.treasury.start);
+  ok('report: souls >= dispatched', r2.personnel.souls >= r2.personnel.dispatched);
+  const end = endGame(g);
+  ok('endGame carries the report', end.report && end.report.score === getScore(g));
+
+  // Missing data (older save): omitted/marked unavailable, never fabricated.
+  const o = newGame({ mode: 'campaign', seed: 'rep-old' });
+  delete o.stats.missionDispatches;
+  delete o.stats.missionDispatchDests;
+  const r3 = generalateReport(o);
+  ok('report: missing dispatch data -> null, flagged unknown', r3.institutions.strengthened === null
+    && r3.institutions.strengthenedUnknown === true && r3.institutions.strengthenedTotal === null);
+  ok('report: narrative notes unavailable data', /not recorded/.test(r3.narrative));
+  ok('report: old save still renders numbers', r3.score === 50 && r3.treasury.start === 1000);
+
+  // Round-trip through serialize/deserialize preserves the report inputs.
+  const g2 = newGame({ mode: 'campaign', seed: 'rep-ser' });
+  dispatchMission(g2, 'goa', { brothers: 3 });
+  const back = deserialize(serialize(g2));
+  const r4 = generalateReport(back);
+  ok('report: survives serialize round-trip', r4.institutions.strengthenedTotal === 3);
 }
 
 console.log(`\n${failures === 0 ? 'ALL TESTS PASSED' : failures + ' FAILURES'}`);

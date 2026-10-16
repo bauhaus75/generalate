@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "astro build && npx pagefind --site dist",
-    "prebuild": "gunzip -kf src/data/letters.json.gz src/data/edges.json.gz public/graph.json.gz public/generalate/petitioners.json.gz"
+    "prebuild": "cat src/data/letters.json.part-* > src/data/letters.json; cat src/data/edges.json.part-* > src/data/edges.json; cat public/graph.json.part-* > public/graph.json; cat public/generalate/petitioners.json.part-* > public/generalate/petitioners.json"
   },
   "keywords": [],
   "author": "",

@@ -1,0 +1,51 @@
+---
+import Base from '../../layouts/Base.astro';
+import LetterList from '../../components/LetterList.astro';
+import { models, modelList } from '../../lib/data';
+
+export function getStaticPaths() {
+  return modelList.map((m) => ({ params: { id: m.id } }));
+}
+
+const model = models[Astro.params.id];
+const related = modelList
+  .filter((m) => m.id !== model.id)
+  .map((m) => ({ m, overlap: m.letters.filter((n) => model.letters.includes(n)).length }))
+  .filter((r) => r.overlap > 0)
+  .sort((a, b) => b.overlap - a.overlap)
+  .slice(0, 8);
+---
+
+<Base title={model.name} description={`Letters invoking ${model.name} in the Indipetae to Mutio Vitelleschi.`}>
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="/">Home</a> · <a href="/models/">Models & Saints</a> · {model.name}
+  </nav>
+  <p class="kicker">Model / saint · as cataloged by the Digital Indipetae Database</p>
+  <h1>{model.name}</h1>
+  {model.life_dates && <p class="lede">{model.life_dates}</p>}
+  <p class="src">
+    Letters whose writers invoke {model.name} as a model, as cataloged by the database.
+  </p>
+
+  <section aria-label="Letters">
+    <h2>Letters invoking {model.name} <span class="count">({model.letters.length})</span></h2>
+    <LetterList numbers={model.letters} />
+  </section>
+
+  {related.length > 0 && (
+    <section aria-label="Also invoked">
+      <h2>Also invoked alongside</h2>
+      <p>
+        {related.map((r) => (
+          <a class="pill topic" href={`/models/${r.m.id}/`}>{r.m.name} <span class="n">({r.overlap})</span></a>
+        ))}
+      </p>
+    </section>
+  )}
+</Base>
+
+<style>
+  .src { font-size: .9rem; color: var(--ink-faint); }
+  .count { color: var(--ink-faint); font-size: 1rem; font-weight: 400; }
+  .n { color: var(--ink-faint); }
+</style>

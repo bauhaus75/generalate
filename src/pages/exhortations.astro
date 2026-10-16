@@ -1,0 +1,96 @@
+---
+import Base from "../layouts/Base.astro";
+import items from "../data/exhortations.json";
+
+interface Exhortation {
+  author: string;
+  n: number;
+  place: string;
+  text: string;
+}
+const cards = items as unknown as Exhortation[];
+const description = "A scrollable feed of burning desires: short, fiery passages from the Jesuit indipetae letters to Mutio Vitelleschi (1616–1644).";
+---
+
+<Base title="Exhortations" description={description}>
+  <section id="feed" class="feed" aria-label="Exhortations feed">
+    <div class="feed-top">
+      <h1>Exhortations</h1>
+      <p class="feed-sub">Burning lines from the <em>indipetae</em> — Jesuits begging to be sent to the missions, 1616–1644.</p>
+      <div class="feed-actions">
+        <button id="shuffle" type="button">Shuffle</button>
+      </div>
+    </div>
+    <div id="cards" class="cards">
+      {cards.map((it) => (
+        <a class="card" href={`/letters/${it.n}/`}>
+          <span class="go" aria-hidden="true">Letter {it.n} →</span>
+          <blockquote>{it.text}</blockquote>
+          <div class="attr">
+            <span class="who">{it.author}</span>
+            <span class="src">{it.place}</span>
+          </div>
+        </a>
+      ))}
+    </div>
+    <p class="visually-hidden" id="shuffle-status" role="status"></p>
+    <p class="feed-note">Tap a card to read the full letter. <a href="/letters/">Browse all letters</a>.</p>
+  </section>
+
+  <style>
+    .feed { max-width: 640px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+    .feed-top { text-align: center; margin-bottom: 1rem; }
+    .feed-top h1 { font-size: 1.6rem; margin: 0 0 .25rem; letter-spacing: .02em; }
+    .feed-sub { color: var(--muted); font-size: .95rem; margin: 0 0 .75rem; }
+    .feed-actions { display: flex; justify-content: center; gap: .5rem; }
+    #shuffle {
+      background: transparent; color: inherit; border: 1px solid #4a463c;
+      border-radius: 999px; padding: .45rem 1.2rem; font-size: .9rem; cursor: pointer;
+    }
+    #shuffle:hover { border-color: #d8b46a; color: #d8b46a; }
+    .cards { display: flex; flex-direction: column; gap: 1rem; }
+    .card {
+      display: block; text-decoration: none; color: inherit;
+      background: #161513; border: 1px solid #2a2823; border-radius: 14px;
+      padding: 1.6rem 1.4rem 1.2rem; position: relative;
+      transition: border-color .2s, transform .15s;
+    }
+    .card:hover, .card:focus-visible { border-color: #d8b46a; transform: translateY(-2px); outline: none; }
+    .card blockquote {
+      margin: 0 0 1rem; font-family: Georgia, 'Times New Roman', serif;
+      font-size: 1.18rem; line-height: 1.55; color: #f0e9d8;
+    }
+    .card blockquote::before { content: "“"; color: #d8b46a; font-size: 1.6em; line-height: 0; margin-right: .1em; }
+    .card .attr { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; flex-wrap: wrap; }
+    .card .who { font-size: .85rem; color: #d8b46a; }
+    .card .src { font-size: .8rem; color: var(--muted); white-space: nowrap; }
+    .card .go { position: absolute; top: .9rem; right: 1rem; font-size: .8rem; color: var(--muted); }
+    .card:hover .go { color: #d8b46a; }
+    .feed-note { text-align: center; color: var(--muted); font-size: .85rem; margin-top: 1.5rem; }
+    @media (max-width: 480px) {
+      .feed { padding: 1rem .75rem 2.5rem; }
+      .card blockquote { font-size: 1.12rem; }
+      .card { padding: 1.4rem 1.1rem 1rem; }
+    }
+  </style>
+
+  <script>
+    // Shuffle reorders the server-rendered cards in place — no fetch needed.
+    (function () {
+      var wrap = document.getElementById('cards');
+      var btn = document.getElementById('shuffle');
+      var status = document.getElementById('shuffle-status');
+      if (!wrap || !btn) return;
+      btn.addEventListener('click', function () {
+        var kids = Array.prototype.slice.call(wrap.children);
+        for (var i = kids.length - 1; i > 0; i--) {
+          var j = Math.floor(Math.random() * (i + 1));
+          var t = kids[i]; kids[i] = kids[j]; kids[j] = t;
+        }
+        kids.forEach(function (k) { wrap.appendChild(k); });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        if (status) status.textContent = 'Cards reshuffled.';
+      });
+    })();
+  </script>
+</Base>

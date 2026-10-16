@@ -1,0 +1,72 @@
+---
+import Base from '../../layouts/Base.astro';
+import LetterList from '../../components/LetterList.astro';
+import { years, lettersInYear, getLetter, letterEdges, people, places, topics } from '../../lib/data';
+
+export function getStaticPaths() {
+  return years.map((y) => ({ params: { year: String(y) } }));
+}
+
+const year = Number(Astro.params.year);
+const nums = lettersInYear(year);
+const idx = years.indexOf(year);
+const prevY = idx > 0 ? years[idx - 1] : null;
+const nextY = idx < years.length - 1 ? years[idx + 1] : null;
+
+// aggregate authors, destinations, topics
+const authorIds = new Map<string, number>();
+const destIds = new Map<string, number>();
+const topicIds = new Map<string, number>();
+const placeIds = new Map<string, number>();
+for (const n of nums) {
+  for (const e of letterEdges(n, 'written_by')) authorIds.set(e.target, (authorIds.get(e.target) ?? 0) + 1);
+  for (const e of letterEdges(n, 'aspires_to')) destIds.set(e.target, (destIds.get(e.target) ?? 0) + 1);
+  for (const e of letterEdges(n, 'indexed_under')) topicIds.set(e.target, (topicIds.get(e.target) ?? 0) + 1);
+  for (const e of letterEdges(n, 'written_in')) placeIds.set(e.target, (placeIds.get(e.target) ?? 0) + 1);
+}
+const top = <T,>(m: Map<string, number>, lookup: Record<string, { name?: string; display_name?: string }>, limit = 10) =>
+  [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit)
+    .map(([id, c]) => ({ id, c, label: lookup[id]?.display_name ?? lookup[id]?.name ?? id }));
+---
+
+<Base title={`${year}`} description={`Letters of the Indipetae written in ${year}: writers, destinations, and themes.`}>
+  <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a> · <a href="/timeline/">Timeline</a> · {year}</nav>
+  <p class="kicker">{nums.length} {nums.length === 1 ? 'letter' : 'letters'}</p>
+  <h1>{year}</h1>
+
+  <div class="cols">
+    <section>
+      <h2>Writers</h2>
+      <p>{top(authorIds, people).map((a) => <a class="pill" href={`/people/${a.id}/`}>{a.label} <span class="n">({a.c})</span></a>)}</p>
+    </section>
+    <section>
+      <h2>Destinations desired</h2>
+      <p>{top(destIds, places).length
+        ? top(destIds, places).map((a) => <a class="pill place" href={`/places/${a.id}/`}>{a.label} <span class="n">({a.c})</span></a>)
+        : <span class="dim">None named explicitly this year.</span>}</p>
+    </section>
+    <section>
+      <h2>Written from</h2>
+      <p>{top(placeIds, places).map((a) => <a class="pill place" href={`/places/${a.id}/`}>{a.label} <span class="n">({a.c})</span></a>)}</p>
+    </section>
+    <section>
+      <h2>Themes</h2>
+      <p>{top(topicIds, topics).map((a) => <a class="pill topic" href={`/topics/${a.id}/`}>{a.label} <span class="n">({a.c})</span></a>)}</p>
+    </section>
+  </div>
+
+  <h2>Letters of {year}</h2>
+  <LetterList numbers={nums} />
+
+  <nav class="pager" aria-label="Year navigation">
+    {prevY != null ? <a href={`/timeline/${prevY}/`} rel="prev">← {prevY}</a> : <span />}
+    {nextY != null ? <a class="next" href={`/timeline/${nextY}/`} rel="next">{nextY} →</a> : <span />}
+  </nav>
+</Base>
+
+<style>
+  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 0 2rem; }
+  .cols h2 { font-size: 1.1rem; }
+  .n { color: var(--ink-faint); }
+  .dim { color: var(--ink-faint); font-style: italic; }
+</style>

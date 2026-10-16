@@ -1,0 +1,1 @@
+{"compilerOptions":{"strictNullChecks":true},"extends":"astro/tsconfigs/strict"}

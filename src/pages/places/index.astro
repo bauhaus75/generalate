@@ -1,0 +1,37 @@
+---
+import Base from '../../layouts/Base.astro';
+import { placeList } from '../../lib/data';
+
+const groups: Record<string, typeof placeList> = {
+  'Mission destinations': placeList.filter((p) => p.kind === 'mission'),
+  'Cities': placeList.filter((p) => p.kind === 'city'),
+  'Regions & countries': placeList.filter((p) => p.kind === 'region' || p.kind === 'country'),
+};
+---
+
+<Base title="Places" description="Cities, regions, and mission destinations in the Indipetae to Mutio Vitelleschi.">
+  <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a> · Places</nav>
+  <p class="kicker">Where written, where desired</p>
+  <h1>Places</h1>
+  <p class="lede">The Italian cities the letters were written from, and the distant missions their writers longed for.</p>
+
+  {Object.entries(groups).map(([label, list]) => (
+    <section>
+      <h2>{label}</h2>
+      <ul class="index-list">
+        {list.map((p) => (
+          <li>
+            <a href={`/places/${p.id}/`}>{p.name}</a>
+            <span class="n">
+              {[
+                p.letters_written_from.length ? `${p.letters_written_from.length} written from` : '',
+                p.letters_desiring.length ? `${p.letters_desiring.length} desired` : '',
+                p.letters_mentioning.length ? `${p.letters_mentioning.length} mentioned` : '',
+              ].filter(Boolean).join(' · ')}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  ))}
+</Base>

@@ -932,7 +932,7 @@ function cardHTML(app, c) {
       <span class="health" title="Health">♥${'●'.repeat(c.health)}${'○'.repeat(5 - c.health)}</span></div>
     ${hist}
     <p class="pcard-excerpt">“${esc(L.excerpt)}”</p>
-    <p class="pcard-disposition">${gradeChip(app, c.id)} <span class="disp-line">${dispLine(app, c.id)}</span>
+    <p class="pcard-disposition"><span class="disp-line">${dispLine(app, c.id)}</span>
       <button class="gbtn small ghost inspect-btn" data-id="${esc(c.id)}" data-name="${esc(c.name)}">Inspect</button></p>
     <button class="gbtn small read-letter" data-id="${esc(c.id)}">Read letter</button>
     <div class="verdict-row" role="group" aria-label="Decision for ${esc(c.name)}">

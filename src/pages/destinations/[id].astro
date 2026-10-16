@@ -1,0 +1,50 @@
+---
+import Base from '../../layouts/Base.astro';
+import LetterList from '../../components/LetterList.astro';
+import { destinations, destinationList } from '../../lib/data';
+
+export function getStaticPaths() {
+  return destinationList.map((d) => ({ params: { id: d.id } }));
+}
+
+const dest = destinations[Astro.params.id];
+const related = destinationList
+  .filter((d) => d.id !== dest.id)
+  .map((d) => ({ d, overlap: d.letters.filter((n) => dest.letters.includes(n)).length }))
+  .filter((r) => r.overlap > 0)
+  .sort((a, b) => b.overlap - a.overlap)
+  .slice(0, 8);
+---
+
+<Base title={dest.name} description={`Letters requesting the ${dest.name} mission in the Indipetae to Mutio Vitelleschi.`}>
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="/">Home</a> · <a href="/destinations/">Destinations</a> · {dest.name}
+  </nav>
+  <p class="kicker">Destination · as cataloged by the Digital Indipetae Database</p>
+  <h1>{dest.name}{dest.modern_name && dest.modern_name !== dest.name ? ` (${dest.modern_name})` : ''}</h1>
+  <div class="notice">
+    <strong>A note on evidence.</strong> A writer's request to be sent somewhere is not proof that he
+    ever went there. These tags are the database's cataloging of each letter's stated destination.
+  </div>
+
+  <section aria-label="Letters">
+    <h2>Letters requesting {dest.name} <span class="count">({dest.letters.length})</span></h2>
+    <LetterList numbers={dest.letters} />
+  </section>
+
+  {related.length > 0 && (
+    <section aria-label="Related destinations">
+      <h2>Related destinations</h2>
+      <p>
+        {related.map((r) => (
+          <a class="pill place" href={`/destinations/${r.d.id}/`}>{r.d.name} <span class="n">({r.overlap})</span></a>
+        ))}
+      </p>
+    </section>
+  )}
+</Base>
+
+<style>
+  .count { color: var(--ink-faint); font-size: 1rem; font-weight: 400; }
+  .n { color: var(--ink-faint); }
+</style>

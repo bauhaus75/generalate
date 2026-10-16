@@ -1736,7 +1736,27 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     const e2 = back.europeanLabor.find((e) => e.petitionerId === id);
     ok('vows: old save backfilled', e2 && e2.vows && typeof e2.vows.stage === 'string');
   }
+
+  // DEAD-END TESTS
+  {
+    const s = newGame({ mode: 'campaign', seed: 'deadend-terna' });
+    dbgSpawnTerna(s);
+    decide(s, []);
+    let threw = false;
+    try { decide(s, []); } catch (e) { threw = /No terna is awaiting decision/.test(e.message); }
+    ok('deadend: decide() after seal throws clear error', threw);
+  }
+  {
+    const s = newGame({ mode: 'campaign', seed: 'deadend-block' });
+    dbgSpawnTerna(s);
+    let blocked = 0;
+    for (const fn of [() => foundNovitiate(s, 'goa'), () => expandBerths(s), () => charterShip(s)]) {
+      try { fn(); } catch (e) { if (/Finish deciding on the current terna first/.test(e.message)) blocked++; }
+    }
+    ok('deadend: terna blocks other actions with clear message', blocked === 3);
+  }
 }
 
 console.log(`\n${failures === 0 ? 'ALL TESTS PASSED' : failures + ' FAILURES'}`);
 process.exit(failures === 0 ? 0 : 1);
+

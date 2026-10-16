@@ -1009,6 +1009,16 @@ function formationDecisionsHTML(app) {
 }
 
 export function renderDesk(app, root, terna) {
+  // If no terna is awaiting decision (already sealed), show decided state, not interactive UI.
+  // This prevents the dead end where SEAL button appears but decide() throws.
+  if (!app.state.currentTerna) {
+    root.innerHTML = `
+    <section class="gscreen desk-screen">
+      <p class="kicker px">THE TERNA · ANNO ${app.state.year}</p>
+      <p class="desk-instr">The terna for this year has been sealed. Receive next year's terna from the Briefing tab.</p>
+    </section>`;
+    return;
+  }
   // decisions: id -> {verdict:'approve'|'deny', destination, companions}.
   // Preserved when the General steps away to the House/Missions tabs mid-terna;
   // reset only when a new terna is dealt.

@@ -1,0 +1,4133 @@
+[
+ {
+  "letter": 1,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "I wrote, while the happy memory of our Father Claudio Acquaviva was still alive, to that Father, asking leave to go to the Indies;"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 1,
+  "type": "indexed_under",
+  "target": "cross-and-suffering",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 1,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 1,
+  "type": "indexed_under",
+  "target": "obedience",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 1,
+  "type": "indexed_under",
+  "target": "studies",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 1,
+  "type": "indexed_under",
+  "target": "virgin-mary",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 1,
+  "type": "indexed_under",
+  "target": "zeal-for-souls",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 1,
+  "type": "mentions_person",
+  "target": "acquaviva-claudio",
+  "evidence": [
+   "I wrote, while the happy memory of our Father Claudio Acquaviva was still alive, to that Father, asking leave to go to the Indies;"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 1,
+  "type": "mentions_place",
+  "target": "east-indies",
+  "evidence": [
+   "and I assure Your Paternity,Coram Domino (before the Lord), that no greater consolation in this life could I receive than this — to go to those blessed and happy parts of the East Indies, if it so please Your Paternity, "
+  ],
+  "count": 1
+ },
+ {
+  "letter": 1,
+  "type": "mentions_place",
+  "target": "italy",
+  "evidence": [
+   "although, as for me, I should esteem myself most happy to be able to leave this Italy, already odious to me for my desire for those parts."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 1,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 1,
+  "type": "written_by",
+  "target": "astria-giovanni-battista",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 1,
+  "type": "written_in",
+  "target": "genoa",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 2,
+  "type": "aspires_to",
+  "target": "china",
+  "evidence": [
+   "dispose of me as shall most please you, for I should esteem myself most happy to be able to depart once from this Italy with these Father Procurators — of China or of Japan — this Italy which I hold almost in hatred for "
+  ],
+  "count": 1
+ },
+ {
+  "letter": 2,
+  "type": "aspires_to",
+  "target": "japan",
+  "evidence": [
+   "dispose of me as shall most please you, for I should esteem myself most happy to be able to depart once from this Italy with these Father Procurators — of China or of Japan — this Italy which I hold almost in hatred for "
+  ],
+  "count": 1
+ },
+ {
+  "letter": 2,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "I wrote, while the happy memory of our Father Claudio Acquaviva was still alive, to that Father, asking leave to go to the Indies;"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 2,
+  "type": "indexed_under",
+  "target": "china-mission-to",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 2,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 2,
+  "type": "indexed_under",
+  "target": "japan-mission-to",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 2,
+  "type": "indexed_under",
+  "target": "obedience",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 2,
+  "type": "indexed_under",
+  "target": "studies",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 2,
+  "type": "indexed_under",
+  "target": "virgin-mary",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 2,
+  "type": "indexed_under",
+  "target": "zeal-for-souls",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 2,
+  "type": "mentions_person",
+  "target": "acquaviva-claudio",
+  "evidence": [
+   "I wrote, while the happy memory of our Father Claudio Acquaviva was still alive, to that Father, asking leave to go to the Indies;"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 2,
+  "type": "mentions_place",
+  "target": "italy",
+  "evidence": [
+   "dispose of me as shall most please you, for I should esteem myself most happy to be able to depart once from this Italy with these Father Procurators — of China or of Japan — this Italy which I hold almost in hatred for "
+  ],
+  "count": 1
+ },
+ {
+  "letter": 2,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 2,
+  "type": "written_by",
+  "target": "astria-giovanni-battista",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 2,
+  "type": "written_in",
+  "target": "genoa",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 3,
+  "type": "aspires_to",
+  "target": "china",
+  "evidence": [
+   "and because I do not wish to fall into the sin of ingratitude toward the Giver of such a talent, I say plainly to Your Paternity that for about a year (not recalling the exact time), and perhaps more, in my cold prayers,"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 3,
+  "type": "aspires_to",
+  "target": "japan",
+  "evidence": [
+   "and because I do not wish to fall into the sin of ingratitude toward the Giver of such a talent, I say plainly to Your Paternity that for about a year (not recalling the exact time), and perhaps more, in my cold prayers,"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 3,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "and because I do not wish to fall into the sin of ingratitude toward the Giver of such a talent, I say plainly to Your Paternity that for about a year (not recalling the exact time), and perhaps more, in my cold prayers,"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 3,
+  "type": "indexed_under",
+  "target": "blood-of-christ",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 3,
+  "type": "indexed_under",
+  "target": "cross-and-suffering",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 3,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 3,
+  "type": "indexed_under",
+  "target": "novitiate",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 3,
+  "type": "indexed_under",
+  "target": "obedience",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 3,
+  "type": "indexed_under",
+  "target": "studies",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 3,
+  "type": "indexed_under",
+  "target": "tears",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 3,
+  "type": "indexed_under",
+  "target": "virgin-mary",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 3,
+  "type": "indexed_under",
+  "target": "vows",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 3,
+  "type": "indexed_under",
+  "target": "zeal-for-souls",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 3,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 3,
+  "type": "written_by",
+  "target": "antoglietta-lelio",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 3,
+  "type": "written_in",
+  "target": "naples",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 4,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "for which, my most loving Father, in visceribus Iesu Christi (in the bowels of Jesus Christ), I pray Your Paternity to pardon me and so to act, for your paternal charity, that I may be one of those who expose their lives"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 4,
+  "type": "indexed_under",
+  "target": "blood-of-christ",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 4,
+  "type": "indexed_under",
+  "target": "heaven-hell-and-purgatory",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 4,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 4,
+  "type": "indexed_under",
+  "target": "ignatius-of-loyola-st",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 4,
+  "type": "indexed_under",
+  "target": "studies",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 4,
+  "type": "indexed_under",
+  "target": "tears",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 4,
+  "type": "indexed_under",
+  "target": "zeal-for-souls",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 4,
+  "type": "mentions_person",
+  "target": "loyola-ignatius-of",
+  "evidence": [
+   "and I promise Your Paternity that in all my labors and in all my actions I shall remember to pray the Lord — though unworthily — to grant Your Paternity such grace that you may govern in the same way as our blessed Rever"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 4,
+  "type": "mentions_place",
+  "target": "messina",
+  "evidence": [
+   "For the full information of Your Paternity: seven years ago I entered the holy religion, and I have already studied philosophy, and I am now teaching in the 2nd class of the College of Messina, and by the divine grace I "
+  ],
+  "count": 1
+ },
+ {
+  "letter": 4,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 4,
+  "type": "written_by",
+  "target": "balami-ignazio",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 4,
+  "type": "written_in",
+  "target": "messina",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 5,
+  "type": "aspires_to",
+  "target": "east-indies",
+  "evidence": [
+   "Although only a few days ago I wrote to Your Paternity asking leave to go to the East Indies, I have wished anew to remind you, to satisfy in part the great desire I have to obtain this grace, and to kindle myself the mo"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 5,
+  "type": "mentions_place",
+  "target": "messina",
+  "evidence": [
+   "Although only a few days ago I wrote to Your Paternity asking leave to go to the East Indies, I have wished anew to remind you, to satisfy in part the great desire I have to obtain this grace, and to kindle myself the mo"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 5,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 5,
+  "type": "written_by",
+  "target": "baraona-roderico",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 5,
+  "type": "written_in",
+  "target": "palermo",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 6,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "I, Francesco Maria Armillei, most humble servant and son in Christ of Your Most Reverend Paternity, lay before you how for some days now I feel moved and stirred to the vocation of the Indies, not by my merit, but by the"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 6,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 6,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 6,
+  "type": "written_by",
+  "target": "armillei-francesco-maria",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 6,
+  "type": "written_in",
+  "target": "rome",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 6,
+  "type": "written_in_note",
+  "target": "Collegio Romano",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 7,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "If Your Paternity would grant me this first grace of assigning me either to the Indies or to the North, now that the occasion is present for the one and for the other, it would answer a desire of mine both ancient and gr"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 7,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 7,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 7,
+  "type": "written_by",
+  "target": "angelucci-ignazio",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 7,
+  "type": "written_in",
+  "target": "sezze",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 8,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "I wrote to Father Claudio, of happy memory, of a desire which the Lord had given me to spend even my life in the help of souls in the Indies."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 8,
+  "type": "indexed_under",
+  "target": "heaven-hell-and-purgatory",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 8,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 8,
+  "type": "indexed_under",
+  "target": "zeal-for-souls",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 8,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 8,
+  "type": "written_by",
+  "target": "comentali-pietro",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 8,
+  "type": "written_in",
+  "target": "naples",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 9,
+  "type": "indexed_under",
+  "target": "cross-and-suffering",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 9,
+  "type": "indexed_under",
+  "target": "zeal-for-souls",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 9,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 9,
+  "type": "written_by",
+  "target": "comentali-pietro",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 9,
+  "type": "written_in",
+  "target": "naples",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 10,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "and if Your Paternity wishes that I make a vow of it, I make it now: if I cannot serve otherwise, to spend my life in teaching the Indian children the necessary things."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 10,
+  "type": "indexed_under",
+  "target": "heaven-hell-and-purgatory",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 10,
+  "type": "indexed_under",
+  "target": "studies",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 10,
+  "type": "indexed_under",
+  "target": "vows",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 10,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 10,
+  "type": "written_by",
+  "target": "comentali-pietro",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 10,
+  "type": "written_in",
+  "target": "naples",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 11,
+  "type": "indexed_under",
+  "target": "blood-of-christ",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 11,
+  "type": "indexed_under",
+  "target": "cross-and-suffering",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 11,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 11,
+  "type": "indexed_under",
+  "target": "ignatius-of-loyola-st",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 11,
+  "type": "indexed_under",
+  "target": "tears",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 11,
+  "type": "indexed_under",
+  "target": "virgin-mary",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 11,
+  "type": "mentions_person",
+  "target": "loyola-ignatius-of",
+  "evidence": [
+   "Let Your Paternity know that in all my labors I shall never forget to pray the Lord, unworthily to be sure, that He grant you those graces which are needful for a Father General of the Company of Jesus, so that Your Pate"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 11,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 11,
+  "type": "written_by",
+  "target": "balami-ignazio",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 11,
+  "type": "written_in",
+  "target": "messina",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 12,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "I wrote to Your Paternity, as it was already long ago, that the Lord had opened wide the kind hand of His mercies over me, a miserable one, in calling me to preach His most holy name among the infidels and barbarians, fo"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 12,
+  "type": "indexed_under",
+  "target": "blood-of-christ",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 12,
+  "type": "indexed_under",
+  "target": "heaven-hell-and-purgatory",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 12,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 12,
+  "type": "indexed_under",
+  "target": "ignatius-of-loyola-st",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 12,
+  "type": "indexed_under",
+  "target": "virgin-mary",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 12,
+  "type": "indexed_under",
+  "target": "zeal-for-souls",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 12,
+  "type": "mentions_person",
+  "target": "loyola-ignatius-of",
+  "evidence": [
+   "And having nothing else to add, I place myself in the hands and at the feet of Your Paternity (fiat voluntas Dei (may God's will be done)), making you my most humble reverence, and praying the Lord to give you abundance "
+  ],
+  "count": 1
+ },
+ {
+  "letter": 12,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 12,
+  "type": "written_by",
+  "target": "camassa-diego",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 12,
+  "type": "written_in",
+  "target": "nola",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 13,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "Since this is the greatest business I can have in this life, I write to Your Paternity, praying you for love of Jesus to console me in this one thing alone — that is, in sending me to the Indies, as I have written severa"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 13,
+  "type": "indexed_under",
+  "target": "heaven-hell-and-purgatory",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 13,
+  "type": "indexed_under",
+  "target": "vows",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 13,
+  "type": "mentions_place",
+  "target": "naples",
+  "evidence": [
+   "with this I make you reverence, praying you every happiness from Heaven, from the College of Naples, the 4th of March 1616."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 13,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 13,
+  "type": "written_by",
+  "target": "comentali-pietro",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 13,
+  "type": "written_in",
+  "target": "naples",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 14,
+  "type": "aspires_to",
+  "target": "china",
+  "evidence": [
+   "In this letter I turn again to remind Your Paternity of what I have treated with Your Paternity at other times, both in person and also in writing — I mean, of my vocation to China or Japan, if it be to the greater glory"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 14,
+  "type": "aspires_to",
+  "target": "japan",
+  "evidence": [
+   "In this letter I turn again to remind Your Paternity of what I have treated with Your Paternity at other times, both in person and also in writing — I mean, of my vocation to China or Japan, if it be to the greater glory"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 14,
+  "type": "indexed_under",
+  "target": "blood-of-christ",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 14,
+  "type": "indexed_under",
+  "target": "china-mission-to",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 14,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 14,
+  "type": "indexed_under",
+  "target": "japan-mission-to",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 14,
+  "type": "indexed_under",
+  "target": "virgin-mary",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 14,
+  "type": "mentions_place",
+  "target": "italy",
+  "evidence": [
+   "And to this end I have written to our Father Assistants of Italy and of Portugal, one each, that they may aid me with Your Paternity in this matter."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 14,
+  "type": "mentions_place",
+  "target": "portugal",
+  "evidence": [
+   "And to this end I have written to our Father Assistants of Italy and of Portugal, one each, that they may aid me with Your Paternity in this matter."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 14,
+  "type": "mentions_place",
+  "target": "rome",
+  "evidence": [
+   "Your Paternity in Rome gave me no small good hope, promising me that doubtless in those parts I would do much service to our Lord God with my painting;"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 14,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 14,
+  "type": "written_by",
+  "target": "ardoino-francesco",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 14,
+  "type": "written_in",
+  "target": "naples",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 15,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "The reason why until now I have not written to Your Reverence concerning the vocation to the Indies, it being more than five years that I have had this desire, has come partly from a certain vain respect, partly from not",
+   "and that you may more clearly understand my desire: the principal motive that moved me to embrace our Institute was the knowledge of the opportunity there was to go to the Indies."
+  ],
+  "count": 2
+ },
+ {
+  "letter": 15,
+  "type": "indexed_under",
+  "target": "cross-and-suffering",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 15,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 15,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 15,
+  "type": "written_by",
+  "target": "balione-francesco",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 15,
+  "type": "written_in",
+  "target": "genoa",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 16,
+  "type": "aspires_to",
+  "target": "paraguay",
+  "evidence": [
+   "Now is the time when Your Paternity can fulfill my long desire — either with this mission to Paraguay, if there be some impediment (as I understand) in any of those already chosen, or with those of Father Trigault."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 16,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "I wish to console you with these missions, both for having written to you several times, and for having been among the first to ask Your Paternity to go to the Indies;"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 16,
+  "type": "indexed_under",
+  "target": "paraguay-mission-to",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 16,
+  "type": "indexed_under",
+  "target": "tears",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 16,
+  "type": "mentions_person",
+  "target": "trigault-nicolas",
+  "evidence": [
+   "Now is the time when Your Paternity can fulfill my long desire — either with this mission to Paraguay, if there be some impediment (as I understand) in any of those already chosen, or with those of Father Trigault."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 16,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 16,
+  "type": "written_by",
+  "target": "comentali-pietro",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 16,
+  "type": "written_in",
+  "target": "naples",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 17,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "Now is the time when Your Paternity may remember me, as you have answered me so many times that you wished to do when the occasion arose — that is, by fulfilling my long and great desire for the Indies."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 17,
+  "type": "indexed_under",
+  "target": "heaven-hell-and-purgatory",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 17,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 17,
+  "type": "written_by",
+  "target": "comentali-pietro",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 17,
+  "type": "written_in",
+  "target": "naples",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 18,
+  "type": "aspires_to",
+  "target": "paraguay",
+  "evidence": [
+   "Let Your Paternity not doubt that I meanwhile shall forget this so signal a favor and gift — namely, to have been made, beyond all my merit, one of the heralds of the greatness of God to the Paraguayans, by means of Your"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 18,
+  "type": "indexed_under",
+  "target": "paraguay-mission-to",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 18,
+  "type": "indexed_under",
+  "target": "zeal-for-souls",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 18,
+  "type": "mentions_place",
+  "target": "naples",
+  "evidence": [
+   "From the College of Naples, April 29, 1616."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 18,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 18,
+  "type": "written_by",
+  "target": "comentali-pietro",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 18,
+  "type": "written_in",
+  "target": "naples",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 19,
+  "type": "indexed_under",
+  "target": "cross-and-suffering",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 19,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 19,
+  "type": "indexed_under",
+  "target": "ignatius-of-loyola-st",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 19,
+  "type": "indexed_under",
+  "target": "novitiate",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 19,
+  "type": "mentions_person",
+  "target": "loyola-ignatius-of",
+  "evidence": [
+   "and I shall never forget to pray the Lord that He grant you so much spirit and grace that you may be another Blessed Father Ignatius."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 19,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 19,
+  "type": "written_by",
+  "target": "balami-ignazio",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 19,
+  "type": "written_in",
+  "target": "messina",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 20,
+  "type": "aspires_to",
+  "target": "china",
+  "evidence": [
+   "I pray now that Your Paternity fulfill the greeting that you lovingly sent, and my desire, which every day grows ever more — and in this time particularly, with news of China and Japan."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 20,
+  "type": "aspires_to",
+  "target": "japan",
+  "evidence": [
+   "I pray now that Your Paternity fulfill the greeting that you lovingly sent, and my desire, which every day grows ever more — and in this time particularly, with news of China and Japan."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 20,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "The greeting that Your Paternity gave me through one letter to Father Cesare Cosso, then [Vice-Provincial], brought me as much contentment as certain hope of a thing so long desired is wont to bring, for such a greeting "
+  ],
+  "count": 1
+ },
+ {
+  "letter": 20,
+  "type": "indexed_under",
+  "target": "china-mission-to",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 20,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 20,
+  "type": "indexed_under",
+  "target": "japan-mission-to",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 20,
+  "type": "indexed_under",
+  "target": "novitiate",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 20,
+  "type": "indexed_under",
+  "target": "obedience",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 20,
+  "type": "indexed_under",
+  "target": "spiritual-exercises",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 20,
+  "type": "indexed_under",
+  "target": "studies",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 20,
+  "type": "mentions_place",
+  "target": "the-indies",
+  "evidence": [
+   "To the Lord be that which may make me seek His glory in the Indies, and make happy the government of Your Paternity so well begun."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 20,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 20,
+  "type": "written_by",
+  "target": "amodei-benedetto",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 20,
+  "type": "written_in",
+  "target": "palermo",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 21,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "But that I should not rise again to make a new petition — that, thrust back, I should not return — I cannot keep myself from doing, my most beloved Father: [mercifully] there will live in me, thanks be to the Lord, the b"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 21,
+  "type": "indexed_under",
+  "target": "obedience",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 21,
+  "type": "indexed_under",
+  "target": "tears",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 21,
+  "type": "indexed_under",
+  "target": "virgin-mary",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 21,
+  "type": "mentions_place",
+  "target": "the-indies",
+  "evidence": [
+   "You could make me weep, and at times languish, and mortify me so much that not even my name — poor though it be as refreshment for one oppressed — is heard among the others persevering for the Indies in your most loving "
+  ],
+  "count": 1
+ },
+ {
+  "letter": 21,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 21,
+  "type": "written_by",
+  "target": "alfieri-giuseppe",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 21,
+  "type": "written_in",
+  "target": "messina",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 22,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "Having done this up to now, there occurs to me at present another thing, which belongs only to Our Father, our Father: the vocation to the Indies, a very great grace of God, and to be most greatly esteemed.",
+   "Two years before I was admitted to the novitiate, or a little less, hearing talk of the things of the Indies — particularly of the martyrdoms — since from childhood I have always had the vocation to the Company, I felt c"
+  ],
+  "count": 2
+ },
+ {
+  "letter": 22,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 22,
+  "type": "indexed_under",
+  "target": "martyrdom",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 22,
+  "type": "indexed_under",
+  "target": "novitiate",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 22,
+  "type": "indexed_under",
+  "target": "obedience",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 22,
+  "type": "indexed_under",
+  "target": "spiritual-exercises",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 22,
+  "type": "indexed_under",
+  "target": "xavier-st-francis",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 22,
+  "type": "mentions_place",
+  "target": "naples",
+  "evidence": [
+   "these movements grew much with the occasion of certain missions which ours were conducting through Naples, with whom I used to go along to help at least to sing through the streets, to draw the people."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 22,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 22,
+  "type": "written_by",
+  "target": "gargano-francesco",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 22,
+  "type": "written_in",
+  "target": "naples",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 23,
+  "type": "aspires_to",
+  "target": "japan",
+  "evidence": [
+   "Very Reverend Father, Our Father, The great longing which I have always had, and which I now feel within me more than ever, to go to the Indies has moved me to write these four lines to Your Paternity — especially now th"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 23,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "Very Reverend Father, Our Father, The great longing which I have always had, and which I now feel within me more than ever, to go to the Indies has moved me to write these four lines to Your Paternity — especially now th"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 23,
+  "type": "indexed_under",
+  "target": "blood-of-christ",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 23,
+  "type": "indexed_under",
+  "target": "cross-and-suffering",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 23,
+  "type": "indexed_under",
+  "target": "health",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 23,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 23,
+  "type": "indexed_under",
+  "target": "japan-mission-to",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 23,
+  "type": "indexed_under",
+  "target": "martyrdom",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 23,
+  "type": "indexed_under",
+  "target": "novitiate",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 23,
+  "type": "indexed_under",
+  "target": "obedience",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 23,
+  "type": "indexed_under",
+  "target": "spiritual-exercises",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 23,
+  "type": "indexed_under",
+  "target": "zeal-for-souls",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 23,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 23,
+  "type": "written_by",
+  "target": "franceschi-giacinto",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 24,
+  "type": "indexed_under",
+  "target": "health",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 24,
+  "type": "indexed_under",
+  "target": "virgin-mary",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 24,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 24,
+  "type": "written_by",
+  "target": "stella-marco",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 24,
+  "type": "written_in",
+  "target": "sicily",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 25,
+  "type": "indexed_under",
+  "target": "blood-of-christ",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 25,
+  "type": "indexed_under",
+  "target": "cross-and-suffering",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 25,
+  "type": "indexed_under",
+  "target": "heaven-hell-and-purgatory",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 25,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 25,
+  "type": "indexed_under",
+  "target": "tears",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 25,
+  "type": "mentions_place",
+  "target": "east-indies",
+  "evidence": [
+   "I do not ask for the East Indies nor the West Indies, except where Your Paternity, guided by the Holy Spirit, shall judge that I may suffer much [and much];"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 25,
+  "type": "mentions_place",
+  "target": "west-indies",
+  "evidence": [
+   "I do not ask for the East Indies nor the West Indies, except where Your Paternity, guided by the Holy Spirit, shall judge that I may suffer much [and much];"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 25,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 25,
+  "type": "written_by",
+  "target": "balami-ignazio",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 25,
+  "type": "written_in",
+  "target": "palermo",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 26,
+  "type": "aspires_to",
+  "target": "china",
+  "evidence": [
+   "Most beloved Father: for the space of two years I have been held in a great desire to go toward the kingdom of China;"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 26,
+  "type": "indexed_under",
+  "target": "china-mission-to",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 26,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 26,
+  "type": "indexed_under",
+  "target": "martyrdom",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 26,
+  "type": "indexed_under",
+  "target": "studies",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 26,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 26,
+  "type": "written_by",
+  "target": "rondonio-antonio",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 26,
+  "type": "written_in",
+  "target": "ferrara",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 27,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "Seeing the time approach when there is hope that missions to the Indies may be made, I am compelled by the desire to be one of those who shall be sent to those happy parts — I am compelled, I say, to refresh Your Paterni"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 27,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 27,
+  "type": "written_by",
+  "target": "fassari-vincenzo",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 27,
+  "type": "written_in",
+  "target": "palermo",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 28,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "Because blessed God does not fail, with His infinite mercy, as He has deigned to give me this holy desire to go to the Indies, so also to keep it in me, indeed to increase it ever more, giving me great hope of one day en"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 28,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 28,
+  "type": "indexed_under",
+  "target": "virgin-mary",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 28,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 28,
+  "type": "written_by",
+  "target": "gargano-francesco",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 28,
+  "type": "written_in",
+  "target": "naples",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 29,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "I know well that, having ever been assured in this my vocation by so many most just ways through my superiors and spiritual fathers: I was born for the Indies — nor shall anyone take them from me;",
+   "Let Your Paternity now at last let me follow my Captain to the Indies, for it is time."
+  ],
+  "count": 2
+ },
+ {
+  "letter": 29,
+  "type": "indexed_under",
+  "target": "blood-of-christ",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 29,
+  "type": "indexed_under",
+  "target": "health",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 29,
+  "type": "indexed_under",
+  "target": "heaven-hell-and-purgatory",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 29,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 29,
+  "type": "indexed_under",
+  "target": "ignatius-of-loyola-st",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 29,
+  "type": "indexed_under",
+  "target": "obedience",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 29,
+  "type": "indexed_under",
+  "target": "studies",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 29,
+  "type": "indexed_under",
+  "target": "tears",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 29,
+  "type": "indexed_under",
+  "target": "virgin-mary",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 29,
+  "type": "indexed_under",
+  "target": "zeal-for-souls",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 29,
+  "type": "mentions_person",
+  "target": "loyola-ignatius-of",
+  "evidence": [
+   "Grant it to me for love of the Most Blessed Virgin, for our Holy Father Ignatius, and for all the court of Heaven."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 29,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 29,
+  "type": "written_by",
+  "target": "camassa-diego",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 29,
+  "type": "written_in",
+  "target": "naples",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 30,
+  "type": "aspires_to",
+  "target": "japan",
+  "evidence": [
+   "Index of Topics: 'Japan, mission to' (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 30,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "But that thing which I put in it — namely that Your Paternity, if you would not send me now to the Indies, would at least assure me for after philosophy — was most foolish, and ungrateful to God."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 30,
+  "type": "indexed_under",
+  "target": "blood-of-christ",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 30,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 30,
+  "type": "indexed_under",
+  "target": "japan-mission-to",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 30,
+  "type": "indexed_under",
+  "target": "obedience",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 30,
+  "type": "indexed_under",
+  "target": "studies",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 30,
+  "type": "indexed_under",
+  "target": "tears",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 30,
+  "type": "indexed_under",
+  "target": "zeal-for-souls",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 30,
+  "type": "mentions_place",
+  "target": "japan",
+  "evidence": [
+   "My Father, in the bowels of Jesus Christ: I see (let it be said, as it truly is, with all indifference) — I see, my Father, that now God wants me in the Indies, or in Japan, in so many occasions which Your Paternity know"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 30,
+  "type": "mentions_place",
+  "target": "the-indies",
+  "evidence": [
+   "My Father, in the bowels of Jesus Christ: I see (let it be said, as it truly is, with all indifference) — I see, my Father, that now God wants me in the Indies, or in Japan, in so many occasions which Your Paternity know"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 30,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 30,
+  "type": "written_by",
+  "target": "camassa-diego",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 30,
+  "type": "written_in",
+  "target": "naples",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 31,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "Since I entered the Society in particular because I understood that from there I could easily pass to the Indies to cooperate in some measure in the helping of those souls, and since that desire has grown day by day with",
+   "Now, since Your Paternity has deigned with a letter to encourage us to perfection, and especially to the help and winning of the souls of the Indies, I offer myself most promptly, if you so judge, to serve those good Fat"
+  ],
+  "count": 2
+ },
+ {
+  "letter": 31,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 31,
+  "type": "indexed_under",
+  "target": "novitiate",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 31,
+  "type": "indexed_under",
+  "target": "obedience",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 31,
+  "type": "indexed_under",
+  "target": "zeal-for-souls",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 31,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 31,
+  "type": "written_by",
+  "target": "asiano-vincenzo",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 31,
+  "type": "written_in",
+  "target": "bari",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 32,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "Every greeting from these Fathers, given me on behalf of Your Paternity, kindles and inflames my heart the more to ask Your Paternity with greater insistence for the Indies I so desire;"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 32,
+  "type": "indexed_under",
+  "target": "blood-of-christ",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 32,
+  "type": "indexed_under",
+  "target": "cross-and-suffering",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 32,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 32,
+  "type": "indexed_under",
+  "target": "zeal-for-souls",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 32,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 32,
+  "type": "written_by",
+  "target": "fassari-vincenzo",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 32,
+  "type": "written_in",
+  "target": "palermo",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 33,
+  "type": "indexed_under",
+  "target": "heaven-hell-and-purgatory",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 33,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 33,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 33,
+  "type": "written_by",
+  "target": "camassa-diego",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 33,
+  "type": "written_in",
+  "target": "naples",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 34,
+  "type": "aspires_to",
+  "target": "japan",
+  "evidence": [
+   "I wrote to Your Paternity that I had placed myself in the hands of God, already sure of His divine will, which calls me to Japan by so many signs, and because Your Paternity, who stands in His place for me, has so interp",
+   "I am God’s, of that most holy blood of Jesus Christ, and of so many poor little souls, delivered to Your Paternity as most unworthy son, in whose hands and at whose feet (so I feel impelled) I renew and make the vow of O"
+  ],
+  "count": 2
+ },
+ {
+  "letter": 34,
+  "type": "indexed_under",
+  "target": "blood-of-christ",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 34,
+  "type": "indexed_under",
+  "target": "heaven-hell-and-purgatory",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 34,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 34,
+  "type": "indexed_under",
+  "target": "ignatius-of-loyola-st",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 34,
+  "type": "indexed_under",
+  "target": "japan-mission-to",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 34,
+  "type": "indexed_under",
+  "target": "obedience",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 34,
+  "type": "indexed_under",
+  "target": "vows",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 34,
+  "type": "indexed_under",
+  "target": "xavier-st-francis",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 34,
+  "type": "indexed_under",
+  "target": "zeal-for-souls",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 34,
+  "type": "mentions_person",
+  "target": "loyola-ignatius-of",
+  "evidence": [
+   "Nor do I believe that my sins can stand against that incomprehensible Mercy, nor against the prayers of Your Paternity joined with those of the most precious Mother, of our Reverend Fathers Ignatius and Xavier, and of so"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 34,
+  "type": "mentions_person",
+  "target": "xavier-francis",
+  "evidence": [
+   "Nor do I believe that my sins can stand against that incomprehensible Mercy, nor against the prayers of Your Paternity joined with those of the most precious Mother, of our Reverend Fathers Ignatius and Xavier, and of so"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 34,
+  "type": "mentions_place",
+  "target": "rome",
+  "evidence": [
+   "I did not trouble to ask Your Paternity to call me to Rome, because I do not think I stand less at your feet — with the confidence I owe to so many Fathers — than if I were in Rome bodily present."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 34,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 34,
+  "type": "written_by",
+  "target": "camassa-diego",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 34,
+  "type": "written_in",
+  "target": "naples",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 35,
+  "type": "aspires_to",
+  "target": "china",
+  "evidence": [
+   "But to open to Your Paternity what I wish, I say that I desire to go to China (as I have already asked), because I know for certain that this is the will of God, He having revealed it to me in prayer;"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 35,
+  "type": "indexed_under",
+  "target": "china-mission-to",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 35,
+  "type": "indexed_under",
+  "target": "heaven-hell-and-purgatory",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 35,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 35,
+  "type": "indexed_under",
+  "target": "studies",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 35,
+  "type": "mentions_person",
+  "target": "trigault-nicolas",
+  "evidence": [
+   "From this, then, let Your Paternity know my desire, which is to go find Father Nicolò Trigault before he departs further;"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 35,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 35,
+  "type": "written_by",
+  "target": "rondonio-antonio",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 35,
+  "type": "written_in",
+  "target": "parma",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 36,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "for hoping to be consoled by Your Paternity together with those Fathers who are now going to the Indies, you reply to me in your last letter that you are writing to the Father Rector that he write me in the catalogue of ",
+   "My desire is to go to the Indies, and to be written down as one who has the vocation for the Indies;",
+   "therefore if you desire to console me, as the most loving Father that you are, accompany me with those who are going to the Indies, and do not have me written among those who have the vocation for the Indies;"
+  ],
+  "count": 3
+ },
+ {
+  "letter": 36,
+  "type": "indexed_under",
+  "target": "martyrdom",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 36,
+  "type": "mentions_place",
+  "target": "rome",
+  "evidence": [
+   "With the opportunity of the coming to Rome of Father Francesco Albertino, of whom I have until now been a companion, I could not refrain from writing four lines, showing you the great affliction my heart feels;"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 36,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 36,
+  "type": "written_by",
+  "target": "barletta-francesco",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 36,
+  "type": "written_in",
+  "target": "naples",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 37,
+  "type": "aspires_to",
+  "target": "japan",
+  "evidence": [
+   "I have learned from the letter of the Father Assistant of Portugal that Your Paternity, for I know not what news from Japan, wishes to defer our departure to next year, when we should have arrived to do some good.",
+   "It was not enough for the devil that he would have driven me from Japan, unless he also confines us in Italy, shut up as in a narrow prison."
+  ],
+  "count": 2
+ },
+ {
+  "letter": 37,
+  "type": "indexed_under",
+  "target": "blood-of-christ",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 37,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 37,
+  "type": "indexed_under",
+  "target": "japan-mission-to",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 37,
+  "type": "indexed_under",
+  "target": "tears",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 37,
+  "type": "mentions_place",
+  "target": "italy",
+  "evidence": [
+   "It was not enough for the devil that he would have driven me from Japan, unless he also confines us in Italy, shut up as in a narrow prison."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 37,
+  "type": "mentions_place",
+  "target": "japan",
+  "evidence": [
+   "My Father, I stand clean in your hands: make and unmake of me as you please, provided that with your holy Sacrifices and prayers you keep me within the wounds of the Crucified, so that before going to Japan I may learn t"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 37,
+  "type": "mentions_place",
+  "target": "naples",
+  "evidence": [
+   "If you assure me that staying in Naples does not make me more distant from Your Paternity than I would be in Rome, this too can be offered to the Lord."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 37,
+  "type": "mentions_place",
+  "target": "portugal",
+  "evidence": [
+   "I have learned from the letter of the Father Assistant of Portugal that Your Paternity, for I know not what news from Japan, wishes to defer our departure to next year, when we should have arrived to do some good."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 37,
+  "type": "mentions_place",
+  "target": "rome",
+  "evidence": [
+   "I would ask that Your Paternity call us meanwhile to Rome, so that I may stand more secure at your feet (for it seems to me that business is handled differently in person than by letters;",
+   "and indeed those who were in Rome have departed — blessed be God).",
+   "If you assure me that staying in Naples does not make me more distant from Your Paternity than I would be in Rome, this too can be offered to the Lord."
+  ],
+  "count": 3
+ },
+ {
+  "letter": 37,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 37,
+  "type": "written_by",
+  "target": "camassa-diego",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 37,
+  "type": "written_in",
+  "target": "naples",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 38,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 38,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 38,
+  "type": "written_by",
+  "target": "rondonio-antonio",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 38,
+  "type": "written_in",
+  "target": "parma",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 39,
+  "type": "indexed_under",
+  "target": "blood-of-christ",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 39,
+  "type": "indexed_under",
+  "target": "health",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 39,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 39,
+  "type": "indexed_under",
+  "target": "tears",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 39,
+  "type": "indexed_under",
+  "target": "zeal-for-souls",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 39,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 39,
+  "type": "written_by",
+  "target": "balami-ignazio",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 39,
+  "type": "written_in",
+  "target": "palermo",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 40,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "I say, then, to Your Reverence that I am invited by that supreme King to the same table and to the same manner of life at which His blessed Son fed and in which He lived — that is, to be called to go to the Indies or to "
+  ],
+  "count": 1
+ },
+ {
+  "letter": 40,
+  "type": "indexed_under",
+  "target": "blood-of-christ",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 40,
+  "type": "indexed_under",
+  "target": "cross-and-suffering",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 40,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 40,
+  "type": "indexed_under",
+  "target": "novitiate",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 40,
+  "type": "indexed_under",
+  "target": "zeal-for-souls",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 40,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 40,
+  "type": "written_by",
+  "target": "abellone-hermete",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 40,
+  "type": "written_in",
+  "target": "genoa",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 41,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "Many are the reasons and motives that impel me to write and to remind Your Paternity of my desire for the Indies: for if I turn toward the East, I see the blood shed by the holy Christians, which, like seed, promises mos"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 41,
+  "type": "indexed_under",
+  "target": "blood-of-christ",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 41,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 41,
+  "type": "indexed_under",
+  "target": "zeal-for-souls",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 41,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 41,
+  "type": "written_by",
+  "target": "fassari-vincenzo",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 41,
+  "type": "written_in",
+  "target": "palermo",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 42,
+  "type": "aspires_to",
+  "target": "japan",
+  "evidence": [
+   "Index of Topics: 'Japan, mission to' (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 42,
+  "type": "indexed_under",
+  "target": "health",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 42,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 42,
+  "type": "indexed_under",
+  "target": "japan-mission-to",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 42,
+  "type": "indexed_under",
+  "target": "zeal-for-souls",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 42,
+  "type": "mentions_place",
+  "target": "japan",
+  "evidence": [
+   "Believe me, my Father, that since October, since I have not written to Your Paternity, the hours seem years to me until I arrive at my Japan;",
+   "May the Lord grant to Your Paternity every day a greater abundance of His treasures, for the universal good, and for those poor Japanese souls, and for the Society, and for the whole Church."
+  ],
+  "count": 2
+ },
+ {
+  "letter": 42,
+  "type": "mentions_place",
+  "target": "rome",
+  "evidence": [
+   "But if anything can be added to the charity Your Paternity shows me, give me leave to ask of you one thing for its completion: that Your Paternity, not forgetting our exile, for the love of God call us quickly to Rome at"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 42,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 42,
+  "type": "written_by",
+  "target": "camassa-diego",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 42,
+  "type": "written_in",
+  "target": "naples",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 43,
+  "type": "aspires_to",
+  "target": "brazil",
+  "evidence": [
+   "Wherefore, since God has called me to the salvation of souls, whether in China, or Japan, or Brazil, etc."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 43,
+  "type": "aspires_to",
+  "target": "china",
+  "evidence": [
+   "Wherefore, since God has called me to the salvation of souls, whether in China, or Japan, or Brazil, etc."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 43,
+  "type": "aspires_to",
+  "target": "japan",
+  "evidence": [
+   "Wherefore, since God has called me to the salvation of souls, whether in China, or Japan, or Brazil, etc."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 43,
+  "type": "indexed_under",
+  "target": "china-mission-to",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 43,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 43,
+  "type": "indexed_under",
+  "target": "japan-mission-to",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 43,
+  "type": "indexed_under",
+  "target": "zeal-for-souls",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 43,
+  "type": "mentions_place",
+  "target": "brazil",
+  "evidence": [
+   "Therefore may Your Paternity, placed by God in such rank that you may govern His Religion, for love of Him, and for His greater honor, and the salvation of my soul, grant me leave for the next convenient occasion of the "
+  ],
+  "count": 1
+ },
+ {
+  "letter": 43,
+  "type": "mentions_place",
+  "target": "rome",
+  "evidence": [
+   "Therefore may Your Paternity, placed by God in such rank that you may govern His Religion, for love of Him, and for His greater honor, and the salvation of my soul, grant me leave for the next convenient occasion of the "
+  ],
+  "count": 1
+ },
+ {
+  "letter": 43,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 43,
+  "type": "written_by",
+  "target": "rondonio-antonio",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 43,
+  "type": "written_in",
+  "target": "parma",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 44,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "As the Lord urges me with continual desires that I ask of Your Paternity to go to the Indies, I am compelled to put it into execution by means of letters, since in no other way can I do it."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 44,
+  "type": "indexed_under",
+  "target": "blood-of-christ",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 44,
+  "type": "indexed_under",
+  "target": "cross-and-suffering",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 44,
+  "type": "indexed_under",
+  "target": "heaven-hell-and-purgatory",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 44,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 44,
+  "type": "indexed_under",
+  "target": "zeal-for-souls",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 44,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 44,
+  "type": "written_by",
+  "target": "fassari-vincenzo",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 44,
+  "type": "written_in",
+  "target": "palermo",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 45,
+  "type": "aspires_to",
+  "target": "brazil",
+  "evidence": [
+   "but because I am always moved by the desire to aid souls — that are throughout the whole world, but, by particular grace of God, those that are either in the Indies, in China, or in Brazil and other like places — therefo"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 45,
+  "type": "aspires_to",
+  "target": "china",
+  "evidence": [
+   "but because I am always moved by the desire to aid souls — that are throughout the whole world, but, by particular grace of God, those that are either in the Indies, in China, or in Brazil and other like places — therefo"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 45,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "but because I am always moved by the desire to aid souls — that are throughout the whole world, but, by particular grace of God, those that are either in the Indies, in China, or in Brazil and other like places — therefo"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 45,
+  "type": "indexed_under",
+  "target": "china-mission-to",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 45,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 45,
+  "type": "indexed_under",
+  "target": "zeal-for-souls",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 45,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 45,
+  "type": "written_by",
+  "target": "rondonio-antonio",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 45,
+  "type": "written_in",
+  "target": "mantua",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 46,
+  "type": "aspires_to",
+  "target": "japan",
+  "evidence": [
+   "The better news concerned the affair of the Indies, and truly this time I expected to be told, and to accompany those two brothers who will go to Japan;",
+   "Now, Our Father, I would desire this grace as a toast to the good news that comes from Japan, of the return of Our men to that Church of Japan;"
+  ],
+  "count": 2
+ },
+ {
+  "letter": 46,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "The better news concerned the affair of the Indies, and truly this time I expected to be told, and to accompany those two brothers who will go to Japan;",
+   "In conclusion, you will give me leave that I, your least son, may continue to supplicate my most loving Father, reminding him that, as our Lord has given me the desire to conform myself to the will of Your Paternity and "
+  ],
+  "count": 2
+ },
+ {
+  "letter": 46,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 46,
+  "type": "indexed_under",
+  "target": "japan-mission-to",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 46,
+  "type": "indexed_under",
+  "target": "virgin-mary",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 46,
+  "type": "mentions_place",
+  "target": "loreto",
+  "evidence": [
+   "And it is that Your Paternity is content to do me the charity that I come thither, and then go to visit the Holy House of Loreto."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 46,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 46,
+  "type": "written_by",
+  "target": "barletta-francesco",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 46,
+  "type": "written_in",
+  "target": "naples",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 47,
+  "type": "indexed_under",
+  "target": "cross-and-suffering",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 47,
+  "type": "indexed_under",
+  "target": "heaven-hell-and-purgatory",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 47,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 47,
+  "type": "indexed_under",
+  "target": "xavier-st-francis",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 47,
+  "type": "indexed_under",
+  "target": "zeal-for-souls",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 47,
+  "type": "mentions_person",
+  "target": "xavier-francis",
+  "evidence": [
+   "Honey, yes, truly honey — of celestial consolations, which yield neither to nectar and ambrosia, nor to all the delights of all time, nor even to the spiritual tastes which the persons of our Society continually experien"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 47,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 47,
+  "type": "written_by",
+  "target": "gargano-francesco",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 47,
+  "type": "written_in",
+  "target": "nola",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 48,
+  "type": "aspires_to",
+  "target": "brazil",
+  "evidence": [
+   "I await also that Your Paternity may wish, and may explain to me his will — for my desire is so great to go either to China, or Japan, or the Indies, or Brazil, etc.",
+   "and for this, trusting first in God, then in that great desire which Your Paternity shows in that letter, that we go to fish for souls in those countries, I await the license (there being so convenient an occasion at pre"
+  ],
+  "count": 2
+ },
+ {
+  "letter": 48,
+  "type": "aspires_to",
+  "target": "china",
+  "evidence": [
+   "I await also that Your Paternity may wish, and may explain to me his will — for my desire is so great to go either to China, or Japan, or the Indies, or Brazil, etc."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 48,
+  "type": "aspires_to",
+  "target": "japan",
+  "evidence": [
+   "I await also that Your Paternity may wish, and may explain to me his will — for my desire is so great to go either to China, or Japan, or the Indies, or Brazil, etc."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 48,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "I await also that Your Paternity may wish, and may explain to me his will — for my desire is so great to go either to China, or Japan, or the Indies, or Brazil, etc."
+  ],
+  "count": 1
+ },
+ {
+  "letter": 48,
+  "type": "indexed_under",
+  "target": "china-mission-to",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 48,
+  "type": "indexed_under",
+  "target": "cross-and-suffering",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 48,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 48,
+  "type": "indexed_under",
+  "target": "japan-mission-to",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 48,
+  "type": "indexed_under",
+  "target": "zeal-for-souls",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 48,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 48,
+  "type": "written_by",
+  "target": "rondonio-antonio",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 48,
+  "type": "written_in",
+  "target": "mantua",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 49,
+  "type": "aspires_to",
+  "target": "china",
+  "evidence": [
+   "Index of Topics: 'China, mission to' (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 49,
+  "type": "aspires_to",
+  "target": "japan",
+  "evidence": [
+   "And thinking that it had arrived, when there arrived at Modena those two Fathers, one of whom was going to Portugal, the other to Japan, with whom I should accompany them, I stood all glad at seeing them;"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 49,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "but know that until you have fulfilled my desire to go to the Indies, etc.",
+   "To tell the truth, I cannot find rest neither day nor night, for I always have my thought fixed, meditating in this fashion: when will Your Paternity give me that so-desired license to go to the Indies, that there I may "
+  ],
+  "count": 2
+ },
+ {
+  "letter": 49,
+  "type": "indexed_under",
+  "target": "china-mission-to",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 49,
+  "type": "indexed_under",
+  "target": "heaven-hell-and-purgatory",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 49,
+  "type": "indexed_under",
+  "target": "humility",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 49,
+  "type": "indexed_under",
+  "target": "japan-mission-to",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 49,
+  "type": "indexed_under",
+  "target": "virgin-mary",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 49,
+  "type": "indexed_under",
+  "target": "zeal-for-souls",
+  "evidence": [
+   "Index of Topics (printed)"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 49,
+  "type": "mentions_place",
+  "target": "brazil",
+  "evidence": [
+   "and I pray you, for the love of the Most Blessed Virgin Mary, if anything avails with Your Paternity, and for the love of Christ, who stimulates me to so great a work — for so it pleases Him — give me as soon as possible"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 49,
+  "type": "mentions_place",
+  "target": "china",
+  "evidence": [
+   "and I pray you, for the love of the Most Blessed Virgin Mary, if anything avails with Your Paternity, and for the love of Christ, who stimulates me to so great a work — for so it pleases Him — give me as soon as possible"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 49,
+  "type": "mentions_place",
+  "target": "japan",
+  "evidence": [
+   "and I pray you, for the love of the Most Blessed Virgin Mary, if anything avails with Your Paternity, and for the love of Christ, who stimulates me to so great a work — for so it pleases Him — give me as soon as possible"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 49,
+  "type": "mentions_place",
+  "target": "modena",
+  "evidence": [
+   "And thinking that it had arrived, when there arrived at Modena those two Fathers, one of whom was going to Portugal, the other to Japan, with whom I should accompany them, I stood all glad at seeing them;",
+   "And I, meanwhile, while I wait, shall attend to my school, which the Father Provincial has given me in Modena."
+  ],
+  "count": 2
+ },
+ {
+  "letter": 49,
+  "type": "mentions_place",
+  "target": "portugal",
+  "evidence": [
+   "And thinking that it had arrived, when there arrived at Modena those two Fathers, one of whom was going to Portugal, the other to Japan, with whom I should accompany them, I stood all glad at seeing them;"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 49,
+  "type": "recipient",
+  "target": "vitelleschi-mutio",
+  "evidence": [
+   "addressed"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 49,
+  "type": "written_by",
+  "target": "rondonio-antonio",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 49,
+  "type": "written_in",
+  "target": "modena",
+  "evidence": [
+   "byline"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 50,
+  "type": "aspires_to",
+  "target": "the-indies",
+  "evidence": [
+   "Although the seeing of our companions called to go and cultivate the field of the Lord in the Indies, and our being left behind, brings us a good and holy envy, and an inconsolable desire to want to be their companions —"
+  ],
+  "count": 1
+ },
+ {
+  "letter": 50,
+  "

@@ -1,0 +1,92 @@
+---
+import Base from '../layouts/Base.astro';
+import { about, discrepancies } from '../lib/data';
+---
+
+<Base title="About" description="About the Indipetae archive: sources, editorial method, and how to cite.">
+  <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a> · About</nav>
+  <p class="kicker">About this archive</p>
+  <h1>About</h1>
+
+  <div class="notice ai-disclaimer" role="note">
+    <strong>A note on provenance.</strong> The English translations in this archive were
+    produced with the assistance of multiple AI agents, and this website itself was built
+    with AI assistance. The result is offered for exploration, prayer, and personal study —
+    <strong>it is not intended for academic use or citation</strong>. Scholars should consult
+    the original sources named below.
+  </div>
+
+  <h2 id="the-collection">The collection</h2>
+  <p>
+    The <em>litterae indipetae</em> — "letters seeking the Indies" — are petitions written by
+    Jesuits asking their Superior General to send them to the foreign missions. This archive
+    presents English translations of 169 such letters addressed to
+    <a href="/people/vitelleschi-mutio/">Mutio Vitelleschi</a>, Superior General of the
+    Society of Jesus from 1615 to 1645, written between 1616 and 1647.
+  </p>
+  <p>
+    The writers — 48 Jesuits, mostly young scholastics in Italy — plead, argue, weep, and
+    reason their way toward one request: to spend and be spent for the salvation of souls
+    in the Indies, China, Japan, and other distant missions. The letters are at once
+    spiritual autobiography, bureaucratic petition, and baroque rhetoric.
+  </p>
+
+  <h2 id="sources">Sources</h2>
+  <p>{about.note_on_text}</p>
+  <p>
+    Source: {about.source}. The original letters, written 1616–1647, are in the public
+    domain; the English translation is offered for private study.
+  </p>
+  <p>
+    This site preserves the volume's original numbering (Letters 1–169), its
+    <a href="/people/">Index of Authors</a> and <a href="/topics/">Index of Topics</a>,
+    and its archival references (ARSI, Fondo Gesuitico). Letter 100 is not translated:
+    the database transcription is placeholder text, and the absence is preserved rather
+    than filled.
+  </p>
+
+  <h2 id="editorial-method">Editorial method</h2>
+  <ul class="method">
+    <li>
+      <strong>Faithful text.</strong> Letter texts reproduce the printed translation without
+      modernization or rewriting. Typesetter's hyphenation across line breaks has been
+      rejoined; paragraphing follows the printed edition.
+    </li>
+    <li>
+      <strong>Desire is not fact.</strong> A petition to be sent to China is evidence of
+      desire, not of travel. Relationship types distinguish <em>written by</em>,
+      <em>written in</em>, <em>mentions</em>, <em>desires to travel to</em>, and
+      <em>indexed under</em> — they are never collapsed into one vague link.
+    </li>
+    <li>
+      <strong>Stated vs. inferred.</strong> Information explicitly in a letter is shown as
+      such; index entries are labeled as index entries; editorial inference (for example,
+      automatically detected destination mentions) is backed by a quoted evidence
+      snippet on the graph and in the data.
+    </li>
+    <li>
+      <strong>Discrepancies preserved.</strong> Where the letter, the printed indexes, and the
+      database disagree — on dates or on a destination — the disagreement is recorded
+      openly rather than silently resolved.
+      {discrepancies.length > 0 && (
+        <> Currently recorded: {discrepancies.map((d) => (
+          <span><a href={`/letters/${d.letter}/`}>Letter {d.letter}</a> — {d.note} </span>
+        ))}</>
+      )}
+    </li>
+    <li>
+      <strong>Missing information.</strong> Where the source gives no place, date, or
+      reference, the site says "Not specified in the source" rather than guessing.
+    </li>
+  </ul>
+</Base>
+
+<style>
+  .method li { margin-bottom: .7rem; max-width: 46rem; }
+  code { font-size: .9em; background: var(--paper-deep); padding: .1em .35em; border-radius: 4px; }
+  .ai-disclaimer {
+    border-left: 4px solid var(--accent); background: var(--accent-soft);
+    padding: .9rem 1.2rem; border-radius: 0 var(--radius) var(--radius) 0;
+    max-width: 46rem; margin: 1.2rem 0 1.6rem;
+  }
+</style>

@@ -1,0 +1,592 @@
+[
+ {
+  "id": "hist-1",
+  "fictional": false,
+  "name": "Giovanni Battista Astria",
+  "author_raw": "Giovanni Battista Astria",
+  "age": null,
+  "yearsInSociety": null,
+  "formation": null,
+  "studies": null,
+  "skills": [],
+  "health": null,
+  "assignment": null,
+  "destination": "east-indies",
+  "dossier": "Wrote 2 letters from Genoa (1616) petitioning the General for the foreign missions; requested destinations: East Indies (1), China (1).",
+  "letters": [
+   {
+    "n": 1,
+    "year": 1616,
+    "date": "January 3, 1616",
+    "place": "Genoa",
+    "archival": "ARSI, FG 735, 284",
+    "excerpt": "The fire that burns within my heart does not permit, Reverend Father in Christ, that I, as a son to so loving a father, should not lay bare the good desires that burn continually within my breast. I wrote, while the happy memory of our Father Claudio Acquaviva was still alive, to that Father, asking leave to go to the Indies; and having received from him more than a loving reply, for the love and affection which, without any merit of mine, he showed me, bidding me make myself ready and keeping remembrance of this my desire, I could no longer defer making Your Paternity aware of it — Your Paternity alone being the one who, after God, can fulfill this my desire.",
+    "kind": "abridged",
+    "full_paras": [
+     "The fire that burns within my heart does not permit, Reverend Father in Christ, that I, as a son to so loving a father, should not lay bare the good desires that burn continually within my breast. I wrote, while the happy memory of our Father Claudio Acquaviva was still alive, to that Father, asking leave to go to the Indies; and having received from him more than a loving reply, for the love and affection which, without any merit of mine, he showed me, bidding me make myself ready and keeping remembrance of this my desire, I could no longer defer making Your Paternity aware of it — Your Paternity alone being the one who, after God, can fulfill this my desire. I ask it with the greatest affection that I can, per misericordias Domini (through the mercies of the Lord), able to say no more, and with all humility of heart; and I assure Your Paternity, Coram Domino (before the Lord), that no greater consolation in this life could I receive than this — to go to those blessed and happy parts of the East Indies, if it so please Your Paternity, to toil, to suffer, and to die in the most obscure place that may be found, for love of my sweetest Jesus and Mary, and for the salvation of those souls. All things I leave, however, in the hands of Your Paternity, so that if it seem to you — whether because of my short time, which does not exceed eighteen years and six months, or for my studies, now learning Rhetoric, having studied part of last year, or for whatsoever other reason — to prolong the time, the will of my Lord Jesus and of Your Paternity be done; although, as for me, I should esteem myself most happy to be able to leave this Italy, already odious to me for my desire for those parts. And not to be more tedious to Your Paternity, I shall make an end, assuring you that my soul will not be at rest until I have some good hope that at least, after I have finished the course of Philosophy — if to this I shall be admitted by my superiors — I might obtain this my desire; and with a holy envy of those who have already been notified in this province, with heart and with the greatest affection I can, I put myself in the hands of Your Paternity, commending myself to your holy prayers."
+    ]
+   },
+   {
+    "n": 2,
+    "year": 1616,
+    "date": "January 5, 1616",
+    "place": "Genoa",
+    "archival": "ARSI, FG 735, 285",
+    "excerpt": "The fire that burns within my heart, Reverend Father in Christ, does not permit me, as a son, to withhold from Your Paternity the good desires that burn within my breast. I wrote, while the happy memory of our Father Claudio Acquaviva was still alive, to that Father, asking leave to go to the Indies; and having received from him — for the love and affection he showed me, not for any merit of mine — a most courteous reply, telling me to provide myself with the arms necessary for such a voyage, inasmuch as he held particular remembrance of this my desire, I could no longer delay resorting to Your Paternity, who alone, after God and the most blessed Virgin Mary, can fulfill this my desire; which I ask with all the humility and the greatest affection of heart that I can.",
+    "kind": "abridged",
+    "full_paras": [
+     "The fire that burns within my heart, Reverend Father in Christ, does not permit me, as a son, to withhold from Your Paternity the good desires that burn within my breast. I wrote, while the happy memory of our Father Claudio Acquaviva was still alive, to that Father, asking leave to go to the Indies; and having received from him — for the love and affection he showed me, not for any merit of mine — a most courteous reply, telling me to provide myself with the arms necessary for such a voyage, inasmuch as he held particular remembrance of this my desire, I could no longer delay resorting to Your Paternity, who alone, after God and the most blessed Virgin Mary, can fulfill this my desire; which I ask with all the humility and the greatest affection of heart that I can. And I assure Your Paternity that no greater consolation can I have in this life than this — that the grace be granted me to go to labor, to toil, and to die in the most obscure place that may be found in the world, for love of my Jesus and the salvation of those souls. All things, however, I remit to the hands of Your Paternity, so that if you be pleased that I wait yet some time — I pray Your Paternity, if the delay must be, that it be as brief as possible — the will of the Lord be done, whether to study the course of Philosophy, if to this I be admitted by my superiors, whose will I desire perfectly to fulfill. I put myself wholly in the hands of Your Paternity; dispose of me as shall most please you, for I should esteem myself most happy to be able to depart once from this Italy with these Father Procurators — of China or of Japan — this Italy which I hold almost in hatred for the desire I feel for those blessed and happy parts. And with this, making an end, I pray Your Paternity, per misericordias Domini (through the mercies of the Lord) — I can say no more — to keep some remembrance of this your son, and to commend him to the Lord in your holy sacrifices and prayers."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hist-3",
+  "fictional": false,
+  "name": "Lelio Antoglietta",
+  "author_raw": "Lelio Antoglietta",
+  "age": null,
+  "yearsInSociety": null,
+  "formation": null,
+  "studies": null,
+  "skills": [],
+  "health": null,
+  "assignment": null,
+  "destination": "china",
+  "dossier": "Wrote 1 letter from Naples (1616) petitioning the General for the foreign missions; requested destination: China (1).",
+  "letters": [
+   {
+    "n": 3,
+    "year": 1616,
+    "date": "January 8, 1616",
+    "place": "Naples",
+    "archival": "ARSI, FG 735, 291",
+    "excerpt": "Know, Your Paternity, that for no short time the talent of the Second Vocation has burned within my breast, which God has given to me, most unworthy of such a talent. I have considered, indeed, that keeping it hidden, without revealing it to Your Paternity, is a most clear sign that I am not beginning to take the road of putting it into execution; and because I do not wish to fall into the sin of ingratitude toward the Giver of such a talent, I say plainly to Your Paternity that for about a year (not recalling the exact time), and perhaps more, in my cold prayers, examinations, and communions, and likewise through the day, I feel myself impelled and called to pour out the life which I have given to Jesus (by means of vows of devotion) in the lands of the infidels, among Chinese, Indians, Japanese, and such others as are found in the world.",
+    "kind": "abridged",
+    "full_paras": [
+     "Know, Your Paternity, that for no short time the talent of the Second Vocation has burned within my breast, which God has given to me, most unworthy of such a talent. I have considered, indeed, that keeping it hidden, without revealing it to Your Paternity, is a most clear sign that I am not beginning to take the road of putting it into execution; and because I do not wish to fall into the sin of ingratitude toward the Giver of such a talent, I say plainly to Your Paternity that for about a year (not recalling the exact time), and perhaps more, in my cold prayers, examinations, and communions, and likewise through the day, I feel myself impelled and called to pour out the life which I have given to Jesus (by means of vows of devotion) in the lands of the infidels, among Chinese, Indians, Japanese, and such others as are found in the world. The reasons that have moved me to make this request are not few; but lest I be too long, I shall tell some of them. Let the first be what I have said above — that I feel myself impelled and called, etc., and therefore I wish to correspond. Let the second be this: that I see clearly that I am by nature most choleric, and I know clearly (from the experience I have had in the world) that woe to me if I employ it for evil; but likewise I know that if I employ it for good (with God's grace) I hope to accomplish something in the service of God. But because Your Paternity might say to me that I have already employed it for good by entering religion, and that therefore there is no fitting reason for the confirmation of what I seek to obtain, to this I answer, saying that I am of a certain nature — that if I should suffer some grave displeasure in religion (granting, though, that I took it to heart), it could easily happen, while remaining in these parts, that I should commit some fault by which I could endanger the holy state of religion; but on the other hand, if what I seek in this letter were granted to me, then, besides that I would not have in those parts the ready occasion that I have in these, etc. — but I know full well that such apprehension could have no place in my mind, partly because I am by nature constant in such matters, partly also because the continual occupations which are had in the welfare of souls, all these things, would rescue me from such apprehension and danger. The third, my Father — to speak plainly — is that I am most proud by nature, and therefore it is the easiest thing in the world that all the labors which I should spend for God in religion, were it in studies, would be employed not for God but for honor (and therefore adding, I say to Your Paternity with all my heart that it would please me much more to go to such countries as a Brother Coadjutor than as a scholastic, if there be easier and readier opportunity of going); and to remove such occasion of sin, and to perform such labors to the greater glory of God, I seek to go to such parts, there being neither convenience nor occasion to fall into such diabolical snares of ambition and honor. The fourth reason is because Your Paternity must consider that I have not offended God in the way that some coeval of mine (for his age) has offended Him; but know, my Father (a thing to be wept by me, wretch, with tears of blood), that I have offended Him more than any man of my age in the world could and knew how to offend; and it is an incredible thing to explain with paper or pen. And for my greater confusion, God was not content with having called me to religion the first time, and likewise the second, I like metal or hard diamond in corresponding; but even the third time, and beyond all these calls, the warnings and admonitions which God spoke through the mouths of my teachers, confessors, and fathers of congregations; and a thing indeed marvelous to tell, even through the mouth of the very Mother I had in the world; and now likewise called by so (by me unmerited) a vocation. So that, my Father, to correspond to some particle of the so many benefits God has done to me, I demand, ask, and pray for the above-said. The fifth reason is: that I may detach myself from everything which by chance I could desire; and especially that I may no longer have occasion to converse with the relatives I had in the world: cutting all this off by going to these lands so desired by me, so that with ease I may obtain and keep what I have promised to God.",
+     "The sixth reason is: that I may have ready occasion to suffer for love of Him who, for love and the good of my soul, suffered so much: such countries being apt to satisfy my desire. The seventh reason is: for having learned in the annual letters that, for lack of workers, so many souls are lost, for whose salvation Jesus willed to be nailed to the cross. The eighth reason is to be able to say to Jesus at my last breath with truth that it was not for want of me that I did not shed my blood for love of Him: and how could I say this if I did not go to these countries, requested by me (with all the affection of my heart)? I finish, my Father, by telling you that up till now I have said nothing of what my heart would fain vent. I return to repeat the above-made supplications, demanding this for the paternal love which he bears to the Society, his most beloved daughter; seeking this voyage for the filial affection and love which Your Paternity has rooted in his ardent and inflamed heart toward the Mother of Jesus (together God), Mary the Virgin, our mother; finally praying for the obligation which Your Paternity has toward His Divine Majesty for the great desire (which like fire burns the heart of Your Paternity) to love, serve, and honor Him — as (without deceiving myself at all) I am certain that Your Paternity thinks, speaks, and works of nothing else: and all this the most just and fitting reasons, which, not to offend the humility of Your Paternity, I leave unsaid, move me to say. Concluding, I finish by asking your pardon for my lengthiness; but let Your Paternity believe me truly that my heart has not yet given satisfaction in saying what I would say; but if I would say it, neither with words nor in writing could I explain it — for what else would I say than that I cannot explain it? I wish to say, and cannot? I desire and wish to express it, and cannot? And as your most unworthy son I ask at last your holy blessing; and, if so you wish and it be convenient to you, let Your Paternity tell me in your reply the things that would be an impediment (in my person, though) to the voyage so desired by me, so that I (with holy obedience and indifference) may answer and oppose them, with God's grace."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hist-4",
+  "fictional": false,
+  "name": "Ignazio Balami",
+  "author_raw": "Ignazio Balami",
+  "age": 24,
+  "yearsInSociety": null,
+  "formation": null,
+  "studies": null,
+  "skills": [],
+  "health": null,
+  "assignment": null,
+  "destination": "east-indies",
+  "dossier": "Wrote 3 letters from Messina (1616) petitioning the General for the foreign missions; requested destination: East Indies (3).",
+  "letters": [
+   {
+    "n": 4,
+    "year": 1616,
+    "date": "January 14, 1616",
+    "place": "Messina",
+    "archival": "ARSI, FG 735, 311",
+    "excerpt": "I write the present to Your Paternity, which I had proposed to write to you long ago, but on account of the multitude of my sins and for the ingratitude of not having corresponded to a promise made to God — made once my general confession on entering religion was finished, gotten through cheaply at the time — but planted now with most bitter tears and not without grave scruple. The reasons I had not done it before were first my sins, then because I saw the door shut and, so to speak, I was ashamed too, because the matter would have dragged on long and would have been known to all; for which, my most loving Father, in visceribus Iesu Christi (in the bowels of Jesus Christ), I pray Your Paternity to pardon me and so to act, for your paternal charity, that I may be one of those who expose their lives in the uttermost parts of the world for the Holy Faith, that I may in part satisfy God for my sins and for the promise made to Him, as I have touched upon above.",
+    "kind": "abridged",
+    "full_paras": [
+     "I write the present to Your Paternity, which I had proposed to write to you long ago, but on account of the multitude of my sins and for the ingratitude of not having corresponded to a promise made to God — made once my general confession on entering religion was finished, gotten through cheaply at the time — but planted now with most bitter tears and not without grave scruple. The reasons I had not done it before were first my sins, then because I saw the door shut and, so to speak, I was ashamed too, because the matter would have dragged on long and would have been known to all; for which, my most loving Father, in visceribus Iesu Christi (in the bowels of Jesus Christ), I pray Your Paternity to pardon me and so to act, for your paternal charity, that I may be one of those who expose their lives in the uttermost parts of the world for the Holy Faith, that I may in part satisfy God for my sins and for the promise made to Him, as I have touched upon above. I have now received communion, and at once I took up the pen and wrote to Your Paternity what the Lord inspired in me. Let not Your Paternity fail to console me, for the ardor is so great that I desire nothing else, think of nothing else, long for nothing else but this journey, by means of which, through the mercy of the Lord, I hope for the salvation of my soul, as of some neighbor. For the full information of Your Paternity: seven years ago I entered the holy religion, and I have already studied philosophy, and I am now teaching in the 2nd class of the College of Messina, and by the divine grace I am healthy enough to serve for everything. I hope to make myself holy by this road. I am of the age of twenty-four years. We are three brothers in the Society. In sum, my most loving Father, let Your Paternity know that my heart desires nothing else but this journey; and I promise Your Paternity that in all my labors and in all my actions I shall remember to pray the Lord — though unworthily — to grant Your Paternity such grace that you may govern in the same way as our blessed Reverend Father Ignatius would govern and did govern, he whose name I bear for the devotion which my parents had to him.",
+     "I finish writing, but not speaking with my heart, both to God and to Your Paternity, so that if they shall judge this to be both for the service of God and for the profit of my soul and of my neighbors, it may be put into execution as soon as possible — that, while my strength aids me, as I offended Him with so many sins, so I may satisfy Him by shedding my blood for His service and the help of the souls redeemed with His most precious blood. This is what my Christ communicated to me in holy communion. Your Paternity, as one guided by the Holy Spirit, will judge it; and know that so great is the confidence I have in God and in His most glorious mother that I have already put myself in order as if I were to depart tomorrow. I finish by asking Your Paternity's blessing, praying Heaven for every fullness of happiness, commending myself to you with all affection."
+    ]
+   },
+   {
+    "n": 11,
+    "year": 1616,
+    "date": "February 27, 1616",
+    "place": "Messina",
+    "archival": "ARSI, FG 735, 380",
+    "excerpt": "I write the present to Your Paternity with tears in my eyes, so great is the pain I feel at having made known so late this great desire of mine to employ myself in the farthest parts of the world and to shed my blood for love of Him who, for me, a most ungrateful sinner, died upon the rough wood of the Cross. I thank Your Paternity for the greeting and for the good hope you give me, for I hope that one day I shall be content. Let Your Paternity know that several times a day I withdraw to weep and to pray the Lord that He forget my ingratitude and deign to hear me, for truly I see and know that this is the road by which I may begin to hope for my salvation and in some measure make satisfaction to God for the multitude of my sins; for the mere thought of it now makes me strive to attend with all diligence to spiritual things and to find difficulty in nothing, and what in the past I shunned, I now desire and pursue with affection and consolation — for which may the Lord be blessed forever.",
+    "kind": "abridged",
+    "full_paras": [
+     "I write the present to Your Paternity with tears in my eyes, so great is the pain I feel at having made known so late this great desire of mine to employ myself in the farthest parts of the world and to shed my blood for love of Him who, for me, a most ungrateful sinner, died upon the rough wood of the Cross. I thank Your Paternity for the greeting and for the good hope you give me, for I hope that one day I shall be content. Let Your Paternity know that several times a day I withdraw to weep and to pray the Lord that He forget my ingratitude and deign to hear me, for truly I see and know that this is the road by which I may begin to hope for my salvation and in some measure make satisfaction to God for the multitude of my sins; for the mere thought of it now makes me strive to attend with all diligence to spiritual things and to find difficulty in nothing, and what in the past I shunned, I now desire and pursue with affection and consolation — for which may the Lord be blessed forever. Therefore, my most beloved Father, let Your Paternity not fail to console this soul, afflicted with good reason, by deeming me worthy of admission into the number of those holy men who go to die for the Holy Faith and for the name of Jesus and Mary; and do not look upon my nothingness, for I hope that the Lord, who calls me, will give me grace to serve Him in some thing. I do not feel that I have yet given vent to my heart; but lest I weary you further, I end by humbly asking Your Paternity's blessing, praying you to hear a nobody such as I. Let Your Paternity know that in all my labors I shall never forget to pray the Lord, unworthily to be sure, that He grant you those graces which are needful for a Father General of the Company of Jesus, so that Your Paternity may be another Blessed Father Ignatius."
+    ]
+   },
+   {
+    "n": 19,
+    "year": 1616,
+    "date": "June 2, 1616",
+    "place": "Messina",
+    "archival": "ARSI, FG 735, 462",
+    "excerpt": "The ardor and the desire to employ myself in the farthest parts of the world, and where I may suffer most for love of Him who for me, an ungrateful sinner, died upon the rough wood of the Cross, goes on growing so much that it does not permit me to linger long in consoling myself by unburdening it in some measure with Your Paternity. Know then that my desires, my thoughts, my consolations, and when I can, even my words, are in nothing else than this — holding myself, however, ever unworthy before the eyes of the Divine Majesty.",
+    "kind": "abridged",
+    "full_paras": [
+     "The ardor and the desire to employ myself in the farthest parts of the world, and where I may suffer most for love of Him who for me, an ungrateful sinner, died upon the rough wood of the Cross, goes on growing so much that it does not permit me to linger long in consoling myself by unburdening it in some measure with Your Paternity. Know then that my desires, my thoughts, my consolations, and when I can, even my words, are in nothing else than this — holding myself, however, ever unworthy before the eyes of the Divine Majesty. Let Your Paternity forgive me if I trouble you, for I have no other refuge. I pray you, with what affection I know and can, to make me worthy of admission into the number of these saints who expose their lives for the Holy Faith; and let Your Paternity know that this befits me, that by this means I may begin to make satisfaction to that God whom I have so offended with the multitude of my sins and wickednesses. I have great hope of obtaining this, for I assure myself that Your Paternity, guided by the Holy Spirit, will know this need; and nothing else moves me but this, having great scruple at not having begun to ask since I promised it to the Lord when the General Confession was finished in the novitiate. I end without ever ending, anew in visceribus Iesu Christi (in the heart of Jesus Christ), praying you to console me and not to look upon my nothingness, for He who calls me will see to it that I may be a good subject for this ministry; and I shall never forget to pray the Lord that He grant you so much spirit and grace that you may be another Blessed Father Ignatius. To the Holy Sacrifices and prayers of Your Paternity I commend myself with all affection."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hist-5",
+  "fictional": false,
+  "name": "Roderico Baraona",
+  "author_raw": "Roderico Baraona",
+  "age": null,
+  "yearsInSociety": null,
+  "formation": null,
+  "studies": null,
+  "skills": [],
+  "health": null,
+  "assignment": null,
+  "destination": "east-indies",
+  "dossier": "Wrote 1 letter from Palermo (1616) petitioning the General for the foreign missions; requested destination: East Indies (1).",
+  "letters": [
+   {
+    "n": 5,
+    "year": 1616,
+    "date": "January 24, 1616",
+    "place": "Palermo",
+    "archival": "ARSI, FG 735, 328",
+    "excerpt": "Although only a few days ago I wrote to Your Paternity asking leave to go to the East Indies, I have wished anew to remind you, to satisfy in part the great desire I have to obtain this grace, and to kindle myself the more, assuring myself that Your Paternity will grant it to me — all the more since I have heard that five have been called from Messina, and that from this college they will soon be notified; for this, most beloved Father, I urge you as much as possible that, for the wounds of Christ our Lord, whose love constrains me to make you this request, you would deign to console me in this.",
+    "kind": "abridged",
+    "full_paras": [
+     "Although only a few days ago I wrote to Your Paternity asking leave to go to the East Indies, I have wished anew to remind you, to satisfy in part the great desire I have to obtain this grace, and to kindle myself the more, assuring myself that Your Paternity will grant it to me — all the more since I have heard that five have been called from Messina, and that from this college they will soon be notified; for this, most beloved Father, I urge you as much as possible that, for the wounds of Christ our Lord, whose love constrains me to make you this request, you would deign to console me in this. I commend myself to the holy sacrifices and prayers of Your Paternity."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hist-6",
+  "fictional": false,
+  "name": "Francesco Maria Armillei",
+  "author_raw": "Francesco Maria Armillei",
+  "age": null,
+  "yearsInSociety": null,
+  "formation": null,
+  "studies": null,
+  "skills": [],
+  "health": null,
+  "assignment": null,
+  "destination": "east-indies",
+  "dossier": "Wrote 1 letter from Rome (Collegio Romano) (1616) petitioning the General for the foreign missions; requested destination: East Indies (1).",
+  "letters": [
+   {
+    "n": 6,
+    "year": 1616,
+    "date": "January 27, 1616",
+    "place": "Rome (Collegio Romano)",
+    "archival": "ARSI, FG 735, 339",
+    "excerpt": "I, Francesco Maria Armillei, most humble servant and son in Christ of Your Most Reverend Paternity, lay before you how for some days now I feel moved and stirred to the vocation of the Indies, not by my merit, but by the grace and favor of the eternal God, who deigned to call me into this His holy Society of Jesus — in whose service I willingly and promptly offer my life and my strength, such as they are, with all indifference, into the hands of Your Paternity; from whom, as from a loving father, I shall await the fulfillment of this my good desire.",
+    "kind": "abridged",
+    "full_paras": [
+     "I, Francesco Maria Armillei, most humble servant and son in Christ of Your Most Reverend Paternity, lay before you how for some days now I feel moved and stirred to the vocation of the Indies, not by my merit, but by the grace and favor of the eternal God, who deigned to call me into this His holy Society of Jesus — in whose service I willingly and promptly offer my life and my strength, such as they are, with all indifference, into the hands of Your Paternity; from whom, as from a loving father, I shall await the fulfillment of this my good desire."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hist-7",
+  "fictional": false,
+  "name": "Ignazio Angelucci",
+  "author_raw": "Ignazio Angelucci",
+  "age": null,
+  "yearsInSociety": null,
+  "formation": null,
+  "studies": null,
+  "skills": [],
+  "health": null,
+  "assignment": null,
+  "destination": "east-indies",
+  "dossier": "Wrote 1 letter from Sezze (1616) petitioning the General for the foreign missions; requested destination: East Indies (1).",
+  "letters": [
+   {
+    "n": 7,
+    "year": 1616,
+    "date": "February 3, 1616",
+    "place": "Sezze",
+    "archival": "ARSI, FG 735, 345",
+    "excerpt": "If Your Paternity would grant me this first grace of assigning me either to the Indies or to the North, now that the occasion is present for the one and for the other, it would answer a desire of mine both ancient and great, and I should hope, with the help of the Lord, to do some good. For the love of God, if you judge it best, do not delay the granting. I owe my life to God, who has restored it to me, and I have great reason to hope from Him that He will preserve it for me wherever He calls me; and I owe to spend it and end it willingly wherever He wills.",
+    "kind": "abridged",
+    "full_paras": [
+     "If Your Paternity would grant me this first grace of assigning me either to the Indies or to the North, now that the occasion is present for the one and for the other, it would answer a desire of mine both ancient and great, and I should hope, with the help of the Lord, to do some good. For the love of God, if you judge it best, do not delay the granting. I owe my life to God, who has restored it to me, and I have great reason to hope from Him that He will preserve it for me wherever He calls me; and I owe to spend it and end it willingly wherever He wills. If I were at the feet of Your Paternity, I would tell you such reasons for my hopes of doing some good, and for my spiritual profit in such an assignment, that I see I would certainly obtain the grace. Meanwhile I shall pray God that He inspire Your Paternity to grant it to me, and I await it as granted: quocumque mittas me ibo, ecce ego mitte me (Wherever you send me, I will go: here I am, send me) — and if you will not grant it to me at the prayer of this letter, do me the grace to let me speak to you in person, and for the love of God send me, and bless me."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hist-8",
+  "fictional": false,
+  "name": "Pietro Comentali",
+  "author_raw": "Pietro Comentali",
+  "age": null,
+  "yearsInSociety": null,
+  "formation": null,
+  "studies": null,
+  "skills": [],
+  "health": null,
+  "assignment": null,
+  "destination": "east-indies",
+  "dossier": "Wrote 7 letters from Naples (1616) petitioning the General for the foreign missions; requested destinations: East Indies (5), China (1), Paraguay (1).",
+  "letters": [
+   {
+    "n": 8,
+    "year": 1616,
+    "date": "February 5, 1616",
+    "place": "Naples",
+    "archival": "ARSI, FG 735, 347",
+    "excerpt": "I wrote to Father Claudio, of happy memory, of a desire which the Lord had given me to spend even my life in the help of souls in the Indies. And because at the beginnings of governments graces are wont to be granted more liberally, for this reason I now anew humbly pray Your Paternity, for that desire which He has for the help of the soul of a son and unworthy servant of His, to give me, if it seem to you, in Domino (in the Lord), this one consolation of my heart. I know not what else to say to you but that Your Paternity may know how with particular inspirations the Lord calls me thither, and shows me that this is the one means of my salvation.",
+    "kind": "abridged",
+    "full_paras": [
+     "I wrote to Father Claudio, of happy memory, of a desire which the Lord had given me to spend even my life in the help of souls in the Indies. And because at the beginnings of governments graces are wont to be granted more liberally, for this reason I now anew humbly pray Your Paternity, for that desire which He has for the help of the soul of a son and unworthy servant of His, to give me, if it seem to you, in Domino (in the Lord), this one consolation of my heart. I know not what else to say to you but that Your Paternity may know how with particular inspirations the Lord calls me thither, and shows me that this is the one means of my salvation. May it be for the love of God, and as soon as may be. I finish by praying for you every happiness from Heaven."
+    ]
+   },
+   {
+    "n": 9,
+    "year": 1616,
+    "date": "February 19, 1616",
+    "place": "Naples",
+    "archival": "ARSI, FG 735, 365",
+    "excerpt": "I thank Your Paternity much for the remembrance which you keep of me; but I would not have it be only remembrance — and anew I remind Your Paternity of it, with the good occasions you have in hand to console me, and for such reason I pray the Lord to make Your Paternity understand my desire, as humbly as I know not how to express it, and as His Divine Majesty deigns to make it ever more intense in me. Let not Your Paternity doubt at all that the sooner you dispatch me, the sooner you will procure the salvation of my soul; nor do I believe that Your Paternity will let this occasion pass lightly, as a most observant Jesuit and Head of the Society of the Savior of souls.",
+    "kind": "abridged",
+    "full_paras": [
+     "I thank Your Paternity much for the remembrance which you keep of me; but I would not have it be only remembrance — and anew I remind Your Paternity of it, with the good occasions you have in hand to console me, and for such reason I pray the Lord to make Your Paternity understand my desire, as humbly as I know not how to express it, and as His Divine Majesty deigns to make it ever more intense in me. Let not Your Paternity doubt at all that the sooner you dispatch me, the sooner you will procure the salvation of my soul; nor do I believe that Your Paternity will let this occasion pass lightly, as a most observant Jesuit and Head of the Society of the Savior of souls. As for the place, let Your Paternity have no other regard than what the Lord gives me to understand — namely, that I be where I may most closely embrace His most holy Cross, and so embraced render up my last breath (my highest delight) sooner today than tomorrow. In conclusion, let Your Paternity take compassion on a poor wretch who greatly and long desires; with this I make you reverence, kissing your sacred hands a thousand times, in hope of kissing them in thanksgiving for the charity obtained, and as soon as may be."
+    ]
+   },
+   {
+    "n": 10,
+    "year": 1616,
+    "date": "February 25, 1616",
+    "place": "Naples",
+    "archival": "ARSI, FG 735, 374",
+    "excerpt": "I am in the greatest expectation of the best news. I write anew to Your Paternity — not merely to vent in some measure the ardor which the Lord enkindles in my heart — praying you to do me this charity, and let it be the first, if indeed you have not already done it for me, that I ask of you, with which you could give me the greatest contentment in this life; as for the rest, Your Paternity may rest assured that I shall ask you for nothing else — indeed, I desire that, if I should ask you for anything else, you not grant it, though it be reasonable; for I see clearly that in this matter Non possum, nec volo resistere amplius voluntati Dei (I can no longer resist, nor do I wish to, the will of God).",
+    "kind": "abridged",
+    "full_paras": [
+     "I am in the greatest expectation of the best news. I write anew to Your Paternity — not merely to vent in some measure the ardor which the Lord enkindles in my heart — praying you to do me this charity, and let it be the first, if indeed you have not already done it for me, that I ask of you, with which you could give me the greatest contentment in this life; as for the rest, Your Paternity may rest assured that I shall ask you for nothing else — indeed, I desire that, if I should ask you for anything else, you not grant it, though it be reasonable; for I see clearly that in this matter Non possum, nec volo resistere amplius voluntati Dei (I can no longer resist, nor do I wish to, the will of God). And if the obstacle for now were my not having finished my studies — besides that I could finish them there, as many others do — I am content; and if Your Paternity wishes that I make a vow of it, I make it now: if I cannot serve otherwise, to spend my life in teaching the Indian children the necessary things. In conclusion, let Your Paternity have scruple at not doing me this grace sooner today than tomorrow; I make you reverence, praying for you every happiness from Heaven."
+    ]
+   },
+   {
+    "n": 13,
+    "year": 1616,
+    "date": "March 4, 1616",
+    "place": "Naples",
+    "archival": "ARSI, FG 735, 389",
+    "excerpt": "Since this is the greatest business I can have in this life, I write to Your Paternity, praying you for love of Jesus to console me in this one thing alone — that is, in sending me to the Indies, as I have written several times — which is the first thing I have asked of you; let Your Paternity at least do more than merely remember. Would, my father, that I could send you the heart within this letter, that it might show you in person how great the desire is. In conclusion, let Your Paternity have scruples about leaving the Divine inspirations unfulfilled, for I fear that my predestination hangs upon the fulfillment of this one.",
+    "kind": "abridged",
+    "full_paras": [
+     "Since this is the greatest business I can have in this life, I write to Your Paternity, praying you for love of Jesus to console me in this one thing alone — that is, in sending me to the Indies, as I have written several times — which is the first thing I have asked of you; let Your Paternity at least do more than merely remember. Would, my father, that I could send you the heart within this letter, that it might show you in person how great the desire is. In conclusion, let Your Paternity have scruples about leaving the Divine inspirations unfulfilled, for I fear that my predestination hangs upon the fulfillment of this one. Nor let Your Paternity believe that He who has given with such ardor the velle (the desire) will not also give — if Your Paternity doubts of it — the posse (the ability). Sooner today than tomorrow; with this I make you reverence, praying you every happiness from Heaven, from the College of Naples, the 4th of March 1616. If Your Paternity will grant me this charity as soon as may be, I promise Your Paternity to make a vow to perform, every week and every day of my life, prayers and disciplines for Your Paternity."
+    ]
+   },
+   {
+    "n": 16,
+    "year": 1616,
+    "date": "April 8, 1616",
+    "place": "Naples",
+    "archival": "ARSI, FG 735, 427",
+    "excerpt": "Now is the time when Your Paternity can fulfill my long desire — either with this mission to Paraguay, if there be some impediment (as I understand) in any of those already chosen, or with those of Father Trigault. And not to hinder you, I do not believe Your Paternity will deny me at least one of them. I wish to console you with these missions, both for having written to you several times, and for having been among the first to ask Your Paternity to go to the Indies; if only (as I think) my faults do not prevent it.",
+    "kind": "abridged",
+    "full_paras": [
+     "Now is the time when Your Paternity can fulfill my long desire — either with this mission to Paraguay, if there be some impediment (as I understand) in any of those already chosen, or with those of Father Trigault. And not to hinder you, I do not believe Your Paternity will deny me at least one of them. I wish to console you with these missions, both for having written to you several times, and for having been among the first to ask Your Paternity to go to the Indies; if only (as I think) my faults do not prevent it. Yet Your Paternity could send me as a penance for them, which will be the greatest contentment I can ever desire or have in this life. With this I make you reverence, reminding you that: Parcat meis lachrymis (may he pardon my tears)."
+    ]
+   },
+   {
+    "n": 17,
+    "year": 1616,
+    "date": "April 15, 1616",
+    "place": "Naples",
+    "archival": "ARSI, FG 735, 433",
+    "excerpt": "Now is the time when Your Paternity may remember me, as you have answered me so many times that you wished to do when the occasion arose — that is, by fulfilling my long and great desire for the Indies. My father, for love of God let Your Paternity console me in this alone; for the rest, ure et seca (burn and cut). For I neither wish nor desire any other consolation (as the Lord gives me to understand) in this life. In conclusion: Sapienti pauca (a word to the wise). I commend myself to you, praying you every happiness from Heaven.",
+    "kind": "abridged",
+    "full_paras": [
+     "Now is the time when Your Paternity may remember me, as you have answered me so many times that you wished to do when the occasion arose — that is, by fulfilling my long and great desire for the Indies. My father, for love of God let Your Paternity console me in this alone; for the rest, ure et seca (burn and cut). For I neither wish nor desire any other consolation (as the Lord gives me to understand) in this life. In conclusion: Sapienti pauca (a word to the wise). I commend myself to you, praying you every happiness from Heaven."
+    ]
+   },
+   {
+    "n": 18,
+    "year": 1616,
+    "date": "April 29, 1616",
+    "place": "Naples",
+    "archival": "ARSI, FG 735, 447",
+    "excerpt": "May the Lord Jesus second the holy desires of Your Paternity as He has seconded mine, with the greatest consolation of my soul (which I cannot express how extraordinary it has been). Let Your Paternity not doubt that I meanwhile shall not forget this so signal a favor and gift — namely, to have been made, beyond all my merit, one of the heralds of the greatness of God to the Paraguayans, by means of Your Paternity from the Lord — for I shall do nothing else, together with procuring the greater glory of God so as not to be ungrateful to Him, but pray always, in all the time of my life, and offer Him part of the labors of the voyages and of the conversions of those poor souls, that His Divine Majesty may console Your Paternity as He has consoled me by sending me to the earthly paradise of delights (for such I hold it), to Paraguay.",
+    "kind": "abridged",
+    "full_paras": [
+     "May the Lord Jesus second the holy desires of Your Paternity as He has seconded mine, with the greatest consolation of my soul (which I cannot express how extraordinary it has been). Let Your Paternity not doubt that I meanwhile shall not forget this so signal a favor and gift — namely, to have been made, beyond all my merit, one of the heralds of the greatness of God to the Paraguayans, by means of Your Paternity from the Lord — for I shall do nothing else, together with procuring the greater glory of God so as not to be ungrateful to Him, but pray always, in all the time of my life, and offer Him part of the labors of the voyages and of the conversions of those poor souls, that His Divine Majesty may console Your Paternity as He has consoled me by sending me to the earthly paradise of delights (for such I hold it), to Paraguay. Nothing else; I await your holy blessing. From the College of Naples, April 29, 1616. Concerning my relatives, Your Paternity shall have no trouble at all."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hist-12",
+  "fictional": false,
+  "name": "Diego Camassa",
+  "author_raw": "Diego Camassa",
+  "age": null,
+  "yearsInSociety": null,
+  "formation": null,
+  "studies": null,
+  "skills": [],
+  "health": null,
+  "assignment": null,
+  "destination": "east-indies",
+  "dossier": "Wrote 1 letter from Nola (1616) petitioning the General for the foreign missions; requested destination: East Indies (1).",
+  "letters": [
+   {
+    "n": 12,
+    "year": 1616,
+    "date": "February 28, 1616",
+    "place": "Nola",
+    "archival": "ARSI, FG 735, 383",
+    "excerpt": "My father, Charitas Dei urget me (the charity of God urges me). I wrote to Your Paternity, as it was already long ago, that the Lord had opened wide the kind hand of His mercies over me, a miserable one, in calling me to preach His most holy name among the infidels and barbarians, for the salvation of those souls which, redeemed with His most precious blood, lie nonetheless miserably under the dominion of Satan. Now, although by the grace of Our Lord I stand disposed to take, as I always have taken, the same contentment in staying as I would take in going, should it so please Your Paternity; and although I ought not to trouble you with such frequent letters: yet, every indifference being supposed, I am constrained to write anew.",
+    "kind": "abridged",
+    "full_paras": [
+     "My father, Charitas Dei urget me (the charity of God urges me). I wrote to Your Paternity, as it was already long ago, that the Lord had opened wide the kind hand of His mercies over me, a miserable one, in calling me to preach His most holy name among the infidels and barbarians, for the salvation of those souls which, redeemed with His most precious blood, lie nonetheless miserably under the dominion of Satan. Now, although by the grace of Our Lord I stand disposed to take, as I always have taken, the same contentment in staying as I would take in going, should it so please Your Paternity; and although I ought not to trouble you with such frequent letters: yet, every indifference being supposed, I am constrained to write anew. Charitas Dei urget me (the charity of God urges me): that most precious blood of Christ seems to reproach me continually with the continual and infinite benefits He has done me, and to rebuke my ingratitude and negligence in procuring the salvation of so many souls for whom it was shed, and to whose aid He has called and continually calls me, my father. Sanguis Christi urget me (the Blood of Christ urges me). Receive, Your Paternity, this son of yours, unworthy though he be, at your feet, whence he will not depart, nor ever cease to write, until he has finished the [cause] of God and obtained from Your Paternity that which blessed Christ so greatly desires. Let us content, my father, let us content our Christ Jesus. I do not ask of Your Paternity that you apply me to such a ministry — having been applied to it by God long ago, and doubtless born into the world for this purpose; and Your Paternity having given me so good a hope of it in particular — but that the will of God be no longer delayed, so that aid may be given to those poor souls as soon as may be, and I may make my vocation secure. I could tell Your Paternity many motives of this my vocation, and many and very clear reasons to show the voice and will of God, were it not that it is now so approved and confirmed by all [those] whom I hold and have held in the place of God that it would be, not folly but impiety in me to doubt it; and were it not certain that the same God who has manifested to me His most holy will, in answer to continual prayer, will also manifest it to Your Paternity, so that you may grant me what His Divine Majesty requires. I await its most happy tidings. And having nothing else to add, I place myself in the hands and at the feet of Your Paternity (fiat voluntas Dei (may God's will be done)), making you my most humble reverence, and praying the Lord to give you abundance of His holy gifts and spiritual grace, and the will to console me for love of the most sacred wounds of Christ crucified, of the Blessed Virgin, of Our Blessed Father Ignatius, and of all the Court of Heaven."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hist-14",
+  "fictional": false,
+  "name": "Francesco Ardoino",
+  "author_raw": "Francesco Ardoino",
+  "age": null,
+  "yearsInSociety": null,
+  "formation": null,
+  "studies": null,
+  "skills": [],
+  "health": null,
+  "assignment": null,
+  "destination": "china",
+  "dossier": "Wrote 1 letter from Naples (1616) petitioning the General for the foreign missions; requested destination: China (1).",
+  "letters": [
+   {
+    "n": 14,
+    "year": 1616,
+    "date": "March 5, 1616",
+    "place": "Naples",
+    "archival": "ARSI, FG 735, 393",
+    "excerpt": "In this letter I turn again to remind Your Paternity of what I have treated with Your Paternity at other times, both in person and also in writing — I mean, of my vocation to China or Japan, if it be to the greater glory of our Lord God. Your Paternity in Rome gave me no small good hope, promising me that doubtless in those parts I would do much service to our Lord God with my painting; but in the meantime you recommended that I commend it in prayer to the Lord; I say that I have done so and will do so also hereafter, and by God's grace I find myself much helped and strengthened therein.",
+    "kind": "abridged",
+    "full_paras": [
+     "In this letter I turn again to remind Your Paternity of what I have treated with Your Paternity at other times, both in person and also in writing — I mean, of my vocation to China or Japan, if it be to the greater glory of our Lord God. Your Paternity in Rome gave me no small good hope, promising me that doubtless in those parts I would do much service to our Lord God with my painting; but in the meantime you recommended that I commend it in prayer to the Lord; I say that I have done so and will do so also hereafter, and by God's grace I find myself much helped and strengthened therein. And to this end I have written to our Father Assistants of Italy and of Portugal, one each, that they may aid me with Your Paternity in this matter.",
+     "Our Father, I pray you as much as I can, by the blood of Jesus shed for us, and by the merits of the Blessed Virgin Mary our Mother by grace, to be pleased to console me, if you know it to be the service of our common Lord — for this is what I hope, that is, the sanctification of His name as much as may be, according to the measure of the grace communicated to me by God.",
+     "If for my sins there were any impediment to this, I know how to ask of you another grace, reserved for the answer to this one, very necessary to me if I am not mistaken; I make an end, with nothing else.",
+     "I commend myself greatly to your Holy Sacrifices, and praying for you from the Lord a long and holy life full of merits."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hist-15",
+  "fictional": false,
+  "name": "Francesco Balione",
+  "author_raw": "Francesco Balione",
+  "age": null,
+  "yearsInSociety": null,
+  "formation": null,
+  "studies": null,
+  "skills": [],
+  "health": null,
+  "assignment": null,
+  "destination": "east-indies",
+  "dossier": "Wrote 1 letter from Genoa (1616) petitioning the General for the foreign missions; requested destination: East Indies (1).",
+  "letters": [
+   {
+    "n": 15,
+    "year": 1616,
+    "date": "March 21, 1616",
+    "place": "Genoa",
+    "archival": "ARSI, FG 735, 415",
+    "excerpt": "The reason why until now I have not written to Your Reverence concerning the vocation to the Indies, it being more than five years that I have had this desire, has come partly from a certain vain respect, partly from not knowing the importance of writing, and also because, considering my weak strength and not looking to God who was urging me, I did not dare to write. Now at last, with the aid of the Lord and inspired by Him, I have resolved to make Your Reverence a sharer in the mercies of the Lord which He has used toward so vile and useless an instrument; and that you may more clearly understand my desire: the principal motive that moved me to embrace our Institute was the knowledge of the opportunity there was to go to the Indies.",
+    "kind": "abridged",
+    "full_paras": [
+     "The reason why until now I have not written to Your Reverence concerning the vocation to the Indies, it being more than five years that I have had this desire, has come partly from a certain vain respect, partly from not knowing the importance of writing, and also because, considering my weak strength and not looking to God who was urging me, I did not dare to write. Now at last, with the aid of the Lord and inspired by Him, I have resolved to make Your Reverence a sharer in the mercies of the Lord which He has used toward so vile and useless an instrument; and that you may more clearly understand my desire: the principal motive that moved me to embrace our Institute was the knowledge of the opportunity there was to go to the Indies. The end for which I am moved to go: first, the glory of God, having great desire that He be known; 2nd, to suffer something for His love, since for me He bore so many reproaches; finally, to render Him this mortal garb in witness to His Name, when He shall deign to make me partaker of so great a favor. I desire it greatly, nor have I words to explain. For the rest, I am pusillanimous, timid, and ignorant; nevertheless in the hands of Him who can do all things I am strong, and I fear nothing. I know not what else to say but: may He who knows and sees all things move our hearts. Meanwhile I resign myself into the hands of Your Reverence, awaiting, as from the hand of God's will, all that you shall judge in the Lord to be fitting for the greater glory of His Divine Majesty and my greater spiritual good."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hist-20",
+  "fictional": false,
+  "name": "Benedetto Amodei",
+  "author_raw": "Benedetto Amodei",
+  "age": null,
+  "yearsInSociety": null,
+  "formation": null,
+  "studies": null,
+  "skills": [],
+  "health": null,
+  "assignment": null,
+  "destination": "china",
+  "dossier": "Wrote 1 letter from Palermo (1616) petitioning the General for the foreign missions; requested destination: China (1).",
+  "letters": [
+   {
+    "n": 20,
+    "year": 1616,
+    "date": "July 6, 1616",
+    "place": "Palermo",
+    "archival": "ARSI, FG 735, 473",
+    "excerpt": "The greeting that Your Paternity gave me through one letter to Father Cesare Cosso, then [Vice-Provincial], brought me as much contentment as certain hope of a thing so long desired is wont to bring, for such a greeting in reply to a resolved petition for the Indies is by us wont to be esteemed an acceptance among those who are destined for those most happy lands. I pray now that Your Paternity fulfill the greeting that you lovingly sent, and my desire, which every day grows ever more — and in this time particularly, with news of China and Japan.",
+    "kind": "abridged",
+    "full_paras": [
+     "The greeting that Your Paternity gave me through one letter to Father Cesare Cosso, then [Vice-Provincial], brought me as much contentment as certain hope of a thing so long desired is wont to bring, for such a greeting in reply to a resolved petition for the Indies is by us wont to be esteemed an acceptance among those who are destined for those most happy lands. I pray now that Your Paternity fulfill the greeting that you lovingly sent, and my desire, which every day grows ever more — and in this time particularly, with news of China and Japan. Permit me no longer to envy others, calling them most happy and fortunate, and myself most unhappy and unfortunate. May the Lord inspire Your Paternity to send me, as He has inspired me to desire to go.",
+     "To satisfy in part with these few lines my great desire, I come now with as many more to fulfill the office I hold, since there is no other, of consultor in the Novitiate, giving Your Paternity a brief account of this house — which, by the grace of the Lord, seems to me to walk well in all the things it ought. The Novices universally are frequent in public and private mortifications and have need of the curb; in prayer they are so well [accustomed] that not only do they make it themselves and well, but they know how to teach it happily to others; they know how to speak and discourse well of spiritual things, and this they do not only in the Novitiate but keep up outside as well, in their studies, the Superiors remaining satisfied and content with them. All this seems to me to come from two things: from the good choice our Father Provincial has made of the best subjects, and from the good instruction of our Father Rector, to whom it seems to me there has been given the gift of teaching the […] with such assiduity and diligence that it amazes me; and what is more important, he gives them solid and substantial doctrines, and in particular and common discourses, [foreseeing], as is necessary, with his example; in short, he so conducts himself that he makes himself loved by all, and feared. This is what it has seemed good to me to write to Your Paternity, for the greater glory of His Divine Majesty, leaving unsaid the other Exercises, according to the custom of Novitiates, which have been made with great study, lest I be too long. To the Lord be that which may make me seek His glory in the Indies, and make happy the government of Your Paternity so well begun."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hist-21",
+  "fictional": false,
+  "name": "Giuseppe Alfieri",
+  "author_raw": "Alfieri, Giuseppe",
+  "age": null,
+  "yearsInSociety": null,
+  "formation": null,
+  "studies": null,
+  "skills": [],
+  "health": null,
+  "assignment": null,
+  "destination": "east-indies",
+  "dossier": "Wrote 1 letter from Messina (1616) petitioning the General for the foreign missions; requested destination: East Indies (1).",
+  "letters": [
+   {
+    "n": 21,
+    "year": 1616,
+    "date": "July 7, 1616",
+    "place": "Messina",
+    "archival": "ARSI, FG 735, 473-1",
+    "excerpt": "While, if an ancient vine is not torn up from the root altogether (a thing not so easy to do as it seems), a master hand may well prune it, make it bleed again, mortify it, and cut it down so low that it no longer shows among the others, and it remains as if already stripped and buried — yet never, by that or any like pressure, kill it outright; rather, unless it spring again, rise up, and appear more vigorous than before. Your Paternity could cut from me on every side the tenderest shoots — as it seemed to me indeed when you called away those others, younger in age, newer and more tender in their vocation, who stood beside me as my chamber companions.",
+    "kind": "abridged",
+    "full_paras": [
+     "While, if an ancient vine is not torn up from the root altogether (a thing not so easy to do as it seems), a master hand may well prune it, make it bleed again, mortify it, and cut it down so low that it no longer shows among the others, and it remains as if already stripped and buried — yet never, by that or any like pressure, kill it outright; rather, unless it spring again, rise up, and appear more vigorous than before. Your Paternity could cut from me on every side the tenderest shoots — as it seemed to me indeed when you called away those others, younger in age, newer and more tender in their vocation, who stood beside me as my chamber companions. You could make me weep, and at times languish, and mortify me so much that not even my name — poor though it be as refreshment for one oppressed — is heard among the others persevering for the Indies in your most loving letters, much less [directly or indirectly, or in whatever brief form] in answer to mine. I merit this, as is [truly] the case, for my demerits and sins. But that I should not rise again to make a new petition — that, thrust back, I should not return — I cannot keep myself from doing, my most beloved Father: [mercifully] there will live in me, thanks be to the Lord, the beginning and fountain which is He of all life, that desire for the glorious enterprise of the Indies, so deeply rooted these many years [in profound depths]. At least, not for my merit, or for any reason [as I say] [to feel] perhaps [resentful] as often as it might not seem so to Your Paternity to do it, but for your great fatherly charity I beseech you in the Lord, and in His Most Holy Mother Mary, not to leave me to languish in an unspeakable — not to say insuperable — pain, such as it is to be silent to one who cries out piteously; just as, at this point, I liken it to the pains of the damned, as you well know — David, when he said, Deus meus ne quando taceas a me, et assimilabor descendentibus in lacum (Lest Thou ever be silent to me, I shall become like them that go down into the pit). Thus at least I may understand from this whether writing does me good and gives hope, or whether I should cease, lest I show myself more importunate and insolent than fervent — committing all to the divine will, which must be carried out with the direction and the will of my Superiors. And with this I commend myself greatly to your Holy Sacrifices and Prayers."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hist-22",
+  "fictional": false,
+  "name": "Francesco Gargano",
+  "author_raw": "Gargano, Francesco",
+  "age": null,
+  "yearsInSociety": null,
+  "formation": null,
+  "studies": null,
+  "skills": [],
+  "health": null,
+  "assignment": null,
+  "destination": "east-indies",
+  "dossier": "Wrote 7 letters from Naples, Nola, Salerno, place not stated (1616–1624) petitioning the General for the foreign missions; requested destinations: East Indies (6), Aethiopia (1).",
+  "letters": [
+   {
+    "n": 22,
+    "year": 1616,
+    "date": "December 9, 1616",
+    "place": "Naples",
+    "archival": "ARSI, FG 735, 506",
+    "excerpt": "I believe it belongs to sons, in all their needs, to have recourse to their Father, so that according to their needs they may be provided for. If in temporal things it is so, with much reason — and more still — it is so in spiritual things, to the spiritual Father; and it seems to me that in this there occurs another thing as well, namely that not only our needs, but all other things too pertaining to the service and the greater glory of His Divine Majesty, must be made known to those Fathers — among which things are vocations.",
+    "kind": "abridged",
+    "full_paras": [
+     "I believe it belongs to sons, in all their needs, to have recourse to their Father, so that according to their needs they may be provided for. If in temporal things it is so, with much reason — and more still — it is so in spiritual things, to the spiritual Father; and it seems to me that in this there occurs another thing as well, namely that not only our needs, but all other things too pertaining to the service and the greater glory of His Divine Majesty, must be made known to those Fathers — among which things are vocations. Having done this up to now, there occurs to me at present another thing, which belongs only to Our Father: the vocation to the Indies, a very great grace of God, and to be most greatly esteemed. It goes in this manner. Two years before I was admitted to the novitiate, or a little less, hearing talk of the things of the Indies — particularly of the martyrdoms — since from childhood I have always had the vocation to the Company, I felt certain interior movements, and was much taken with these things. Afterwards those movements kept growing within me, though I did not recognize the grace of God; these movements grew much with the occasion of certain missions which ours were conducting through Naples, with whom I used to go along to help at least to sing through the streets, to draw the people. When I felt those movements, since I did not recognize that grace, I said: if in small things I cannot master myself, how will I carry myself there? Entering the novitiate, and being in the Exercises, my desire grew greatly, and I began to know it was truly a thing of God. And so I offered myself to Him, and thanked Him. This caused me the consideration of the preciousness of a soul. One evening, if I am not mistaken, making the reflection of the prayer, my heart was kindled with this desire; and I did as usual, namely to say: if in small things I do not master myself, what will I do in greater ones? And having said this, I felt an answer within me: Potens est Deus de lapidibus (God is powerful, even from stones) — but interiorly. And this I have communicated to various superiors I have had, by whose counsel I have not written to Your Paternity before; but now, with the counsel of my [Father], I have written. For the [...] let us leave aside the other things concerning the same vocation, which I hope to write to you another time. All this I commend to God, saying, quid me vis facere (What wilt Thou have me do?), and to Your Paternity, His vicar. To Your Paternity I make a thousand reverences, and commend myself to you with all my heart."
+    ]
+   },
+   {
+    "n": 28,
+    "year": 1617,
+    "date": "March 23, 1617",
+    "place": "Naples",
+    "archival": "ARSI, FG 735, 124",
+    "excerpt": "Because blessed God does not fail, with His infinite mercy, as He has deigned to give me this holy desire to go to the Indies, so also to keep it in me, indeed to increase it ever more, giving me great hope of one day enjoying its fulfillment: so I believe it is not amiss to recall it to Your Paternity from time to time, accompanying it with the prayers of others and of mine; for by this means I hope to obtain this grace from His Divine Majesty, whom I have ever found so liberal toward me that I have good reason to promise myself as much, and more, for the future — although on my part I see no fitness at all, either for this or for anything else.",
+    "kind": "abridged",
+    "full_paras": [
+     "Because blessed God does not fail, with His infinite mercy, as He has deigned to give me this holy desire to go to the Indies, so also to keep it in me, indeed to increase it ever more, giving me great hope of one day enjoying its fulfillment: so I believe it is not amiss to recall it to Your Paternity from time to time, accompanying it with the prayers of others and of mine; for by this means I hope to obtain this grace from His Divine Majesty, whom I have ever found so liberal toward me that I have good reason to promise myself as much, and more, for the future — although on my part I see no fitness at all, either for this or for anything else. And yet this very thing gives me great hope and confidence; for infima mundi eligit Deus, ut confundat fortia (God has chosen the meanest things of the world, to confound the strong). I pray Your Paternity, therefore, for the love of God and of the Blessed Virgin, to deign to remember me — though may the greater glory of God and of the Most Blessed Virgin always be done, to whom I commend this business and this letter. I make a thousand humble reverences to Your Paternity."
+    ]
+   },
+   {
+    "n": 47,
+    "year": 1618,
+    "date": "July 25, 1618",
+    "place": "Nola",
+    "archival": "ARSI, FG 735, 63",
+    "excerpt": "Although I am most certain, as indeed I have known, that Your Paternity, by your charity, keeps fresh memory of me — for which it would not be so necessary to annoy you with my letters — nevertheless I do not seem fully to satisfy myself unless I seek, by letters, not being able otherwise, the execution of what I supremely desire in this life. All the more so as that first ardent desire has not at all lessened; indeed I believe I may say it, and with truth certainly, that now it burns more and urges me on.",
+    "kind": "abridged",
+    "full_paras": [
+     "Although I am most certain, as indeed I have known, that Your Paternity, by your charity, keeps fresh memory of me — for which it would not be so necessary to annoy you with my letters — nevertheless I do not seem fully to satisfy myself unless I seek, by letters, not being able otherwise, the execution of what I supremely desire in this life. All the more so as that first ardent desire has not at all lessened; indeed I believe I may say it, and with truth certainly, that now it burns more and urges me on.",
+     "Nor, by His infinite goodness, does blessed God fail continually to kindle it with the wind of His Mercy, and to dispose me with a certain hope — of bearing cheerfully both the torrid zones and the perils of the ocean, the furies of heaven, the tempests of the sea, the journeys by land, hunger, thirst, perils, labors, and whatever inconvenience might befall the body. Believe me, my Father, and if I am long, forgive me, that the mere memory consoles me, and hope recreates me; for: Ille terrarum mihi praeter omnes angulus ridet (that corner of the world smiles on me above all others) — “That corner of the earth smiles on me beyond all others” — as said the Venusian Poet. Honey, yes, truly honey — of celestial consolations, which yield neither to nectar and ambrosia, nor to all the delights of all time, nor even to the spiritual tastes which the persons of our Society continually experience in their chambers in these parts — of which our Father Xavier gives most clear testimony.",
+     "It is a sweet thing to think, to speak, and even to write of these things, particularly to him from whom, after God and the aid of the saints, I await the execution, as I hope, and have some pledge, or earnest, of it; but I would not abuse the gentleness, courtesy, and charity of Your Paternity; therefore I close, humbly making you reverence, desirous of being able to pray for you from atop a cross. Amen."
+    ]
+   },
+   {
+    "n": 51,
+    "year": 1619,
+    "date": "January 3, 1619",
+    "place": "Naples",
+    "archival": "ARSI, FG 736, 2",
+    "excerpt": "Considering this heroic action which the Son of God performed eight days after His Nativity, my heart grows tender, and for two reasons which move me to supplicate Your Paternity and to seek from you a most rich offering — what we call an inferta — I also feel driven to render to this most sweet and most loving Child some sort of return. One reason is that, if He, so early, begins to suffer and shed His blood for my sins, I who am the guilty one ought not to remain idle, not only to seek to mortify myself but also to give, or at least to expose, my life for love of Him, according to my vocation.",
+    "kind": "abridged",
+    "full_paras": [
+     "Considering this heroic action which the Son of God performed eight days after His Nativity, my heart grows tender, and for two reasons which move me to supplicate Your Paternity and to seek from you a most rich offering — what we call an inferta — I also feel driven to render to this most sweet and most loving Child some sort of return. One reason is that, if He, so early, begins to suffer and shed His blood for my sins, I who am the guilty one ought not to remain idle, not only to seek to mortify myself but also to give, or at least to expose, my life for love of Him, according to my vocation. The other reason is that the Child takes the name of Jesus, and sheds His blood, while I most unworthily am to call myself a member of the Company of Jesus, without shedding my blood for so precious a name given to me by Jesus Himself out of His infinite goodness — certainly not; but with divine grace I shall ever strive to answer my vocation, the outcome of which I humbly and suppliantly seek from Your Paternity. I add to all this that, since so many called to this enterprise have so fully answered it, it does not seem fitting to me, nor do I satisfy my vocation, unless I burn with desire to put it into execution; I hope to do so exactly, and shall ever strive more and more to prepare myself for the enterprise with the favor of the Blessed Virgin, to whom long ago I commended this matter, which I know most evidently to have come from God, for His greater glory and my perfection. So I finish, and, as I said, this offering I seek from Your Paternity by the blood of the Child Jesus, and by the love He shows us; and I assure Your Paternity that, if I obtain this prize, I shall be rich, and nothing else shall be lacking to me, and there shall be nothing left for me to desire but that — trusting in the goodness of God — I may yet hope to pray for Your Paternity above a cross, or amid irons, or in some other sort of torments; but meanwhile I promise not to fail to provide myself with the grace of God, and may Your Paternity remember this poor wretch. So I pray to God to give you a most happy new year, a blessed Easter, and every height of spiritual happiness; and together with Baldassarro [—] I commend myself to Your Paternity."
+    ]
+   },
+   {
+    "n": 54,
+    "year": 1620,
+    "date": "May 29, 1620",
+    "place": "Naples",
+    "archival": "ARSI, FG 736, 156",
+    "excerpt": "My hopes — strengthened by the encouragement I have on many occasions received from Your Paternity — of sailing, for the love of Christ who calls me to it, to the farthest parts of the world, make me think that, if my sins do not oppose it, on this present occasion they might be fulfilled. May they be fulfilled through the mercies of Jesus, and by the abundant blood He lavished for me; and by such liberality may it come about that I too show myself liberal with my own. [...] This sole consolation I desire, and I well know that long waiting ought to count as nothing in order to acquire what I desire, [...] ...",
+    "kind": "abridged",
+    "full_paras": [
+     "My hopes — strengthened by the encouragement I have on many occasions received from Your Paternity — of sailing, for the love of Christ who calls me to it, to the farthest parts of the world, make me think that, if my sins do not oppose it, on this present occasion they might be fulfilled. May they be fulfilled through the mercies of Jesus, and by the abundant blood He lavished for me; and by such liberality may it come about that I too show myself liberal with my own. [...] This sole consolation I desire, and I well know that long waiting ought to count as nothing in order to acquire what I desire, [...] ... Commending myself to the paternal charity of the Most Blessed [Mary], I remain with sounder and more living hopes, and I make Your Paternity most humble reverence."
+    ]
+   },
+   {
+    "n": 56,
+    "year": 1621,
+    "date": "September 30, 1621",
+    "place": "Salerno",
+    "archival": "ARSI, FG 736, 288",
+    "excerpt": "Although, as I have always done, so also now I place myself in the hands of Your Paternity concerning going to the East Indies or else to the West, nevertheless — as I have also sometimes signified to Your Paternity — I have the greater desire, in the hope there is of shedding blood for love of Jesus, to go to the Eastern Indies; whence, having heard some time ago that Father Laerzio would soon be in Rome — [thinking] that he is already there — I have wished anew, with the resignation [...], to renew before Your Paternity my desires, reminding you that, my philosophy being finished, with the time of the voyage and a little more besides, I could, once sent there, employ myself in the salvation of those peoples.",
+    "kind": "abridged",
+    "full_paras": [
+     "Although, as I have always done, so also now I place myself in the hands of Your Paternity concerning going to the East Indies or else to the West, nevertheless — as I have also sometimes signified to Your Paternity — I have the greater desire, in the hope there is of shedding blood for love of Jesus, to go to the Eastern Indies; whence, having heard some time ago that Father Laerzio would soon be in Rome — [thinking] that he is already there — I have wished anew, with the resignation [...], to renew before Your Paternity my desires, reminding you that, my philosophy being finished, with the time of the voyage and a little more besides, I could, once sent there, employ myself in the salvation of those peoples. I stand at the door, and knock. Your Paternity well knows I am in good bodily health, thanks be to the Lord, who will doubtless supply my other failings. So, everything placed in the hands of Your Paternity, I make you humble reverence."
+    ]
+   },
+   {
+    "n": 60,
+    "year": 1624,
+    "date": "December 5, 1624",
+    "place": null,
+    "archival": "ARSI, FG 737, 222",
+    "excerpt": "At the news that has come here of the good harvest prepared in Ethiopia, where two hundred of ours are called, my ancient desire has been kindled further, and I have entered into hope that into that numerous [company] there may [enter] one most lowly and unworthy of the name and title of soldier of Christ. My Father, remember me for love of God, and do not look at my little being, but at the infinite power of Him who called me and keeps me in this holy desire, and who delights and glories in raising up the needy from the earth [inopem (a poor one)].",
+    "kind": "abridged",
+    "full_paras": [
+     "At the news that has come here of the good harvest prepared in Ethiopia, where two hundred of ours are called, my ancient desire has been kindled further, and I have entered into hope that into that numerous [company] there may [enter] one most lowly and unworthy of the name and title of soldier of Christ. My Father, remember me for love of God, and do not look at my little being, but at the infinite power of Him who called me and keeps me in this holy desire, and who delights and glories in raising up the needy from the earth [inopem (a poor one)]. The desire is matured, unless I err; the call is from God; the execution rests with God, entrusted — as the least interpreter, guided by the same God — to Your Paternity, to whom I make humble reverence, praying you to give me the Holy blessing."
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hist-23",
+  "fictional": false,
+  "name": "Giacinto Franceschi",
+  "author_raw": "Franceschi, Giacinto",
+  "age": null,
+  "yearsInSociety": null,
+  "formation": null,
+  "studies": null,
+  "skills": [],
+  "health": null,
+  "assignment": null,
+  "destination": "japan",
+  "dossier": "Wrote 1 letter from place not stated (1617) petitioning the General for the foreign missions; requested destination: Japan (1).",
+  "letters": [
+   {
+    "n": 23,
+    "year": 1617,
+    "date": "1617",
+    "place": null,
+    "archival": "ARSI, FG 735, 276",
+    "excerpt": "Very Reverend Father, Our Father,\n\nThe great longing which I have always had, and which I now feel within me more than ever, to go to the Indies has moved me to write these four lines to Your Paternity — especially now that the opportunity is favorable to go to Japan, toward which I aspire with all affection. I was ever desirous, even from a young age, of spending my life for the salvation of souls, and of shedding even my blood for Him who, in shedding His for them, was so lavish of it. So when I looked upon the image of the martyrs, I felt myself at once grow tender and burn with love for such a lot; and I said within myself: O, if God, who granted these so great a grace, would grant to me as well, I could do everything!",
+    "kind": "abridged",
+    "full_paras": [
+     "Very Reverend Father, Our Father,",
+     "The great longing which I have always had, and which I now feel within me more than ever, to go to the Indies has moved me to write these four lines to Your Paternity — especially now that the opportunity is favorable to go to Japan, toward which I aspire with all affection. I was ever desirous, even from a young age, of spending my life for the salvation of souls, and of shedding even my blood for Him who, in shedding His for them, was so lavish of it. So when I looked upon the image of the martyrs, I felt myself at once grow tender and burn with love for such a lot; and I said within myself: O, if God, who granted these so great a grace, would grant to me as well, I could do everything! And then there came to mind all the comforts, [pleasures], and paternal means, and I said, as I say anew now: away with kindred, honors, pomp — if only I too may at last be made worthy to suffer for my Jesus. This was the principal cause which inspired in me the vocation to the Company, and for this same reason God our Lord preserves me in it; for I never feel so consoled as with the consolation that fills me when an occasion offers to do something in aid of souls. And every time I have asked this (which I have often done, especially to Father Ottaviano Navarola while I was a novice, and to the Father Provincial while in the College), I have felt within me so great a consolation that, overflowing outwardly, I seemed to melt with spiritual joy; and though I did not obtain what I asked, it did not pain me — rather it helped me to grow more in spirit, so that, if it were God's will, I might obtain it one day. In prayer I never felt so much consolation as I felt then; then I found myself readier for obedience and for the exercises of the Holy Religion; and, to say all in one word, it always seemed to me I had made more profit in the spirit whenever I had disclosed such a desire to my Superior. I have always known, moreover, that this was communicated to me by the Lord God through the gifts which from that same God I have received, fitting me for such a vocation — namely, such health as I could not seem to desire greater; for I was never ill in the Religion except eight days of measles. Scarcity of food and fasting do me no harm, but rather good — fasting with the grace of the Lord through Lent; and finally from bodily and mental labors I have never felt harm to my health. I will end my writing, for it seems to me utte

@@ -22,6 +22,8 @@ import * as rules from './rules.js';
 import * as dice from './dice.js';
 import * as dispositions from './dispositions.js';
 import { fictionalPetitioner, archiveFictional, MAX_ACTIVE_FICTIONAL } from './generator.js';
+import {decideVows,inviteFinalVows,completeFinalVows,rankSuffix,checkVowsMilestones,ensureVows} from './vows.js';
+export {decideVows,inviteFinalVows,completeFinalVows,rankSuffix};
 
 export const CAMPAIGN_START = 1615;
 export const CAMPAIGN_END = 1645;
@@ -62,6 +64,7 @@ export const STATUS = Object.freeze({
   RETURNED: 'returned',
   ILL: 'ill',
   DECEASED: 'deceased',
+  DISMISSED: 'dismissed',
 });
 
 /** Statuses eligible to appear in a terna. */
@@ -76,7 +79,7 @@ function campaignCompleteError() {
   return e;
 }
 
-function ensureData(override) {
+export function ensureData(override) {
   const raw = override || getGameData();
   if (!raw) {
     throw new Error('GENERALATE: no game data — call loadGameData() or setGameData() first.');
@@ -284,7 +287,7 @@ function destName(g, id) {
 }
 
 /** Get-or-create the engine's per-petitioner record (id → status/history). */
-function ensureRecord(state, id, fictional = false) {
+export function ensureRecord(state, id, fictional = false) {
   let rec = state.petitioners[id];
   if (!rec) {
     rec = {
@@ -304,7 +307,7 @@ function getRecord(state, id) {
 }
 
 /** Append a ledger entry with a monotonic sequence number. */
-function addLedger(state, entry) {
+export function addLedger(state, entry) {
   state.ledger.push({ seq: ++state.seq.ledger, ...entry });
   return state.ledger[state.ledger.length - 1];
 }
@@ -316,19 +319,23 @@ function addLedger(state, entry) {
  */
 function addEuropeanLabor(state, petitionerId, name, via) {
   if (!Array.isArray(state.europeanLabor)) state.europeanLabor = [];
+  const r0=state.petitioners[petitionerId];
+  if(r0&&(r0.status===STATUS.DISMISSED||r0.status===STATUS.DECEASED))throw new Error(`addEuropeanLabor: "${petitionerId}" is ${r0.status}.`);
   const existing = state.europeanLabor.find((e) => e.petitionerId === petitionerId);
   if (existing) {
     existing.year = state.year;
     existing.via = via;
+    existing.vows = ensureVows(state, petitionerId);
     return existing;
   }
   const rec = { petitionerId, name, year: state.year, via, assignment: null };
+  rec.vows = ensureVows(state, petitionerId);
   state.europeanLabor.push(rec);
   return rec;
 }
 
 /**
- * Whether a man is eligible for ordination: a scholastic with 10+ years in the Society.
+ * Whether a man is eligible for ordination: a scholastic with 12+ years in the Society.
  * Eligibility does not confer ordination; the General must decide.
  */
 export function ordinationEligible(state, petitionerId) {
@@ -338,7 +345,7 @@ export function ordinationEligible(state, petitionerId) {
   const years = (rec && rec.yearsInSociety) ?? (pet ? pet.yearsInSociety : 0) ?? 0;
   // Years increase as the campaign progresses; use entry year + elapsed.
   const entryYear = (rec && rec.entryYear) ?? (pet ? pet.entryYear : state.year) ?? state.year;
-  return (state.year - entryYear + years) >= 10;
+  return (state.year - entryYear + years) >= 12;
 }
 
 /**
@@ -347,7 +354,7 @@ export function ordinationEligible(state, petitionerId) {
  */
 export function ordainPriest(state, petitionerId) {
   if (!ordinationEligible(state, petitionerId)) {
-    throw new Error('Ordination requires an eligible scholastic (10+ years in the Society).');
+    throw new Error('Ordination requires an eligible scholastic (12+ years in the Society).');
   }
   const entry = (state.europeanLabor || []).find((e) => e.petitionerId === petitionerId);
   const name = entry ? entry.name : petitionerId;
@@ -1186,6 +1193,8 @@ export function newGame({ mode = 'campaign', seed = 'generalate', data = null } 
     missions: initMissions(g.destinations), // per-mission staffing: {fathers, coadjutors, brothers, capacity}
     novitiates: [],   // {destination, foundedYear} — houses of formation at missions
     europeanLabor: [], // men working in Europe: {petitionerId, name, year, via:'denied'|'returned'|'veteran'}
+    pendingVows: [],
+    vowsNewsInTransit: [],
     deployments: [], // collective deployment orders (Stage 1): {id, year, destId, destName, purpose, memberIds, voyageIds}
     zealUntil: 0,     // year through which veteran zeal aids voyage checks
     currentTerna: null, // {year, cards:[...]} while awaiting decide()
@@ -2287,6 +2296,8 @@ export function resolveYear(state) {
   // Novitiate vocations.
   resolveVocations(state, y);
 
+  checkVowsMilestones(state, y);
+
   state.year = y + 1;
   if (state.mode === 'campaign' && state.year > CAMPAIGN_END) state.ended = true;
   if (state.mode === 'endless' && state.year > CAMPAIGN_END && !state.diverged) {
@@ -2297,7 +2308,7 @@ export function resolveYear(state) {
 }
 
 /** Best-effort display name for a petitioner id (historical data or regenerated fictional). */
-function cardName(state, g, id) {
+export function cardName(state, g, id) {
   const hist = g.petitioners.find((p) => p.id === id);
   if (hist) return hist.name;
   const rec = state.petitioners[id];
@@ -2642,6 +2653,9 @@ export function deserialize(obj) {
   if (!state.missions || typeof state.missions !== 'object') state.missions = initMissions();
   else for (const id of Object.keys(state.missions)) missionStaff(state, id); // normalize shape
   if (!('europeanLabor' in state)) state.europeanLabor = [];
+  if(!Array.isArray(state.pendingVows))state.pendingVows=[];
+  if(!Array.isArray(state.vowsNewsInTransit))state.vowsNewsInTransit=[];
+  for(const e of state.europeanLabor){const r=state.petitioners[e.petitionerId];e.vows=(r&&r.vows&&typeof r.vows==='object')?r.vows:ensureVows(state,e.petitionerId);}
   if (!('instructions' in state) || typeof state.instructions !== 'object') state.instructions = {};
   if (!('novices' in state) || !Array.isArray(state.novices)) state.novices = [];
   if (!('zealUntil' in state)) state.zealUntil = 0;

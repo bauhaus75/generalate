@@ -1,0 +1,23 @@
+---
+import Base from '../../layouts/Base.astro';
+import { topicList } from '../../lib/data';
+---
+
+<Base title="Topics" description="The 23 themes of the printed Index of Topics in the Indipetae to Mutio Vitelleschi.">
+  <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a> · Topics</nav>
+  <p class="kicker">Themes of the petitions</p>
+  <h1>Topics</h1>
+  <p class="lede">
+    The 23 themes of the volume's original <em>Index of Topics</em>, "derived from the language of
+    the letters themselves" — from <em>zeal for souls</em> to <em>tears</em>.
+  </p>
+  <div class="card-grid">
+    {topicList.map((t) => (
+      <a class="card" href={`/topics/${t.id}/`}>
+        <h3>{t.name}</h3>
+        <p>{t.description}</p>
+        <p class="count">{t.letters.length} {t.letters.length === 1 ? 'letter' : 'letters'}</p>
+      </a>
+    ))}
+  </div>
+</Base>

@@ -1,0 +1,34 @@
+---
+import Base from '../../layouts/Base.astro';
+import { personList } from '../../lib/data';
+
+const authors = personList.filter((p) => p.role === 'author');
+const others = personList.filter((p) => p.role !== 'author');
+---
+
+<Base title="People" description="The writers and figures of the Indipetae to Mutio Vitelleschi: Jesuit petitioners, the recipient, and those named in the letters.">
+  <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a> · People</nav>
+  <p class="kicker">The writers and the named</p>
+  <h1>People</h1>
+  <p class="lede">{authors.length} Jesuits wrote the 169 letters; a handful of others — the recipient and the invoked — appear in the texts.</p>
+
+  <h2>Writers</h2>
+  <ul class="index-list">
+    {authors.map((p) => (
+      <li>
+        <a href={`/people/${p.id}/`}>{p.display_name}</a>
+        <span class="n"> · {p.letters_written.length} {p.letters_written.length === 1 ? 'letter' : 'letters'}</span>
+      </li>
+    ))}
+  </ul>
+
+  <h2>Recipient and mentioned figures</h2>
+  <div class="card-grid">
+    {others.map((p) => (
+      <a class="card" href={`/people/${p.id}/`}>
+        <h3>{p.display_name}</h3>
+        <p>{p.role === 'recipient' ? 'Recipient of every letter' : `Named in ${p.letters_mentioned_in.length} ${p.letters_mentioned_in.length === 1 ? 'letter' : 'letters'}`}</p>
+      </a>
+    ))}
+  </div>
+</Base>

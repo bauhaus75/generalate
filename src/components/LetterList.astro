@@ -1,0 +1,53 @@
+---
+import { getLetter, formatDate, people, personList, letterPreview } from '../lib/data';
+
+interface Props {
+  numbers: number[];
+  showAuthor?: boolean;
+  showDate?: boolean;
+  showPlace?: boolean;
+  showPreview?: boolean;
+  relationLabel?: string;
+}
+const { numbers, showAuthor = true, showDate = true, showPlace = false, showPreview = true, relationLabel } = Astro.props;
+
+function authorId(n: number): string | null {
+  const l = getLetter(n);
+  if (!l.author_raw) return null;
+  const p = personList.find((p) => p.letters_written.includes(n));
+  return p ? p.id : null;
+}
+---
+
+<ul class="letter-list">
+  {numbers.map((n) => {
+    const l = getLetter(n);
+    const aid = authorId(n);
+    return (
+      <li>
+        <a class="letter-link" href={`/letters/${n}/`}>Letter {n}</a>
+        {showAuthor && l.author_raw && (
+          <span class="meta"> · {aid ? <a href={`/people/${aid}/`}>{l.author_raw}</a> : l.author_raw}</span>
+        )}
+        {showDate && l.date_only && <span class="meta"> · {formatDate(l)}</span>}
+        {showPlace && l.place_raw && <span class="meta"> · {l.place_raw}</span>}
+        {relationLabel && <span class="rel">{relationLabel}</span>}
+        {l.status === 'not_translated' && <span class="rel missing">not translated</span>}
+        {showPreview && <p class="preview">{letterPreview(n)}</p>}
+      </li>
+    );
+  })}
+</ul>
+
+<style>
+  .letter-list { list-style: none; padding: 0; margin: .8rem 0; }
+  .letter-list li { padding: .5rem 0 .7rem; border-bottom: 1px dotted var(--rule); font-size: .98rem; }
+  .letter-link { font-family: var(--serif); font-weight: 600; font-size: 1.02rem; text-decoration: none; }
+  .letter-link:hover { text-decoration: underline; }
+  .meta { color: var(--ink-soft); font-size: .92rem; }
+  .meta a { color: var(--ink-soft); }
+  .preview { margin: .25rem 0 0; font-size: .9rem; color: var(--ink-soft); font-style: italic; max-width: 44rem;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .rel { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); margin-left: .6rem; }
+  .rel.missing { color: var(--accent); }
+</style>

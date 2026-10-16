@@ -357,9 +357,11 @@ function formationListHTML(app, year) {
     return `<li class="formation-row">
       <strong>${esc(e.name)}</strong> ${gradeChip(app, e.petitionerId)}
       <span class="form-via">${esc(e.via)} ${e.year}</span>
+      ${e.ill ? `<span class="disp-mini ill-badge" title="Recovering from illness suffered on voyage. Not available for assignment or dispatch.">🤒 recovering (ill ${e.illYear})</span>` : ''}
       ${stage ? `<span class="disp-mini">${esc(stage)}</span>` : ''}
       <span class="disp-mini">${dispLine(app, e.petitionerId)}</span>
-      ${asg ? `<span class="form-active">Assigned: ${esc(asg.name)} (since ${e.assignedYear || year})</span>
+      ${e.ill ? `<span class="disp-mini">No actions available while recovering.</span>`
+      : asg ? `<span class="form-active">Assigned: ${esc(asg.name)} (since ${e.assignedYear || year})</span>
         <button class="gbtn small ghost domestic-release" data-id="${esc(e.petitionerId)}">Release</button>`
       : inForm ? `<span class="form-active">In formation: ${esc(fName)} until ${e.formation.until}</span>
         <label class="form-pick">Emergency dispatch:
@@ -367,7 +369,12 @@ function formationListHTML(app, year) {
             ${(app.Engine.DESTINATIONS ? Object.values(app.Engine.DESTINATIONS) : []).filter(d => d && d.id && (app.state.destState[d.id] || {}).access !== 'closed').map(d => `<option value="${d.id}">${esc(d.name || d.id)}</option>`).join('')}
           </select></label>
         <button class="gbtn small warn emg-dispatch" data-id="${esc(e.petitionerId)}" title="Interrupt formation (forfeits progress) and dispatch directly. Normal dispatch cost applies.">Dispatch</button>`
-        : `<label class="form-pick">Domestic:
+        : `<label class="form-pick">Dispatch to mission:
+          <select class="europe-dest" data-id="${esc(e.petitionerId)}" aria-label="Dispatch destination for ${esc(e.name)}">
+            ${(app.Engine.DESTINATIONS ? Object.values(app.Engine.DESTINATIONS) : []).filter(d => d && d.id && (app.state.destState[d.id] || {}).access !== 'closed').map(d => `<option value="${d.id}">${esc(d.name || d.id)}</option>`).join('')}
+          </select></label>
+        <button class="gbtn small primary europe-dispatch" data-id="${esc(e.petitionerId)}" title="Send this man directly to a mission. Normal dispatch cost applies.">Dispatch</button><br>
+        <label class="form-pick">Domestic:
           <select class="domestic-role" data-id="${esc(e.petitionerId)}" aria-label="Domestic assignment for ${esc(e.name)}">
             <option value="">— available —</option>${roleOpts}
           </select></label>
@@ -458,6 +465,25 @@ export function renderHouse(app, root) {
         const name = btn.closest('.formation-row')?.querySelector('strong')?.textContent || 'This man';
         if (!confirm(`${name} is in formation. Emergency dispatch will INTERRUPT formation (forfeiting progress and the 20 scudi cost) and send him directly to the mission at normal dispatch cost. Proceed?`)) return;
         app.Engine.dispatchFromFormation(app.state, btn.dataset.id, dest);
+        app.Engine.refreshBriefing(app.state);
+        app.save();
+        app.sound('coin');
+        app.go('house');
+      } catch (e) {
+        app.sound('error');
+        alert(e.message);
+      }
+    });
+  });
+  root.querySelectorAll('.europe-dispatch').forEach(btn => {
+    btn.addEventListener('click', () => {
+      try {
+        const sel = root.querySelector(`.europe-dest[data-id="${btn.dataset.id}"]`);
+        const dest = sel ? sel.value : '';
+        if (!dest) { alert('Choose a destination first.'); return; }
+        const name = btn.closest('.formation-row')?.querySelector('strong')?.textContent || 'This man';
+        if (!confirm(`Send ${name} directly to the mission? Normal dispatch cost applies. Proceed?`)) return;
+        app.Engine.dispatchFromEurope(app.state, btn.dataset.id, dest);
         app.Engine.refreshBriefing(app.state);
         app.save();
         app.sound('coin');

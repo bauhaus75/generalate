@@ -12,7 +12,7 @@ import {
   ensureDisposition, gradeFor, assignFormation, observe,
   missionStaff, missionStaffed, missionStrength, missionVoyageBonus, missionUpkeep,
   missionRequests, dispatchMission, staffGradeFor,
-  assignDomestic, unassignDomestic, dispatchFromFormation,
+  assignDomestic, unassignDomestic, dispatchFromFormation, dispatchFromEurope,
   ordinationEligible, ordainPriest, careerStage, issueInstruction,
   CAMPAIGN_START,
 } from './engine.js';
@@ -489,7 +489,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   }
   const activeIds = new Set([
     ...s3.queue.map((q) => q.petitionerId),
-    ...s3.voyages.filter((v) => v.stage !== 'resolved').map((v) => v.petitionerId),
+    ...s3.voyages.filter((v) => v.stage === 'transit').map((v) => v.petitionerId),
   ]);
   const conflict = s3.europeanLabor.filter((e) => activeIds.has(e.petitionerId));
   ok('denied men re-petition and can be approved', repettioned > 0, `${repettioned}`);
@@ -1179,6 +1179,70 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const rec = s.petitioners[pid];
   ok('thriving man not re-petitioning', !['new','denied'].includes(rec.status), `status=${rec.status}`);
   } // end if(voy)
+}
+
+// --- Ill personnel lifecycle -------------------------------------------------
+{
+  const s = newGame({ mode: 'campaign', seed: 'ill-life-test' });
+  const { terna } = startYear(s);
+  const pid = terna[0].petitionerId;
+  const pname = terna[0].name || pid;
+  decide(s, [{ id: pid, destination: 'goa' }]);
+  resolveYear(s);
+  const voy = s.voyages.find(v => v.petitionerId === pid);
+  if (!voy) { ok('ill test voyage created', false); }
+  else {
+    dbgForceOutcome(s, voy.id, 'ill');
+    // Man should be in europeanLabor with ill flag
+    const entry = (s.europeanLabor || []).find(e => e.petitionerId === pid);
+    ok('ill man in europeanLabor', !!entry, entry ? 'found' : 'missing');
+    ok('ill flag set', entry && entry.ill === true);
+    // Should NOT be counted as stationed at goa
+    const goaStaff = missionStaffed(missionStaff(s, 'goa'));
+    // (goa starts with some staff; ill should not have added)
+    // Should NOT be available for dispatch
+    let dispatchBlocked = false;
+    try { dispatchFromFormation(s, pid, 'goa'); } catch (e) { dispatchBlocked = /recovering|formation/.test(e.message); }
+    ok('ill man cannot be dispatched', dispatchBlocked);
+    // Should NOT be assignable domestically
+    let assignBlocked = false;
+    try { assignDomestic(s, pid, 'teaching'); } catch (e) { assignBlocked = /recovering/.test(e.message); }
+    ok('ill man cannot take domestic assignment', assignBlocked);
+    // Record status should be ILL
+    ok('record status is ill', s.petitioners[pid].status === 'ill');
+  }
+}
+
+// --- Dispatch from Europe (post-formation) -------------------------------------
+{
+  const s = newGame({ mode: 'campaign', seed: 'europe-dispatch-test' });
+  // Deny a man to get him into europeanLabor
+  const { terna } = startYear(s);
+  const pid = terna[0].petitionerId;
+  decide(s, []); // deny all
+  resolveYear(s);
+  const entry = (s.europeanLabor || []).find(e => e.petitionerId === pid);
+  ok('denied man in europeanLabor', !!entry);
+  if (entry) {
+    const goaBefore = missionStaffed(missionStaff(s, 'goa'));
+    const fundsBefore = s.resources.funds;
+    const result = dispatchFromEurope(s, pid, 'goa');
+    ok('dispatch succeeds', !!result);
+    ok('man removed from europeanLabor', !(s.europeanLabor || []).some(e => e.petitionerId === pid));
+    ok('mission staffing increased', missionStaffed(missionStaff(s, 'goa')) === goaBefore + 1);
+    ok('funds decreased', s.resources.funds < fundsBefore);
+    // Ill men cannot be dispatched
+    const s2 = newGame({ mode: 'campaign', seed: 'ill-dispatch-test' });
+    const t2 = startYear(s2);
+    const pid2 = t2.terna[0].petitionerId;
+    decide(s2, [{ id: pid2, destination: 'goa' }]);
+    resolveYear(s2);
+    const voy2 = s2.voyages.find(v => v.petitionerId === pid2);
+    dbgForceOutcome(s2, voy2.id, 'ill');
+    let blocked = false;
+    try { dispatchFromEurope(s2, pid2, 'goa'); } catch (e) { blocked = /recovering/.test(e.message); }
+    ok('ill man cannot dispatch from Europe', blocked);
+  }
 }
 
 console.log(`\n${failures === 0 ? 'ALL TESTS PASSED' : failures + ' FAILURES'}`);

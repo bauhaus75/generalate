@@ -328,6 +328,9 @@ function addEuropeanLabor(state, petitionerId, name, via) {
   const rec = { petitionerId, name, year: state.year, via, assignment: null };
   rec.vows = ensureVows(state, petitionerId);
   state.europeanLabor.push(rec);
+  // Track Society entry for milestone years: if not already set, denial year is the baseline.
+  const pr = state.petitioners[petitionerId];
+  if (pr && pr.entryYear == null) pr.entryYear = state.year;
   return rec;
 }
 
@@ -1547,9 +1550,7 @@ export function startYear(state) {
  *
  * @param {object} state
  * @param {Array<{id:string, destination?:string, companions?:number}>} approvals approved petitioners;
- *   each destination defaults to the petitioned one when omitted or closed;
- *   companions (0–7) sail with the man at 40 scudi each, strengthening his voyage
- *   check (+1 each, max +3); retinue size is capped by hull space, not the per-man max.
+ *   companions sail with the man, strengthening his voyage check.
  * @returns {{approved:object[], denied:object[], teams:object[], report:object, scoreDelta:number}}
  */
 export function decide(state, approvals) {

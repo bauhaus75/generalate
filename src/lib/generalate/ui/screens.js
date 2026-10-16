@@ -106,7 +106,7 @@ export function renderTitle(app, root) {
     <h1 class="game-title px">GENERALATE</h1>
     <p class="game-sub">You are the Superior General of the Society of Jesus.<br>
     Every year, three petitioners beg to be sent to the missions.<br>
-    Choose one. The sea will judge the rest.</p>
+    Approve any, deny the rest. The sea will judge the rest.</p>
     <div class="seed-row">
       <label for="seed">Seed</label>
       <input id="seed" class="seed-input" value="${esc(app.ui.seed)}" spellcheck="false" autocomplete="off">
@@ -917,6 +917,13 @@ function cardHTML(app, c) {
   const hist = (c.history && c.history.length)
     ? `<p class="card-hist">${c.history.map(esc).join('<br>')}</p>`
     : `<p class="card-hist none">No prior petitions on record.</p>`;
+  // Track indicator (Option B): the card header derives formation from years,
+  // but the vows track comes from historical grade. When they disagree, say so.
+  let formationLabel = c.formation;
+  try {
+    const track = app.Engine.vowsTrackFor ? app.Engine.vowsTrackFor(app.state, c.id) : 'scholastic';
+    if (c.formation === 'scholastic' && track === 'brother') formationLabel = 'scholastic (brother track)';
+  } catch (e) { /* display-only; never break the card */ }
   return `
   <article class="pcard" data-id="${esc(c.id)}" tabindex="0"
       aria-label="Petitioner ${esc(c.name)}, ${esc(destName(app, c.destination))}">
@@ -925,7 +932,7 @@ function cardHTML(app, c) {
       ${kindBadge(L.kind)}
     </div>
     <h3 class="pcard-name">${esc(c.name)}</h3>
-    <p class="pcard-meta">aet. ${c.age} · ${c.yearsInSociety} yrs in the Society · ${esc(c.formation)}</p>
+    <p class="pcard-meta">aet. ${c.age} · ${c.yearsInSociety} yrs in the Society · ${esc(formationLabel)}</p>
     <p class="pcard-dest">⛵ ${esc(destName(app, c.destination))}</p>
     <p class="pcard-dossier">${esc(c.dossier)}</p>
     <div class="pcard-skills">${c.skills.map(s => `<span class="skill">${esc(s)}</span>`).join('')}
@@ -963,7 +970,13 @@ const VOWS_MILESTONE_LABELS = {
 };
 
 function formationDecisionsHTML(app) {
-  const pending = app.state.pendingVows || [];
+  // Defense in depth: never render decisions for men who left the Society
+  // (death purges these queues in the engine, but stale saves may carry them).
+  const alive = (pid) => {
+    const r = (app.state.petitioners || {})[pid];
+    return !r || (r.status !== 'deceased' && r.status !== 'dismissed');
+  };
+  const pending = (app.state.pendingVows || []).filter((p) => alive(p.petitionerId));
   if (!pending.length) return '';
   const E = app.Engine;
   const rows = pending.map((p) => {

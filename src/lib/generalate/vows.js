@@ -3,7 +3,7 @@ import { gradeFor, ensureRecord, ensureDisposition, addLedger, missionStaff, str
 import { getGameData } from './data.js';
 
 const VOWS_THRESHOLDS={firstVows:2,philosophy:5,regency:8,theology:12,ordination:12};
-function vowsStageFor(s,p){const g=gradeFor(s,p),gr=String(g.grade||'').toLowerCase();if(g.ordained===true||gr==='father')return'ordained';if(gr==='professed-of-the-4th-vow'||gr==='professed')return'professed';return'novice';}function vowsTrackFor(s,p){const g=gradeFor(s,p),gr=String(g.grade||'').toLowerCase();return gr==='brother'?'brother':'scholastic';}
+function vowsStageFor(s,p){const g=gradeFor(s,p),gr=String(g.grade||'').toLowerCase();if(g.ordained===true||gr==='father')return'ordained';if(gr==='professed-of-the-4th-vow'||gr==='professed')return'professed';if(gr==='scholastic')return'scholastic';return'novice';}function vowsTrackFor(s,p){const g=gradeFor(s,p),gr=String(g.grade||'').toLowerCase();return gr==='brother'?'brother':'scholastic';}
 export function ensureVows(s,p){const r=ensureRecord(s,p,false);if(!r.vows||typeof r.vows!=='object'){const e=(s.europeanLabor||[]).find(x=>x.petitionerId===p);if(e&&e.vows&&typeof e.vows==='object')r.vows=e.vows;else r.vows={stage:vowsStageFor(s,p),firstVows:null,philosophy:null,regency:null,theology:null,ordination:null,finalVows:null,tertianshipUntil:null,deferredUntil:null};}return r.vows;}
 function yearsInSociety(s,p){const r=s.petitioners[p],pt=getGameData().petitioners.find(x=>x.id===p),ys=(r&&r.yearsInSociety)??(pt?pt.yearsInSociety:0)??0,ey=(r&&r.entryYear)??(pt?pt.entryYear:s.year)??s.year;return s.year-ey+ys;}
 function bumpTrait(s,p,t){const d=ensureDisposition(s,p);if(d.current[t]!=null)d.current[t]=Math.min(5,d.current[t]+1);}

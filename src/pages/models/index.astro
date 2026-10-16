@@ -1,0 +1,32 @@
+---
+import Base from '../../layouts/Base.astro';
+import { modelList } from '../../lib/data';
+---
+
+<Base title="Models & Saints" description="The saints, Jesuit models, and missionaries invoked in the Indipetae to Mutio Vitelleschi, as cataloged by the Digital Indipetae Database.">
+  <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a> · Models & Saints</nav>
+  <p class="kicker">Whom they looked to</p>
+  <h1>Models & Saints</h1>
+  <p class="lede">
+    The saints, Jesuit forebears, and missionary models invoked in the letters — Mary, Jesus,
+    Francis Xavier, Ignatius of Loyola, and more — as cataloged by the Digital Indipetae
+    Database (Boston College).
+  </p>
+  <p class="src">
+    These tags are the database's own cataloging, not this site's.
+  </p>
+  <div class="card-grid">
+    {modelList.map((m) => (
+      <a class="card" href={`/models/${m.id}/`}>
+        <h3>{m.name}</h3>
+        {m.life_dates && <p>{m.life_dates}</p>}
+        <p class="count">{m.letters.length} {m.letters.length === 1 ? 'letter' : 'letters'}</p>
+      </a>
+    ))}
+  </div>
+</Base>
+
+<style>
+  .src { font-size: .9rem; color: var(--ink-faint); }
+  .count { color: var(--ink-faint); }
+</style>

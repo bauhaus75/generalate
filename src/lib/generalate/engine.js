@@ -2598,7 +2598,7 @@ export function deserialize(obj) {
   if (!('europeanLabor' in state)) state.europeanLabor = [];
   if(!Array.isArray(state.pendingVows))state.pendingVows=[];
   if(!Array.isArray(state.vowsNewsInTransit))state.vowsNewsInTransit=[];
-  for(const e of state.europeanLabor){const r=state.petitioners[e.petitionerId];e.vows=(r&&r.vows&&typeof r.vows==='object')?r.vows:ensureVows(state,e.petitionerId);}
+  for(const e of state.europeanLabor){const r=state.petitioners[e.petitionerId];e.vows=(r&&r.vows&&typeof r.vows==='object')?r.vows:ensureVows(state,e.petitionerId);if(r&&r.entryYear==null){if(e.year!=null)r.entryYear=e.year;else{const hy=(r.history||[]).find(h=>/denied/i.test(h));const hym=hy&&hy.match(/16\d\d/);r.entryYear=hym?parseInt(hym[0]):state.year-2;}}}
   if (!('instructions' in state) || typeof state.instructions !== 'object') state.instructions = {};
   if (!('novices' in state) || !Array.isArray(state.novices)) state.novices = [];
   if (!('zealUntil' in state)) state.zealUntil = 0;

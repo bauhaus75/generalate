@@ -1,0 +1,53 @@
+---
+import Base from '../../layouts/Base.astro';
+import LetterList from '../../components/LetterList.astro';
+import { topics, topicList } from '../../lib/data';
+
+export function getStaticPaths() {
+  return topicList.map((t) => ({ params: { id: t.id } }));
+}
+
+const topic = topics[Astro.params.id];
+// related topics by letter overlap
+const related = topicList
+  .filter((t) => t.id !== topic.id)
+  .map((t) => ({ t, overlap: t.letters.filter((n) => topic.letters.includes(n)).length }))
+  .filter((r) => r.overlap > 0)
+  .sort((a, b) => b.overlap - a.overlap)
+  .slice(0, 10);
+---
+
+<Base title={topic.name} description={`Letters on the theme "${topic.name}" in the Indipetae to Mutio Vitelleschi.`}>
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="/">Home</a> · <a href="/topics/">Topics</a> · {topic.name}
+  </nav>
+  <p class="kicker">Theme · from the printed Index of Topics</p>
+  <h1>{topic.name}</h1>
+  {topic.description && <p class="lede">{topic.description}</p>}
+  <p class="src">
+    This is an entry from the volume's original <em>Index of Topics</em>, described as
+    "derived from the language of the letters themselves."
+  </p>
+
+  <section aria-label="Letters">
+    <h2>Letters <span class="count">({topic.letters.length})</span></h2>
+    <LetterList numbers={topic.letters} />
+  </section>
+
+  {related.length > 0 && (
+    <section aria-label="Related themes">
+      <h2>Related themes</h2>
+      <p>
+        {related.map((r) => (
+          <a class="pill topic" href={`/topics/${r.t.id}/`}>{r.t.name} <span class="n">({r.overlap})</span></a>
+        ))}
+      </p>
+    </section>
+  )}
+</Base>
+
+<style>
+  .src { font-size: .9rem; color: var(--ink-faint); }
+  .count { color: var(--ink-faint); font-size: 1rem; font-weight: 400; }
+  .n { color: var(--ink-faint); }
+</style>

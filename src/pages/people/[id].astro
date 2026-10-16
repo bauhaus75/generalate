@@ -1,0 +1,135 @@
+---
+import Base from '../../layouts/Base.astro';
+import LetterList from '../../components/LetterList.astro';
+import { people, personList, places, letterEdges, getLetter } from '../../lib/data';
+
+export function getStaticPaths() {
+  return personList.map((p) => ({ params: { id: p.id } }));
+}
+
+const person = people[Astro.params.id];
+const writtenFrom = new Map<string, number[]>();
+for (const n of person.letters_written) {
+  for (const e of letterEdges(n, 'written_in')) {
+    const arr = writtenFrom.get(e.target) ?? [];
+    arr.push(n);
+    writtenFrom.set(e.target, arr);
+  }
+}
+const aspirations = new Map<string, number[]>();
+for (const n of person.letters_written) {
+  for (const e of letterEdges(n, 'aspires_to')) {
+    const arr = aspirations.get(e.target) ?? [];
+    arr.push(n);
+    aspirations.set(e.target, arr);
+  }
+}
+// people this person is connected to via shared letters (mentions)
+const coMentioned = new Map<string, number[]>();
+for (const n of [...person.letters_written, ...person.letters_mentioned_in]) {
+  for (const e of letterEdges(n, 'mentions_person')) {
+    if (e.target === person.id) continue;
+    const arr = coMentioned.get(e.target) ?? [];
+    arr.push(n);
+    coMentioned.set(e.target, arr);
+  }
+}
+const coList = [...coMentioned.entries()].sort((a, b) => b[1].length - a[1].length).slice(0, 12);
+
+const roleLabel = person.role === 'author' ? 'Letter writer' : person.role === 'recipient' ? 'Recipient' : 'Mentioned figure';
+---
+
+<Base title={person.display_name} description={`${roleLabel} in the Indipetae to Mutio Vitelleschi (1616–1647).`}>
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="/">Home</a> · <a href="/people/">People</a> · {person.display_name}
+  </nav>
+  <p class="kicker">{roleLabel}</p>
+  <h1>{person.display_name}</h1>
+  {person.life_dates && <p class="lede">{person.life_dates}</p>}
+  {person.aliases.length > 1 && (
+    <p class="aliases">Also appears as: {person.aliases.filter((a) => a !== person.name).join('; ')}</p>
+  )}
+
+  {person.bio && (
+    <section aria-label="Biographical note">
+      <h2>Biographical note</h2>
+      <p>{person.bio}</p>
+      <p class="src">{person.bio_source === 'source' ? 'Source: the printed volume.' : 'Source: standard external reference; not stated in the letters.'}</p>
+    </section>
+  )}
+  {person.note && <div class="notice">{person.note}</div>}
+  {!person.bio && person.role === 'author' && (
+    <p class="src">No biographical information is given in the source; what follows is drawn entirely from the letters themselves.</p>
+  )}
+
+  {person.letters_written.length > 0 && (
+    <section aria-label="Letters written">
+      <h2>Letters written <span class="count">({person.letters_written.length})</span></h2>
+      <LetterList numbers={person.letters_written} showAuthor={false} />
+    </section>
+  )}
+
+  {person.letters_received.length > 0 && (
+    <section aria-label="Letters received">
+      <h2>Letters received <span class="count">({person.letters_received.length})</span></h2>
+      <p>Every letter in this collection is addressed to him as Superior General.</p>
+      <LetterList numbers={person.letters_received} />
+    </section>
+  )}
+
+  {person.letters_mentioned_in.length > 0 && (
+    <section aria-label="Letters mentioning">
+      <h2>Mentioned in <span class="count">({person.letters_mentioned_in.length})</span></h2>
+      <p>Letters that name {person.display_name} in the text.</p>
+      <LetterList numbers={person.letters_mentioned_in} />
+    </section>
+  )}
+
+  {writtenFrom.size > 0 && (
+    <section aria-label="Places written from">
+      <h2>Places written from</h2>
+      <p>
+        {[...writtenFrom.entries()].map(([pid, nums]) => (
+          <a class="pill place" href={`/places/${pid}/`}>{places[pid]?.name ?? pid} <span class="n">({nums.length})</span></a>
+        ))}
+      </p>
+    </section>
+  )}
+
+  {aspirations.size > 0 && (
+    <section aria-label="Desired destinations">
+      <h2>Desired destinations</h2>
+      <p>Destinations this writer asked to be sent to — requests, not completed journeys.</p>
+      <p>
+        {[...aspirations.entries()].map(([pid, nums]) => (
+          <a class="pill place" href={`/places/${pid}/`}>{places[pid]?.name ?? pid} <span class="n">({nums.length})</span></a>
+        ))}
+      </p>
+    </section>
+  )}
+
+  {coList.length > 0 && (
+    <section aria-label="Connected people">
+      <h2>Connected people</h2>
+      <p>Others named in the same letters.</p>
+      <div class="card-grid">
+        {coList.map(([pid, nums]) => (
+          <a class="card" href={`/people/${pid}/`}>
+            <h3>{people[pid]?.display_name ?? pid}</h3>
+            <p class="count">{nums.length} shared {nums.length === 1 ? 'letter' : 'letters'}</p>
+          </a>
+        ))}
+      </div>
+    </section>
+  )}
+
+  {person.letters_written.length === 0 && person.letters_mentioned_in.length === 0 && person.letters_received.length === 0 && (
+    <div class="notice">No letters by or mentioning this person were found in the extracted data.</div>
+  )}
+</Base>
+
+<style>
+  .aliases, .src { font-size: .9rem; color: var(--ink-faint); }
+  .count { color: var(--ink-faint); font-size: 1rem; font-weight: 400; }
+  .n { color: var(--ink-faint); }
+</style>

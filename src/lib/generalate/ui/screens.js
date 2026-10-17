@@ -141,6 +141,58 @@ function destName(app, id) {
   return d ? d.name : id;
 }
 
+
+/* ---------------- provincial draft (pre-game) ---------------- */
+export function renderDraft(app, root) {
+  const draft = app.state.draft;
+  if (!draft || draft.done || draft.skipped) { app.go('briefing'); return; }
+  const E = app.Engine;
+  const picked = Object.keys(draft.picks).length;
+  const tName = (id) => { const t = Dispositions.TRAITS.find((x) => x.id === id); return t ? t.name : id; };
+
+  const candCard = (region, c) => {
+    const sel = draft.picks[region.id] === c.id;
+    const top = Object.entries(c.traits).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    return `
+      <article class="pcard draft-cand${sel ? ' approved-pick' : ''}" data-region="${esc(region.id)}" data-id="${esc(c.id)}" tabindex="0" role="button" aria-pressed="${sel}">
+        <h3 class="pcard-name">${esc(c.name)}</h3>
+        <p class="pcard-meta">${c.age} years old &middot; ${c.yearsInSociety} years in the Society</p>
+        <ul class="draft-traits">
+          ${top.map(([tid, v]) => `<li><strong>${esc(tName(tid))}</strong> &mdash; ${esc(Dispositions.traitLabel(v))}</li>`).join('')}
+        </ul>
+        <p class="draft-note">${esc(c.note)}</p>
+        ${sel ? '<p class="team-tag">named provincial</p>' : ''}
+      </article>`;
+  };
+
+  root.innerHTML = `
+  <section class="gscreen">
+    <p class="kicker px">THE GENERAL TAKES OFFICE &middot; ANNO ${app.state.year}</p>
+    <p class="desk-instr">Before the first indipetae are read, name your provincials &mdash; one for each region of the Society&apos;s missions. Four ternas of candidates await your choice (${picked} of 4 named).</p>
+    ${draft.regions.map((region) => `
+      <h2 class="px draft-region">${esc(region.name)}</h2>
+      <div class="desk draft-terna">
+        ${region.candidates.map((c) => candCard(region, c)).join('')}
+      </div>`).join('')}
+    <div class="btn-row">
+      <button class="gbtn primary" id="take-office" ${picked === 4 ? '' : 'disabled'}>Take office &rarr;</button>
+    </div>
+  </section>`;
+
+  root.querySelectorAll('.draft-cand').forEach((el) => {
+    const pick = () => {
+      try { E.chooseProvincial(app.state, el.dataset.region, el.dataset.id); app.sound('seal'); }
+      catch (e) { app.sound('error'); return; }
+      app.save();
+      renderDraft(app, root);
+    };
+    el.addEventListener('click', pick);
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } });
+  });
+  const take = root.querySelector('#take-office');
+  if (take) take.addEventListener('click', () => { app.sound('page'); app.go('briefing'); });
+}
+
 /* ---------------- title ---------------- */
 export function renderTitle(app, root) {
   root.innerHTML = `
@@ -193,10 +245,10 @@ export function showHowTo(app) {
     <h2 class="px">HOW TO PLAY</h2>
     <div class="howto-body">
       <p><strong>1. The briefing.</strong> Each year opens with the state of the Society: funds, free berths, ships, news from the missions, and rumors of what is coming.</p>
-      <p><strong>2. The terna.</strong> Three petitioners lay their letters on your desk. Read each letter — the full text, the dossier, the man's history. No choice is marked; the weight is yours.</p>
+      <p><strong>2. The indipetae.</strong> Three petitioners lay their letters on your desk. Read each letter — the full text, the dossier, the man's history. No choice is marked; the weight is yours.</p>
       <p><strong>3. The decision.</strong> Select one petitioner, review your choice, and confirm. The seal falls: <em>APPROVED</em> on one, <em>DENIED</em> on two.</p>
       <p><strong>4. The year turns.</strong> Your chosen man sails. Storms, war, plague, and politics decide what your seal began. The ledger records everything.</p>
-      <p><strong>5. The account.</strong> Your SCORE starts at 50: each terna gives +3 for the man you approve and −2 for each man you deny. Campaign ends in 1645; in Endless mode, you lay down the office when you choose.</p>
+      <p><strong>5. The account.</strong> Your SCORE starts at 50: the indipetae give +3 for each man you approve and −2 for each man you deny. Campaign ends in 1645; in Endless mode, you lay down the office when you choose.</p>
       <p class="howto-note">Letters marked <strong>fictional</strong> were written for this game. Outcomes marked <strong>counterfactual</strong> are the game's imagining, not history. The map is drawn as a 1615 cartographer might draw it — roughly, and with sea monsters.</p>
     </div>
   </div>`;
@@ -218,8 +270,8 @@ function generalDeskHTML(app, year) {
   // 1. Terna awaiting judgment (decision required)
   if (app.state.currentTerna) {
     const n = (app.state.currentTerna.cards || []).length;
-    items.push({ cat: 'required', text: `Terna of ${n} petitioners awaits your judgment.`,
-      action: '<button class="gbtn small primary desk-terna">Judge the terna →</button>' });
+    items.push({ cat: 'required', text: `Indipetae of ${n} petitioners await your judgment.`,
+      action: '<button class="gbtn small primary desk-terna">Judge the indipetae →</button>' });
   }
   
   // 2. Ordination eligible (action available)
@@ -322,10 +374,15 @@ export function renderBriefing(app, root, start) {
         </select>
       </label>
       <button class="gbtn" id="found-novitiate" ${openDests.length ? '' : 'disabled'}>Found a novitiate (800 scudi)</button>
-      <button class="gbtn primary" id="to-desk">Receive the terna →</button>
+      <button class="gbtn primary" id="to-desk">Receive the indipetae →</button>
     </div>
+    ${app.state.currentYear && app.state.currentYear.decided ? `
+    <div class="btn-row"><button class="gbtn primary" id="close-year">Close the year →</button></div>
+    <p class="howto-note">The indipetae are sealed. Close the year when your other duties are done — pending reports carry over.</p>` : ''}
   </section>`;
   root.querySelector('#to-desk').addEventListener('click', () => { app.sound('page'); app.go('desk'); });
+  const closeYear = root.querySelector('#close-year');
+  if (closeYear) closeYear.addEventListener('click', () => app.closeYear());
   const toHouse = root.querySelector('#brief-to-house');
   if (toHouse) toHouse.addEventListener('click', () => { app.sound('page'); app.go('house'); });
   // General's Desk navigation
@@ -448,10 +505,10 @@ export function renderHouse(app, root) {
   <section class="gscreen">
     <p class="kicker px">THE HOUSE OF FORMATION</p>
     <h2 class="year-head px">ANNO ${year}</h2>
-    <p class="howto-note">Here the men laboring in Europe are formed — and from here the General may send formed men straight to the missions, by the terna or by direct dispatch (see the Missions tab).</p>
+    <p class="howto-note">Here the men laboring in Europe are formed — and from here the General may send formed men straight to the missions, with the indipetae or by direct dispatch (see the Missions tab).</p>
     ${inForm.length ? `<p class="howto-note">🕯️ ${inForm.length} ${inForm.length === 1 ? 'man is' : 'men are'} in formation now.</p>` : ''}
     <h3 class="sect">Formation</h3>
-    <p class="howto-note">A year of formation (20 scudi) deepens a man's disposition. He must be laboring in Europe and free — no double-booking. A formed man sits out one terna, then may petition again.</p>
+    <p class="howto-note">A year of formation (20 scudi) deepens a man's disposition. He must be laboring in Europe and free — no double-booking. A formed man sits out one year's indipetae, then may petition again.</p>
     ${formationListHTML(app, year)}
     <div class="btn-row">
       <button class="gbtn ghost" id="house-back">← Back</button>
@@ -693,7 +750,7 @@ function deploymentPreviewHTML(app) {
       <button class="gbtn ghost" id="deploy-clear">Disband</button>
       <button class="gbtn primary" id="deploy-order">Order the deployment</button>
     </div>
-    <p class="howto-note">The order is irreversible — there is no recall in Stage 1. The men enter the departure queue and sail as berths, men to spare, funds, and hulls allow, oldest first alongside terna approvals.</p>
+    <p class="howto-note">The order is irreversible — there is no recall in Stage 1. The men enter the departure queue and sail as berths, men to spare, funds, and hulls allow, oldest first alongside indipetae approvals.</p>
   </div>`;
 }
 
@@ -708,7 +765,7 @@ function deploymentPanelHTML(app) {
   if (dp.count > maxCount) dp.count = maxCount;
   return `<h3 class="sect">Collective deployment</h3>
   <div class="dispatch-panel deploy-panel">
-    <p class="howto-note">Send a company of formed men from Europe to a mission in a single order — no terna, no seal. 60 scudi per man at departure, one berth per man, drawn from the same pool as terna sailors. The men must already labor in Europe and be free: not ill, not in formation, holding no domestic assignment.</p>
+    <p class="howto-note">Send a company of formed men from Europe to a mission in a single order — no indipetae, no seal. 60 scudi per man at departure, one berth per man, drawn from the same pool as indipetae sailors. The men must already labor in Europe and be free: not ill, not in formation, holding no domestic assignment.</p>
     <div class="deploy-form">
       <label class="dest-redirect">Destination:
         <select id="deploy-dest" aria-label="Deployment destination">
@@ -1011,7 +1068,7 @@ export function renderMissions(app, root) {
   <section class="gscreen">
     <p class="kicker px">THE MISSIONS</p>
     <h2 class="year-head px">ANNO ${year}</h2>
-    <p class="howto-note">Each mission keeps a stationed strength, by grade. Below capacity, a mission asks the General for more men — answer by the terna, or dispatch them straight from Rome. A strengthened mission steadies new arrivals (+1 to their voyage for every 6 strength, up to +3). A great station costs scudi every year to sustain.</p>
+    <p class="howto-note">Each mission keeps a stationed strength, by grade. Below capacity, a mission asks the General for more men — answer with the indipetae, or dispatch them straight from Rome. A strengthened mission steadies new arrivals (+1 to their voyage for every 6 strength, up to +3). A great station costs scudi every year to sustain.</p>
     <h3 class="sect">Dispatch from Rome</h3>
     <div class="dispatch-panel">
       <label class="dest-redirect">Mission:
@@ -1270,8 +1327,8 @@ export function renderDesk(app, root, terna) {
   if (!app.state.currentTerna) {
     root.innerHTML = `
     <section class="gscreen desk-screen">
-      <p class="kicker px">THE TERNA · ANNO ${app.state.year}</p>
-      <p class="desk-instr">The terna for this year has been sealed. Receive next year's terna from the Briefing tab.</p>
+      <p class="kicker px">INDIPETAE · ANNO ${app.state.year}</p>
+      <p class="desk-instr">The indipetae for this year have been sealed. Receive next year's indipetae from the Briefing tab.</p>
     </section>
     ${formationDecisionsHTML(app)}`;
     attachVowsHandlers(app, root);
@@ -1294,7 +1351,7 @@ export function renderDesk(app, root, terna) {
 
   root.innerHTML = `
   <section class="gscreen desk-screen">
-    <p class="kicker px">THE TERNA · ANNO ${app.state.year}</p>
+    <p class="kicker px">INDIPETAE · ANNO ${app.state.year}</p>
     <p class="desk-instr">Three letters await your seal. Approve any, deny the rest — men bound for the same mission sail as a team. <strong>${(app.state.available || 0).toLocaleString('en-US')}</strong> men can be spared for the missions — one in a hundred of the Society.</p>
     <div class="desk">
       ${terna.map(c => cardHTML(app, c)).join('')}
@@ -1538,7 +1595,8 @@ export function renderDecision(app, root, result) {
       <p><strong>${esc(report.summary)}</strong></p>
       <p>${esc(report.detail)}</p>
       ${scoreDelta ? `<p class="delta ${scoreDelta >= 0 ? 'pos' : 'neg'}">SCORE ${scoreDelta >= 0 ? '+' : ''}${scoreDelta}</p>` : ''}
-      <div class="btn-row"><button class="gbtn primary" id="close-year">Let the year turn →</button></div>
+      <p class="howto-note">The seal has fallen. Tend to your other duties — then close the year from the Briefing tab.</p>
+      <div class="btn-row"><button class="gbtn primary" id="to-briefing">Return to the Briefing →</button></div>
     </div>
   </section>`;
 
@@ -1554,7 +1612,8 @@ export function renderDecision(app, root, result) {
     app.sound('page');
   }, total);
 
-  root.querySelector('#close-year').addEventListener('click', () => app.closeYear());
+  const toBrief = root.querySelector('#to-briefing');
+  if (toBrief) toBrief.addEventListener('click', () => { app.sound('page'); app.go('briefing'); });
 }
 
 /* ---------------- year report ---------------- */
@@ -1643,7 +1702,7 @@ export function showLedgerOverlay(app) {
   <div class="overlay-card ledger-card" role="dialog" aria-modal="true" aria-label="Ledger">
     <button class="overlay-close" aria-label="Close ledger">✕</button>
     <h2 class="px">THE LEDGER</h2>
-    <p class="ledger-sub">Every terna, decision, departure, outcome, and event — as the Generalate records them.</p>
+    <p class="ledger-sub">Every indipetae, decision, departure, outcome, and event — as the Generalate records them.</p>
     <div class="ledger-filters">
       <input id="lf-q" type="search" placeholder="Search petitioner…" aria-label="Search petitioner">
       <select id="lf-year" aria-label="Filter by year"><option value="">All years</option>${years.map(y => `<option>${y}</option>`).join('')}</select>

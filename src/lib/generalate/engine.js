@@ -407,7 +407,7 @@ export function personHistory(state, petitionerId) {
       ageInReligion: ageInReligion(state, petitionerId),
       pausedYears: (rec && rec.pausedYears) || 0,
       paused: formationPaused(state, petitionerId),
-      entryYear: rec && typeof rec.entryYear === 'number' ? rec.entryYear : null,
+      entryYear: displayEntryYear(state, petitionerId),
       status: rec ? rec.status : null,
       location: currentLocation(state, g, petitionerId),
     },
@@ -422,7 +422,8 @@ function backfillHistory(state, id) {
   const g = ensureData();
   const add = (ev) => recordHistory(state, id, { backfilled: true, ...ev });
   if (typeof rec.entryYear === 'number') {
-    add({ year: rec.entryYear, front: true, kind: 'formation', event: 'entry', text: `Entered the General's rolls (backfilled).` });
+    const ty = typeof rec.trueEntryYear === 'number' ? rec.trueEntryYear : rec.entryYear;
+    add({ year: ty, front: true, kind: 'formation', event: 'entry', text: `Entered the Society (backfilled).` });
   }
   const led = (state.ledger || []).filter((e) => e.petitionerId === id).sort((a, b) => (a.seq || 0) - (b.seq || 0));
   const seen = new Set();
@@ -435,7 +436,7 @@ function backfillHistory(state, id) {
     const ms = { firstVows: 'first-vows', philosophy: 'philosophy', regency: 'regency', theology: 'theology' };
     for (const [k, evName] of Object.entries(ms)) {
       if (!vw[k] || seen.has(evName)) continue;
-      const yr = typeof vw[k] === 'number' ? vw[k] : (typeof rec.entryYear === 'number' ? rec.entryYear : state.year);
+      const yr = typeof vw[k] === 'number' ? vw[k] : (typeof rec.trueEntryYear === 'number' ? rec.trueEntryYear : typeof rec.entryYear === 'number' ? rec.entryYear : state.year);
       add({ year: yr, kind: 'formation', event: evName, text: `${k} recorded${typeof vw[k] === 'number' ? '' : ' before he entered the rolls'} (backfilled).` });
     }
   }
@@ -564,6 +565,7 @@ function addEuropeanLabor(state, petitionerId, name, via) {
   // entryYear must precede ensureVows (it auto-resolves past milestones by years).
   const pr0 = state.petitioners[petitionerId];
   if (pr0 && pr0.entryYear == null) pr0.entryYear = state.year;
+  seedTrueEntryYear(state, petitionerId, state.year);
   enterSociety(state, petitionerId, via);
   rec.vows = ensureVows(state, petitionerId);
   state.europeanLabor.push(rec);
@@ -595,6 +597,32 @@ export function ordinationEligible(state, petitionerId) {
 //                            (vows.deferredUntil > the year being resolved).
 //
 // rec.entryYear is kept as a historical record only; nothing reads it after seeding.
+
+/**
+ * Seed rec.trueEntryYear: the man's actual year of entry into the Society.
+ * rec.entryYear is the formula anchor (campaign start for historical men) and
+ * must not move; the true entry year is anchorYear minus the historical years
+ * already credited at seeding. Display and history use the true year; the
+ * counters and their formula never read it.
+ */
+function seedTrueEntryYear(state, petitionerId, anchorYear) {
+  const rec = (state && state.petitioners) ? state.petitioners[petitionerId] : null;
+  if (!rec || typeof rec.trueEntryYear === 'number') return rec ? rec.trueEntryYear : null;
+  const g = getGameData();
+  const pet = g ? (g.petitioners || []).find((p) => p.id === petitionerId) : null;
+  const base = (typeof rec.yearsInSociety === 'number') ? rec.yearsInSociety
+    : (pet && typeof pet.yearsInSociety === 'number') ? pet.yearsInSociety : 0;
+  rec.trueEntryYear = anchorYear - Math.max(0, base);
+  return rec.trueEntryYear;
+}
+
+/** The display/history entry year: true entry when known, else the anchor. */
+function displayEntryYear(state, petitionerId) {
+  const rec = (state && state.petitioners) ? state.petitioners[petitionerId] : null;
+  if (rec && typeof rec.trueEntryYear === 'number') return rec.trueEntryYear;
+  if (rec && typeof rec.entryYear === 'number') return rec.entryYear;
+  return null;
+}
 
 /** Legacy derivation: historical years + (current year - entry year). Pure. */
 function legacyAgeInReligion(state, petitionerId) {
@@ -1317,6 +1345,82 @@ export function issueInstruction(state, destId, typeId) {
 }
 
 // ---------------------------------------------------------------------------
+// Provincial draft (pre-game): one terna per region; the General names a
+// provincial for each. Organizational for now — no mechanical weight yet.
+// ---------------------------------------------------------------------------
+export const PROVINCIAL_REGIONS = Object.freeze([
+  { id: 'east', name: 'The East' },
+  { id: 'newworld', name: 'the New World' },
+  { id: 'africa', name: 'Africa' },
+  { id: 'europe', name: 'Europe' },
+]);
+
+const DRAFT_FIRST = ['Alessandro', 'Baldassare', 'Camillo', 'Domenico', 'Eustachio', 'Fabio',
+  'Gaspare', 'Ippolito', 'Lodovico', 'Marcello', 'Niccolo', 'Ottavio', 'Pompeo', 'Scipione',
+  'Teodoro', 'Urbano', 'Vincenzo', 'Girolamo', 'Bernardino', 'Costantino', 'Flaminio', 'Ruggiero'];
+const DRAFT_LAST = ['Orsini', 'Colonna', 'Aldobrandini', 'Borghese', 'Caetani', 'Farnese',
+  'Gonzaga', 'Este', 'Medici', 'Pallavicini', 'Spinola', 'Doria', 'Barberini', 'Chigi',
+  'Altieri', 'Rospigliosi', 'Pamphilj', 'Ludovisi', 'Montalto', 'Gesualdo', 'Carafa', 'Pignatelli'];
+
+function makeProvincialDraft(state) {
+  const rng = streamFor(state, 'provincial-draft');
+  const used = new Set();
+  const pickName = () => {
+    let n;
+    do { n = `${rng.pick(DRAFT_FIRST)} ${rng.pick(DRAFT_LAST)}`; } while (used.has(n));
+    used.add(n);
+    return n;
+  };
+  const regions = PROVINCIAL_REGIONS.map((r) => ({
+    id: r.id,
+    name: r.name,
+    candidates: [0, 1, 2].map((i) => {
+      const traits = {};
+      for (const t of dispositions.TRAITS) traits[t.id] = rng.int(1, 5);
+      // give each candidate a distinct standout so the choice is legible
+      const standout = dispositions.TRAITS[(i * 3) % dispositions.TRAITS.length].id;
+      traits[standout] = Math.max(traits[standout], 4);
+      const label = dispositions.TRAITS.find((t) => t.id === standout);
+      return {
+        id: `prov-${r.id}-${i}`,
+        name: pickName(),
+        age: rng.int(38, 62),
+        yearsInSociety: rng.int(15, 35),
+        traits,
+        note: `Noted for ${label.name.toLowerCase()} — ${label.blurb}`,
+      };
+    }),
+  }));
+  return { regions, picks: {} };
+}
+
+/** Name one candidate provincial of a region. Completes the draft at 4/4. */
+export function chooseProvincial(state, regionId, candidateId) {
+  const draft = state.draft;
+  if (!draft || draft.done) throw new Error('chooseProvincial: no active draft.');
+  const region = draft.regions.find((r) => r.id === regionId);
+  if (!region) throw new Error(`chooseProvincial: unknown region "${regionId}".`);
+  const cand = region.candidates.find((c) => c.id === candidateId);
+  if (!cand) throw new Error(`chooseProvincial: "${candidateId}" is not a candidate for ${region.name}.`);
+  for (const [rid, cid] of Object.entries(draft.picks)) {
+    if (cid === candidateId && rid !== regionId) throw new Error('chooseProvincial: this man already governs another region.');
+  }
+  draft.picks[regionId] = candidateId;
+  if (PROVINCIAL_REGIONS.every((r) => draft.picks[r.id])) {
+    state.provincials = {};
+    for (const r of draft.regions) {
+      state.provincials[r.id] = { ...r.candidates.find((x) => x.id === draft.picks[r.id]) };
+    }
+    draft.done = true;
+    addLedger(state, {
+      year: state.year, type: 'provincial', decision: 'appointed',
+      text: `Provincials take office: ${PROVINCIAL_REGIONS.map((r) => `${state.provincials[r.id].name} for ${r.name}`).join('; ')}.`,
+    });
+  }
+  return draft;
+}
+
+// ---------------------------------------------------------------------------
 // Governance: provincial reports & staged decisions
 // ---------------------------------------------------------------------------
 // Provincial reports are communications from the missions to the Generalate,
@@ -1891,6 +1995,7 @@ function resolveVocations(state, y) {
     const novYears = Math.max(0, y - (typeof n.startYear === 'number' ? n.startYear : y - 2));
     rec.yearsInSociety = novYears;
     if (rec.entryYear == null) rec.entryYear = y;
+    seedTrueEntryYear(state, n.id, y);
     rec.novitiate = { destination: n.destination, startYear: y - novYears, endYear: y, years: novYears };
     rec.novitiateCounted = true;
     recordNovitiate(state, n.id, rec.novitiate, false);
@@ -1967,7 +2072,7 @@ export function newGame({ mode = 'campaign', seed = 'generalate', data = null } 
   const g = ensureData(data);
   const rng = makeRng(`${seed}:main`);
   const endlessRng = makeRng(`${seed}:endless`);
-  return {
+  const state = {
     version: 1,
     seed: String(seed),
     mode,
@@ -2000,6 +2105,8 @@ export function newGame({ mode = 'campaign', seed = 'generalate', data = null } 
     instructions: {}, // destId -> {type, issuedYear, arriveYear, status, outcome}
     reports: [],      // provincial reports: {id, year, kind, destId, title, body, facts, recommendations[], status, decision}
     staged: [],       // staged governance actions awaiting batch application
+    draft: null,      // pre-game provincial draft (set below)
+    provincials: {},  // regionId -> chosen provincial (organizational for now)
     novices: [], // {id, name, destination, startYear, readyYear} - candidates in formation
     currentYear: null,  // UI-facing mirror: {year, briefing, terna, decided, decisionResult}
     stats: {
@@ -2014,6 +2121,8 @@ export function newGame({ mode = 'campaign', seed = 'generalate', data = null } 
     rngState: rng.getState(),
     endlessRngState: endlessRng.getState(),
   };
+  state.draft = makeProvincialDraft(state);
+  return state;
 }
 
 // ---------------------------------------------------------------------------
@@ -2260,7 +2369,7 @@ function assembleTerna(state, g, rng) {
   }
 
   if (picks.length < 3) {
-    throw new Error(`Cannot assemble a terna: only ${picks.length} eligible petitioners in ${year}.`);
+    throw new Error(`Cannot assemble the indipetae: only ${picks.length} eligible petitioners in ${year}.`);
   }
   const cards = picks.slice(0, 3).map(({ pet, letter, fromFuture }) => buildCard(g, state, pet, letter, fromFuture));
   return { cards, relaxedClosed };
@@ -2322,7 +2431,7 @@ export function startYear(state) {
     throw campaignCompleteError();
   }
   if (state.currentTerna) {
-    throw new Error('A terna is already awaiting your decision.');
+    throw new Error('The indipetae are already awaiting your decision.');
   }
   const g = ensureData();
   const rng = mainRng(state);
@@ -2367,11 +2476,9 @@ export function decide(state, approvals) {
     return { card, destination, companions };
   });
 
-  // The seal is not free. Approvals and denials alike draw on the mission
-  // chest — an approval commits resources, a refusal still requires care.
-  // (Checked after validation so invalid input never moves money.)
-  const sealCost = normalized.length * rules.RESOURCES.APPROVAL_COST
-    + (t.cards.length - normalized.length) * rules.RESOURCES.DENIAL_COST;
+  // The seal is not free: each approval draws on the mission chest.
+  // Denials are free. (Checked after validation so invalid input never moves money.)
+  const sealCost = normalized.length * rules.RESOURCES.APPROVAL_COST;
   if (state.resources.funds < sealCost) {
     throw new Error(
       `The mission chest cannot bear this seal: ${sealCost} scudi required, ${state.resources.funds} in hand.`);
@@ -2418,6 +2525,7 @@ export function decide(state, approvals) {
     cRec.status = STATUS.APPROVED;
     // entryYear baseline for years-in-Society.
     if (cRec.entryYear == null) cRec.entryYear = state.year;
+    seedTrueEntryYear(state, card.petitionerId, state.year);
     enterSociety(state, card.petitionerId, 'approved');
     cRec.history.push({ year: state.year, decision: 'approved', destination });
     // He sails: no longer laboring in Europe.
@@ -2512,7 +2620,7 @@ export function decide(state, approvals) {
     detail:
       `${denied.length ? denied.map((d) => d.name).join(' and ') + (denied.length > 1 ? ' are' : ' is') + ' denied and may petition again. ' : ''}` +
       `The approved enter the departure queue; sailing depends on free hulls, berths, and the mission chest. ` +
-      `The seal costs ${sealCost} scudi (${approved.length} approval${approved.length === 1 ? '' : 's'} × 30${denied.length ? `, ${denied.length} denial${denied.length === 1 ? '' : 's'} × 15` : ''}).`,
+      `The seal costs ${sealCost} scudi (${approved.length} approval${approved.length === 1 ? '' : 's'} × 30). Denials are free.`,
   };
   const result = { approved, denied, teams: report.teams, report, scoreDelta: state.score - scoreBefore };
   if (state.currentYear) {
@@ -3438,6 +3546,10 @@ export function deserialize(obj) {
   if(!Array.isArray(state.vowsNewsInTransit))state.vowsNewsInTransit=[];
   // Migration: entryYear first, then seed both counters, then vows (ensureVows reads ageInReligion).
   for(const e of state.europeanLabor){const r=state.petitioners[e.petitionerId];if(r&&r.entryYear==null){if(e.year!=null)r.entryYear=e.year;else{const hy=(r.history||[]).find(h=>/denied/i.test(h));const hym=hy&&hy.match(/16\d\d/);r.entryYear=hym?parseInt(hym[0]):state.year-2;}}}
+  for (const id of Object.keys(state.petitioners || {})) {
+    const r = state.petitioners[id];
+    if (r && typeof r.entryYear === 'number' && typeof r.trueEntryYear !== 'number') seedTrueEntryYear(state, id, r.entryYear);
+  }
   for (const id of Object.keys(state.petitioners || {})) { migrateNovitiate(state, id); persistNovitiateGrade(state, id); }
   for (const id of Object.keys(state.petitioners || {})) {
     const r = state.petitioners[id];
@@ -3454,6 +3566,8 @@ export function deserialize(obj) {
     if (!Array.isArray(r.appliedActions)) r.appliedActions = [];
   }
   if (!Array.isArray(state.staged)) state.staged = [];
+  if (!state.draft) state.draft = { regions: [], picks: {}, done: true, skipped: true };
+  if (!state.provincials || typeof state.provincials !== 'object') state.provincials = {};
   migrateDeathReports(state);
   if (!('report' in (state.seq || {}))) state.seq.report = 0;
   if (!('staged' in (state.seq || {}))) state.seq.staged = 0;

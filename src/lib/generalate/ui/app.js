@@ -90,7 +90,8 @@ app.continueGame = function () {
     app.ui.seed = (s.ui && s.ui.seed) || app.ui.seed;
     app.ui.selectedId = null;
     const cy = app.state.currentYear;
-    if (cy && cy.decided && cy.decisionResult) { app.ui.decision = cy.decisionResult; app.go('decision'); }
+    if (app.state.draft && !app.state.draft.done && !app.state.draft.skipped) app.go('draft');
+    else if (cy && cy.decided && cy.decisionResult) { app.ui.decision = cy.decisionResult; app.go('decision'); }
     else if (cy && cy.terna) { app.go('desk'); }
     else app.go('briefing');
     app.sound('page');
@@ -127,10 +128,11 @@ function renderHeader() {
         <span class="gh-num" id="gh-num">50</span>
       </div>
       <nav class="gh-nav">
-        <button class="gbtn small ghost" id="gh-briefing">Briefing</button>
+        <button class="gbtn small ghost" id="gh-briefing">Briefing<span class="gh-badge" id="gh-badge-briefing" hidden></span></button>
+        <button class="gbtn small ghost" id="gh-indipetae">Indipetae<span class="gh-badge" id="gh-badge-indipetae" hidden></span></button>
         <button class="gbtn small ghost" id="gh-house">House</button>
         <button class="gbtn small ghost" id="gh-missions">Missions</button>
-        <button class="gbtn small ghost" id="gh-governance">Governance</button>
+        <button class="gbtn small ghost" id="gh-governance">Governance<span class="gh-badge" id="gh-badge-governance" hidden></span></button>
         <button class="gbtn small ghost" id="gh-map">Map</button>
         <button class="gbtn small ghost" id="gh-ledger">Ledger</button>
         <button class="gbtn small ghost" id="gh-sound" aria-label="Toggle sound">🔊</button>
@@ -141,6 +143,7 @@ function renderHeader() {
     h.querySelector('#gh-briefing').addEventListener('click', () => { app.sound('page'); app.go('briefing'); });
     h.querySelector('#gh-house').addEventListener('click', () => { app.sound('page'); app.ui.houseFrom = app.ui.screen; app.go('house'); });
     h.querySelector('#gh-missions').addEventListener('click', () => { app.sound('page'); app.ui.missionsFrom = app.ui.screen; app.go('missions'); });
+    h.querySelector('#gh-indipetae').addEventListener('click', () => { app.sound('page'); app.go('desk'); });
     h.querySelector('#gh-governance').addEventListener('click', () => { app.sound('page'); app.go('governance'); });
     h.querySelector('#gh-map').addEventListener('click', () => { app.sound('page'); app.go('map', { from: app.ui.screen }); });
     h.querySelector('#gh-ledger').addEventListener('click', () => Screens.showLedgerOverlay(app));
@@ -168,6 +171,20 @@ app.syncHeader = function () {
   const s = Engine.getScore(app.state);
   h.querySelector('#gh-num').textContent = s;
   h.querySelector('#gh-fill').style.width = Math.max(0, Math.min(100, s)) + '%';
+  // notification badges: indipetae awaiting seal, pending reports, year ready to close
+  try {
+    const cy = app.state.currentYear;
+    const indB = h.querySelector('#gh-badge-indipetae');
+    if (indB) indB.hidden = !(cy && !cy.decided && (cy.terna || []).length);
+    const govB = h.querySelector('#gh-badge-governance');
+    if (govB) {
+      const n = Engine.pendingReports ? Engine.pendingReports(app.state).length : 0;
+      govB.hidden = !n;
+      govB.textContent = n > 9 ? '9+' : String(n);
+    }
+    const brB = h.querySelector('#gh-badge-briefing');
+    if (brB) brB.hidden = !(cy && cy.decided);
+  } catch (e) { /* badges are garnish; never break the header */ }
 };
 app.bumpScore = function () {
   // animate number + bar toward the true score
@@ -246,6 +263,7 @@ app.go = function (screen, params = {}) {
   window.scrollTo(0, 0);
   switch (screen) {
     case 'title': Screens.renderTitle(app, r); break;
+    case 'draft': app.syncHeader(); Screens.renderDraft(app, r); break;
     case 'briefing': {
       if (!app.state.currentYear) app.ui.brief = Engine.startYear(app.state);
       else app.ui.brief = { year: app.state.currentYear.year, briefing: app.state.currentYear.briefing, terna: app.state.currentYear.terna };
@@ -267,7 +285,7 @@ app.go = function (screen, params = {}) {
     case 'map': app.syncHeader(); Screens.renderMapScreen(app, r, params.from || app.ui.mapFrom); break;
     case 'ending': { const hh = document.getElementById('gheader'); if (hh) hh.style.display = 'none'; Screens.renderEnding(app, r, app.ui.end); break; }
   }
-  if (['briefing', 'desk', 'decision', 'yearreport', 'map', 'house', 'missions', 'governance'].includes(screen)) app.save();
+  if (['briefing', 'desk', 'decision', 'yearreport', 'map', 'house', 'missions', 'governance', 'draft'].includes(screen)) app.save();
 };
 
 app.newGame = function (mode, seed) {
@@ -280,7 +298,7 @@ app.newGame = function (mode, seed) {
   app.ui.seed = seed;
   app.save();
   app.sound('page');
-  app.go('briefing');
+  app.go('draft');
 };
 
 app.confirmDecision = function (approvals) {

@@ -191,15 +191,35 @@
 #generalate-app .card-dest select { margin-left: 0.4rem; max-width: 100%; }
 #generalate-app .team-tag { font-size: 0.95rem; color: var(--wax-deep); margin: 0.2rem 0; }
 
-/* review bar */
+/* review bar — pinned to the viewport bottom; sticky cannot work here because the
+   bar is the last child of its section (nothing below it to stick against). */
 #generalate-app .review-bar {
-  position: sticky; bottom: 0; z-index: 30;
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 30;
   display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
   background: var(--wood-deep); border-top: 3px solid var(--wax);
-  padding: 0.9rem 1.25rem; margin: 1.5rem -1.25rem -4rem;
+  padding: 0.9rem 1.25rem; margin: 0;
 }
+/* keep the last cards from sliding under the pinned bar */
+#generalate-app .desk-screen { padding-bottom: 7rem; }
 #generalate-app .review-text { font-size: 1.05rem; }
 #generalate-app .review-actions { display: flex; gap: 0.6rem; }
+/* notification badges on nav tabs */
+#generalate-app .gh-nav .gbtn { position: relative; }
+#generalate-app .gh-badge {
+  position: absolute; top: -0.45rem; right: -0.45rem;
+  min-width: 1.15rem; height: 1.15rem; line-height: 1.15rem; text-align: center;
+  font-family: var(--px); font-size: 0.6rem; color: #fff;
+  background: var(--wax); border: 2px solid var(--parch); border-radius: 999px;
+  padding: 0 0.15rem;
+}
+#generalate-app .gh-badge[hidden] { display: none; }
+/* provincial draft */
+#generalate-app .draft-region { margin: 1.6rem 0 0.6rem; font-size: 0.95rem; color: var(--gold); letter-spacing: 0.06em; }
+#generalate-app .draft-terna { margin-bottom: 0.5rem; }
+#generalate-app .draft-cand { cursor: pointer; }
+#generalate-app .draft-traits { list-style: none; margin: 0.5rem 0; padding: 0; font-size: 0.92rem; }
+#generalate-app .draft-traits li { margin: 0.15rem 0; }
+#generalate-app .draft-note { font-size: 0.88rem; font-style: italic; opacity: 0.85; }
 
 /* stamps */
 #generalate-app .desk.decided .pcard { cursor: default; }

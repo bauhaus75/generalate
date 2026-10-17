@@ -54,7 +54,7 @@ export function buildDiagnostics(E, state) {
     const total = E.yearsInSociety ? E.yearsInSociety(state, pid) : yrs; // VISIBLE total
     const stored = typeof rec.ageInReligion === 'number' && typeof rec.totalYearsInSociety === 'number';
     const paused = !!(vw.deferredUntil && vw.deferredUntil > state.year);
-    const entryYear = (rec.entryYear != null ? rec.entryYear : e.year);
+    const entryYear = (rec.trueEntryYear != null ? rec.trueEntryYear : rec.entryYear != null ? rec.entryYear : e.year);
     const histYrs = rec.yearsInSociety;
     const flags = {
       firstVows: vw.firstVows || null, philosophy: vw.philosophy || null,

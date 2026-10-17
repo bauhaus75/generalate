@@ -22,6 +22,7 @@ import {
   CAMPAIGN_START,
   ageInReligion, yearsInSociety, initAgeInReligion, FORMATION_THRESHOLDS,
   cardYearsInSociety, personHistory, recordHistory, HISTORY_VERSION,
+  chooseProvincial, PROVINCIAL_REGIONS,
 } from './engine.js';
 import * as EngineNS from './engine.js';
 import { yearsInSociety as vowsYearsInSociety } from './vows.js';
@@ -712,14 +713,14 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 24. The seal costs; berths bind -------------------------------------------
 {
-  // Approve 1 + deny 2 → 30 + 2×15 = 60.
+  // Approve 1 + deny 2 → 30 + 2×0 = 30 (denials are free).
   const s = newGame({ mode: 'campaign', seed: 'sealcost' });
   const { terna } = startYear(s);
   const r = decide(s, [{ id: terna[0].petitionerId }]);
-  ok('seal costs 30/approval + 15/denial', s.resources.funds === 1000 - 60, `${s.resources.funds}`);
-  ok('report carries sealCost', r.report.sealCost === 60, `${r.report.sealCost}`);
+  ok('seal costs 30/approval, denials free', s.resources.funds === 1000 - 30, `${s.resources.funds}`);
+  ok('report carries sealCost', r.report.sealCost === 30, `${r.report.sealCost}`);
 
-  // Approve-all → 90. Deny-all → 45.
+  // Approve-all → 90. Deny-all → 0.
   const s2 = newGame({ mode: 'campaign', seed: 'sealcost2' });
   const { terna: t2 } = startYear(s2);
   decide(s2, t2.map((c) => ({ id: c.petitionerId })));
@@ -727,7 +728,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const s3 = newGame({ mode: 'campaign', seed: 'sealcost3' });
   startYear(s3);
   decide(s3, []);
-  ok('deny-all seal costs 45', s3.resources.funds === 955, `${s3.resources.funds}`);
+  ok('deny-all seal costs 0', s3.resources.funds === 1000, `${s3.resources.funds}`);
 
   // A broke General cannot seal.
   const s4 = newGame({ mode: 'campaign', seed: 'sealcost4' });
@@ -2742,6 +2743,127 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     const applied = G.applyStaged(s);
     ok('gov-decline: acknowledge does not block apply', applied.length === 1
       && s.reports.find((r) => r.id === rep.id).status === 'acted');
+  }
+}
+
+
+// --- 45. Governance: true entry year vs formula anchor -----------------------
+{
+  const G = EngineNS;
+  // hist-1 has 5 historical years in the fixtures. The anchor (entryYear)
+  // stays at the campaign start for the counters; the true entry year is
+  // anchor minus historical years. Seeding happens via the deserialize
+  // backfill for any rec that has an anchor but no true entry year.
+  const seedHist1 = (s) => {
+    const rec = G.ensureRecord(s, 'hist-1');
+    rec.entryYear = s.year; // anchor, as the game assigns it at seeding
+    return rec;
+  };
+  {
+    const s = newGame({ mode: 'campaign', seed: 'gov-entry' });
+    seedHist1(s);
+    const s2 = deserialize(serialize(s));
+    const rec = s2.petitioners['hist-1'];
+    ok('gov-entry: anchor preserved', rec.entryYear === 1615);
+    ok('gov-entry: true entry year backfilled', rec.trueEntryYear === 1610);
+    G.initAgeInReligion(s2, 'hist-1');
+    ok('gov-entry: counters unaffected',
+      G.yearsInSociety(s2, 'hist-1') === 5 && G.ageInReligion(s2, 'hist-1') === 5);
+    const hist = G.personHistory(s2, 'hist-1');
+    ok('gov-entry: history summary shows true entry', hist.summary.entryYear === 1610);
+  }
+  // pre-history saves: backfilled entry event uses the true entry year
+  {
+    const s = newGame({ mode: 'campaign', seed: 'gov-entry1b' });
+    const rec = G.ensureRecord(s, 'hist-1');
+    rec.entryYear = s.year;
+    delete rec.historyV; rec.history = [];
+    const s2 = deserialize(serialize(s));
+    const entryEv = G.personHistory(s2, 'hist-1').events.find((e) => e.event === 'entry');
+    ok('gov-entry: backfilled entry event at true year', !!entryEv && entryEv.year === 1610);
+  }
+  // historical man with 14 years: true entry = anchor - 14
+  {
+    const s = newGame({ mode: 'campaign', seed: 'gov-entry2' });
+    const rec = G.ensureRecord(s, 'hist-9');
+    rec.entryYear = s.year;
+    const s2 = deserialize(serialize(s));
+    ok('gov-entry: true entry = anchor - historical years',
+      s2.petitioners['hist-9'].trueEntryYear === 1615 - 14);
+  }
+  // brand-new man (no history): true entry equals the anchor
+  {
+    const s = newGame({ mode: 'campaign', seed: 'gov-entry2b' });
+    const rec = G.ensureRecord(s, 'brand-new-man');
+    rec.entryYear = s.year;
+    const s2 = deserialize(serialize(s));
+    ok('gov-entry: new man true==anchor',
+      s2.petitioners['brand-new-man'].trueEntryYear === s2.petitioners['brand-new-man'].entryYear);
+  }
+  // backfill is idempotent: existing trueEntryYear is never overwritten
+  {
+    const s = newGame({ mode: 'campaign', seed: 'gov-entry3' });
+    const rec = G.ensureRecord(s, 'hist-1');
+    rec.entryYear = 1615;
+    rec.trueEntryYear = 1609; // hand-corrected value
+    const s2 = deserialize(serialize(s));
+    ok('gov-entry: backfill preserves existing', s2.petitioners['hist-1'].trueEntryYear === 1609);
+  }
+}
+
+
+// --- 46. Provincial draft (pre-game) -----------------------------------------
+{
+  // draft exists with 4 regions x 3 candidates
+  {
+    const s = newGame({ mode: 'campaign', seed: 'draft1' });
+    ok('draft: 4 regions', s.draft.regions.length === 4);
+    ok('draft: 3 candidates each', s.draft.regions.every((r) => r.candidates.length === 3));
+    ok('draft: names unique', new Set(s.draft.regions.flatMap((r) => r.candidates.map((c) => c.name))).size === 12);
+    ok('draft: traits present', s.draft.regions.every((r) => r.candidates.every((c) =>
+      Object.keys(c.traits).length === 7 && Object.values(c.traits).every((v) => v >= 1 && v <= 5))));
+    ok('draft: not done', !s.draft.done && Object.keys(s.provincials).length === 0);
+  }
+  // picking completes at 4/4; provincials stored; ledger entry
+  {
+    const s = newGame({ mode: 'campaign', seed: 'draft2' });
+    const ids = s.draft.regions.map((r) => [r.id, r.candidates[0].id]);
+    for (const [rid, cid] of ids.slice(0, 3)) chooseProvincial(s, rid, cid);
+    ok('draft: incomplete at 3/4', !s.draft.done);
+    chooseProvincial(s, ids[3][0], ids[3][1]);
+    ok('draft: done at 4/4', s.draft.done === true);
+    ok('draft: provincials stored', Object.keys(s.provincials).length === 4
+      && s.provincials.east.name === s.draft.regions[0].candidates[0].name);
+    ok('draft: ledger records appointments',
+      (s.ledger || []).some((e) => e.type === 'provincial' && /take office/.test(e.text)));
+  }
+  // invalid picks throw; one man cannot govern two regions
+  {
+    const s = newGame({ mode: 'campaign', seed: 'draft3' });
+    let threw = 0;
+    try { chooseProvincial(s, 'nowhere', 'x'); } catch (e) { threw++; }
+    try { chooseProvincial(s, 'east', 'prov-east-9'); } catch (e) { threw++; }
+    chooseProvincial(s, 'east', s.draft.regions[0].candidates[0].id);
+    try { chooseProvincial(s, 'east', s.draft.regions[0].candidates[0].id); } catch (e) { threw++; } // re-pick same: allowed, no throw
+    ok('draft: bad region/candidate throw', threw === 2);
+    ok('draft: re-pick same region allowed', s.draft.picks.east === s.draft.regions[0].candidates[0].id);
+    try { chooseProvincial(s, 'europe', s.draft.regions[0].candidates[0].id); } catch (e) { threw++; }
+    ok('draft: double-governance blocked', threw === 3);
+  }
+  // old saves skip the draft
+  {
+    const s = newGame({ mode: 'campaign', seed: 'draft4' });
+    const raw = serialize(s);
+    delete raw.draft; delete raw.provincials;
+    const s2 = deserialize(raw);
+    ok('draft: old saves skip', s2.draft.done === true && s2.draft.skipped === true);
+  }
+  // deterministic: same seed, same candidates
+  {
+    const a = newGame({ mode: 'campaign', seed: 'draft5' });
+    const b = newGame({ mode: 'campaign', seed: 'draft5' });
+    ok('draft: deterministic',
+      JSON.stringify(a.draft.regions) === JSON.stringify(b.draft.regions));
   }
 }
 

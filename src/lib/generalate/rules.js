@@ -72,7 +72,7 @@ export const RESOURCES = Object.freeze({
    *  An approval commits the Society's resources (advances, dispensations,
    *  letters); a refusal still requires pastoral care and correspondence. */
   APPROVAL_COST: 30,
-  DENIAL_COST: 15,
+  DENIAL_COST: 0, // refusing a man is free; only approvals draw on the chest
   /** Hulls: each ship carries up to SHIP_CAPACITY souls per sailing
    *  (petitioners and their companions; one destination per hull), then is
    *  busy for the voyage's travel years. Hulls — not berths — are the

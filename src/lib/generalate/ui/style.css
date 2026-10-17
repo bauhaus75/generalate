@@ -537,3 +537,14 @@ body > .debug-panel .debug-json {
 #generalate-app .vows-list { list-style: none; padding: 0; margin: 1rem 0; }
 #generalate-app .vows-row { display: flex; align-items: center; gap: 0.8rem; padding: 0.6rem 0; border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
 #generalate-app .vows-label { font-style: italic; color: var(--ink-soft); flex: 1; min-width: 200px; }
+
+/* Inspector tabs + Formation & Mission history (overlay lives under body, not #generalate-app) */
+body > .overlay .insp-tabs { display: flex; gap: .4em; flex-wrap: wrap; margin: .6em 0 .6em; }
+body > .overlay .insp-tab { font: inherit; font-size: .85rem; padding: .35em .8em; cursor: pointer;
+  border: 1px solid var(--ink-soft, #6b5a3e); border-radius: 3px; background: transparent; color: inherit; }
+body > .overlay .insp-tab.active { background: var(--wax-deep, #7a2a1a); color: #f4ead0; border-color: var(--wax-deep, #7a2a1a); }
+body > .overlay .hist-summary { font-size: .9em; opacity: .9; }
+body > .overlay .hist-list { list-style: none; padding-left: 0; margin: .3em 0 .8em; font-size: .88em; }
+body > .overlay .hist-list li { padding: .25em 0; border-bottom: 1px dotted rgba(107, 90, 62, .4); }
+body > .overlay .hist-year { font-weight: bold; display: inline-block; min-width: 3em; }
+body > .overlay .hist-loc, body > .overlay .hist-text { opacity: .75; }

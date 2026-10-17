@@ -7,8 +7,8 @@ import * as rules from './rules.js';
 import * as dice from './dice.js';
 import * as dispositions from './dispositions.js';
 import { fictionalPetitioner, archiveFictional, MAX_ACTIVE_FICTIONAL } from './generator.js';
-import {decideVows,inviteFinalVows,completeFinalVows,rankSuffix,checkVowsMilestones,ensureVows,purgeVowsState,vowsTrackFor} from './vows.js';
-export {decideVows,inviteFinalVows,completeFinalVows,rankSuffix,purgeVowsState,vowsTrackFor};
+import {decideVows,inviteFinalVows,completeFinalVows,rankSuffix,checkVowsMilestones,ensureVows,purgeVowsState,vowsTrackFor,FORMATION_THRESHOLDS} from './vows.js';
+export {decideVows,inviteFinalVows,completeFinalVows,rankSuffix,purgeVowsState,vowsTrackFor,FORMATION_THRESHOLDS};
 
 export const CAMPAIGN_START = 1615;
 export const CAMPAIGN_END = 1645;
@@ -276,6 +276,7 @@ export function ensureRecord(state, id, fictional = false) {
       id, fictional: !!fictional, status: STATUS.NEW,
       history: [], deniedCount: 0, usedLetters: [], voyages: [],
       archived: false, ficNum: null, genYear: null,
+      historyV: HISTORY_VERSION,
     };
     state.petitioners[id] = rec;
   }
@@ -291,7 +292,255 @@ function getRecord(state, id) {
 /** Append a ledger entry with a monotonic sequence number. */
 export function addLedger(state, entry) {
   state.ledger.push({ seq: ++state.seq.ledger, ...entry });
-  return state.ledger[state.ledger.length - 1];
+  const added = state.ledger[state.ledger.length - 1];
+  const ev = historyEventFromLedger(added);
+  if (ev) recordHistory(state, added.petitionerId, ev);
+  return added;
+}
+
+// ---------------------------------------------------------------------------
+// Per-man Formation & Mission history (rec.history)
+// ---------------------------------------------------------------------------
+// rec.history holds two kinds of entries, kept in year order:
+//   legacy desk/dispatch entries  {year, decision, destination, ...}   (no `kind`)
+//   life events                   {year, kind:'formation'|'mission', event, text, ...}
+// Life events are recorded as they happen (most via addLedger, the rest at
+// their engine call sites). Saves from before this (no rec.historyV) are
+// backfilled from the ledger, voyages, entry year and vows on deserialize.
+export const HISTORY_VERSION = 1;
+
+// Ledger types already mirrored into rec.history by legacy entries.
+const LEDGER_SKIP = new Set(['decision', 'dispatch', 'deployment']);
+
+function historyEventFromLedger(e) {
+  if (!e || !e.petitionerId || LEDGER_SKIP.has(e.type)) return null;
+  const text = e.text || e.note || '';
+  const base = { year: e.year, text, ledgerSeq: e.seq };
+  if (e.destination) base.destination = e.destination;
+  switch (e.type) {
+    case 'vows': return { ...base, kind: 'formation', event: e.decision === 'dismissed' ? 'dismissal' : e.decision };
+    case 'ordination': return { ...base, kind: 'formation', event: 'ordination' };
+    case 'formation': return { ...base, kind: 'formation', event: e.decision === 'completed' ? 'study-completed' : 'study-assigned' };
+    case 'domestic': return { ...base, kind: 'mission', event: e.decision === 'released' ? 'assignment-ended' : 'assignment' };
+    case 'departure': return { ...base, kind: 'mission', event: 'departure' };
+    case 'outcome': return { ...base, kind: 'mission', event: 'news', outcome: e.status };
+    case 'veteran': return { ...base, kind: 'mission', event: 'veteran-return' };
+    default: return { ...base, kind: 'mission', event: e.type };
+  }
+}
+
+/** Insert a life event into a man's rec.history (year-ordered, stable). */
+export function recordHistory(state, petitionerId, ev) {
+  const rec = state && state.petitioners ? state.petitioners[petitionerId] : null;
+  if (!rec) return null;
+  if (!Array.isArray(rec.history)) rec.history = [];
+  const entry = { year: typeof ev.year === 'number' ? ev.year : state.year, kind: ev.kind || 'mission', event: ev.event, text: ev.text || '' };
+  const front = !!ev.front; // place before other same-year entries (e.g. entry onto the rolls)
+  for (const k of Object.keys(ev)) if (!(k in entry) && k !== 'front' && ev[k] !== undefined) entry[k] = ev[k];
+  let i = rec.history.length;
+  while (i > 0 && ((rec.history[i - 1].year ?? 0) > entry.year || (front && (rec.history[i - 1].year ?? 0) === entry.year))) i--;
+  rec.history.splice(i, 0, entry);
+  rec.historyV = HISTORY_VERSION;
+  return entry;
+}
+
+const HISTORY_LABELS = {
+  'novitiate-entry': 'Entered the novitiate', 'novitiate-completed': 'Novitiate completed',
+  entry: 'Entered the rolls', 'first-vows': 'First vows', philosophy: 'Philosophy completed', regency: 'Regency completed',
+  theology: 'Theology completed', ordination: 'Ordination', tertianship: 'Tertianship', 'final-vows': 'Final vows',
+  deferred: 'Deferred', 'deferral-ended': 'Deferral ended', dismissal: 'Dismissed', death: 'Death',
+  'news-arrived': 'Word reaches Rome', 'study-assigned': 'Formation study begun', 'study-completed': 'Formation study completed',
+  assignment: 'Domestic assignment', 'assignment-ended': 'Assignment ended', departure: 'Departure', arrival: 'Arrival',
+  news: 'News of the mission', 'veteran-return': 'Veteran homecoming',
+};
+
+function legacyHistoryEvent(g, h) {
+  const dn = h.destination ? destName(g, h.destination) : '';
+  const map = {
+    approved: ['Indies petition approved', `Petition for the Indies approved: ${dn}.`],
+    denied: ['Indies petition denied', `Petition for ${dn} denied; he remains to labor in Europe.`],
+    'emergency-dispatch': ['emergency dispatch', `Dispatched from formation (${h.fromFormation || 'formation'}) to ${dn}.`],
+    'dispatch-europe': ['dispatch', `Dispatched from Europe to ${dn}.`],
+    deployment: ['deployment', `Named to a collective deployment for ${dn}.`],
+  };
+  const m = map[h.decision] || [h.decision, `${h.decision}${dn ? ` (${dn})` : ''}`];
+  return { year: h.year, kind: 'mission', event: h.decision, label: m[0], text: m[1], destination: h.destination || null, legacy: true };
+}
+
+/** Where the man is now, for the history panel. */
+function currentLocation(state, g, petitionerId) {
+  const rec = state.petitioners[petitionerId];
+  if (!rec) return 'unknown';
+  if (rec.status === STATUS.DECEASED) return 'deceased';
+  if (rec.status === STATUS.DISMISSED) return 'dismissed from the Society';
+  const e = (state.europeanLabor || []).find((x) => x.petitionerId === petitionerId);
+  if (e) return e.assignment ? `Europe (${e.assignment})` : (e.formation && e.formation.until > state.year ? 'Europe (in formation)' : 'Europe');
+  const vs = (state.voyages || []).filter((v) => v.petitionerId === petitionerId);
+  const last = vs[vs.length - 1];
+  if (last && last.stage === 'transit') return `at sea, bound for ${destName(g, last.destination)}`;
+  if (last && last.stage === 'arrived' && !last.veteranReturned) return destName(g, last.destination);
+  if ((state.queue || []).some((q) => q.petitionerId === petitionerId)) return 'awaiting passage';
+  return 'unknown';
+}
+
+/**
+ * Chronological Formation & Mission history for one man (read-only).
+ * Returns { petitionerId, events:[{year, kind, event, label, text, destination}], summary }.
+ */
+export function personHistory(state, petitionerId) {
+  const g = ensureData();
+  const rec = state.petitioners[petitionerId];
+  const events = [];
+  for (const h of (rec && rec.history) || []) {
+    if (!h || typeof h !== 'object') continue;
+    if (h.kind) events.push({ label: h.label || HISTORY_LABELS[h.event] || String(h.event || '').replace(/-/g, ' '), ...h });
+    else if (h.decision) events.push(legacyHistoryEvent(g, h));
+  }
+  const rank = (e) => (e.event === 'novitiate-entry' || e.event === 'novitiate-completed') ? 0 : e.event === 'entry' ? 1 : 2;
+  events.sort((a, b) => ((a.year ?? 0) - (b.year ?? 0)) || (rank(a) - rank(b)));
+  for (const ev of events) if (ev.destination) ev.destinationName = destName(g, ev.destination);
+  return {
+    petitionerId,
+    events,
+    summary: {
+      totalYearsInSociety: yearsInSociety(state, petitionerId),
+      ageInReligion: ageInReligion(state, petitionerId),
+      pausedYears: (rec && rec.pausedYears) || 0,
+      paused: formationPaused(state, petitionerId),
+      entryYear: rec && typeof rec.entryYear === 'number' ? rec.entryYear : null,
+      status: rec ? rec.status : null,
+      location: currentLocation(state, g, petitionerId),
+    },
+  };
+}
+
+/** Backfill rec.history for a save made before HISTORY_VERSION. */
+function backfillHistory(state, id) {
+  const rec = state.petitioners[id];
+  if (!rec || rec.historyV) return;
+  if (!Array.isArray(rec.history)) rec.history = [];
+  const g = ensureData();
+  const add = (ev) => recordHistory(state, id, { backfilled: true, ...ev });
+  if (typeof rec.entryYear === 'number') {
+    add({ year: rec.entryYear, front: true, kind: 'formation', event: 'entry', text: `Entered the General's rolls (backfilled).` });
+  }
+  const led = (state.ledger || []).filter((e) => e.petitionerId === id).sort((a, b) => (a.seq || 0) - (b.seq || 0));
+  const seen = new Set();
+  for (const e of led) {
+    const ev = historyEventFromLedger(e);
+    if (ev) { add(ev); if (ev.kind === 'formation') seen.add(ev.event); }
+  }
+  const vw = rec.vows;
+  if (vw && typeof vw === 'object') {
+    const ms = { firstVows: 'first-vows', philosophy: 'philosophy', regency: 'regency', theology: 'theology' };
+    for (const [k, evName] of Object.entries(ms)) {
+      if (!vw[k] || seen.has(evName)) continue;
+      const yr = typeof vw[k] === 'number' ? vw[k] : (typeof rec.entryYear === 'number' ? rec.entryYear : state.year);
+      add({ year: yr, kind: 'formation', event: evName, text: `${k} recorded${typeof vw[k] === 'number' ? '' : ' before he entered the rolls'} (backfilled).` });
+    }
+  }
+  for (const v of (state.voyages || []).filter((x) => x.petitionerId === id && x.stage === 'arrived')) {
+    const yr = v.resolvedYear ?? v.arriveYear ?? state.year;
+    add({ year: yr, kind: 'mission', event: 'arrival', destination: v.destination, outcome: v.outcome,
+      text: `Voyage to ${destName(g, v.destination)} ended: ${v.outcome} (backfilled).` });
+    if (v.outcome === 'deceased') add({ year: yr, kind: 'formation', event: 'death', text: `Died on the mission to ${destName(g, v.destination)} (backfilled).` });
+    if (v.veteranReturned && v.veteranYear && !led.some((e) => e.type === 'veteran')) {
+      add({ year: v.veteranYear, kind: 'mission', event: 'veteran-return', destination: v.destination, text: `Returned to Europe from ${destName(g, v.destination)} (backfilled).` });
+    }
+  }
+  rec.historyV = HISTORY_VERSION;
+}
+
+/** Record a voyage's arrival (and a death, if any) in the man's history. */
+function recordArrival(state, g, v) {
+  const dn = destName(g, v.destination);
+  const words = { thriving: 'arrives and labors fruitfully', reassigned: 'arrives and is reassigned', returned: 'turns back for Europe',
+    ill: 'falls gravely ill and is sent back to Europe', deceased: 'dies on the voyage' };
+  recordHistory(state, v.petitionerId, { kind: 'mission', event: 'arrival', destination: v.destination, outcome: v.outcome,
+    voyageId: v.id, text: `Voyage to ${dn}: ${words[v.outcome] || v.outcome}.` });
+  if (v.outcome === 'deceased') {
+    recordHistory(state, v.petitionerId, { kind: 'formation', event: 'death', destination: v.destination,
+      text: `Dies in the service of the mission to ${dn} (age in religion ${ageInReligion(state, v.petitionerId)}, ${yearsInSociety(state, v.petitionerId)} years in the Society).` });
+  }
+}
+
+/** Log novitiate entry and completion (at the mission novitiate) in his history. */
+function recordNovitiate(state, petitionerId, nv, backfilled) {
+  const g = ensureData();
+  const dn = destName(g, nv.destination);
+  const extra = backfilled ? { backfilled: true } : {};
+  recordHistory(state, petitionerId, { year: nv.startYear, kind: 'formation', event: 'novitiate-entry', destination: nv.destination,
+    text: `Enters the novitiate at the ${dn} mission.`, ...extra });
+  recordHistory(state, petitionerId, { year: nv.endYear, kind: 'formation', event: 'novitiate-completed', destination: nv.destination,
+    years: nv.years, text: `Completes ${nv.years} ${nv.years === 1 ? 'year' : 'years'} of novitiate at the ${dn} mission (counted toward age in religion).`, ...extra });
+}
+
+/**
+ * Persist a novitiate man's grade/track once (old saves). Uses the value set at
+ * completion (scholastic; or the in-memory table if this session still has it),
+ * but respects a vows stage already recorded as 'brother' so a man is never
+ * moved off the track the save shows him on. Idempotent.
+ */
+function persistNovitiateGrade(state, id) {
+  const r = state.petitioners[id];
+  if (!r || !(r.novitiate || novitiateInfoFromId(id))) return;
+  const onBrother = r.vows && r.vows.stage === 'brother';
+  if (!r.savedGrade) {
+    const mem = dispositions.GRADES[id];
+    r.savedGrade = onBrother ? { grade: 'brother', ordained: false }
+      : mem ? { grade: mem.grade, ordained: mem.ordained ?? false }
+      : { grade: 'scholastic', ordained: false };
+  }
+  if (!r.vowsTrack) r.vowsTrack = onBrother || String(r.savedGrade.grade).toLowerCase() === 'brother' ? 'brother' : 'scholastic';
+}
+
+/** Mission-novitiate ids look like nov-<destination>-<startYear>-<n>. */
+function novitiateInfoFromId(id) {
+  const m = /^nov-(.+)-(\d{4})-\d+$/.exec(String(id));
+  return m ? { destination: m[1], startYear: parseInt(m[2], 10) } : null;
+}
+
+/**
+ * Old-save migration for men who came from a mission novitiate: record the
+ * novitiate, credit its years to both counters (once), and log it.
+ */
+function migrateNovitiate(state, id) {
+  const r = state.petitioners[id];
+  if (!r || r.novitiateCounted) return;
+  const inf = r.novitiate || novitiateInfoFromId(id);
+  if (!inf) return;
+  const e = (state.europeanLabor || []).find((x) => x.petitionerId === id);
+  const end = typeof inf.endYear === 'number' ? inf.endYear
+    : typeof r.entryYear === 'number' ? r.entryYear
+    : (e && typeof e.year === 'number') ? e.year : inf.startYear + 2;
+  const years = Math.max(0, end - inf.startYear);
+  r.novitiate = { destination: inf.destination, startYear: inf.startYear, endYear: end, years };
+  if (typeof r.yearsInSociety !== 'number') r.yearsInSociety = years;
+  // Saves that already seeded counters without the novitiate: credit it now.
+  if (typeof r.ageInReligion === 'number') {
+    if (typeof r.totalYearsInSociety !== 'number') r.totalYearsInSociety = r.ageInReligion;
+    r.ageInReligion += years;
+    r.totalYearsInSociety += years;
+  }
+  r.novitiateCounted = true;
+  persistNovitiateGrade(state, id);
+  const hv = r.historyV;
+  recordNovitiate(state, id, r.novitiate, true);
+  if (!hv) delete r.historyV; // let backfillHistory still fill the rest
+}
+
+/** First entry into the General's rolls: seed counters and log it once. */
+function enterSociety(state, petitionerId, via) {
+  const rec = state.petitioners[petitionerId];
+  if (!rec) return;
+  const fresh = typeof rec.ageInReligion !== 'number';
+  initAgeInReligion(state, petitionerId);
+  if (fresh) {
+    const viaText = { approved: 'approved for the Indies at the desk', denied: 'denied at the desk; laboring in Europe',
+      returned: 'returned from the missions', veteran: 'returned a veteran', vocation: 'from a mission novitiate', ill: 'returned ill' }[via] || via;
+    recordHistory(state, petitionerId, { kind: 'formation', event: 'entry', via,
+      text: `Enters the General's rolls (${viaText}) with ${rec.totalYearsInSociety} ${rec.totalYearsInSociety === 1 ? 'year' : 'years'} in the Society.` });
+  }
 }
 
 /**
@@ -307,6 +556,7 @@ function addEuropeanLabor(state, petitionerId, name, via) {
   if (existing) {
     existing.year = state.year;
     existing.via = via;
+    enterSociety(state, petitionerId, via);
     existing.vows = ensureVows(state, petitionerId);
     return existing;
   }
@@ -314,23 +564,160 @@ function addEuropeanLabor(state, petitionerId, name, via) {
   // entryYear must precede ensureVows (it auto-resolves past milestones by years).
   const pr0 = state.petitioners[petitionerId];
   if (pr0 && pr0.entryYear == null) pr0.entryYear = state.year;
+  enterSociety(state, petitionerId, via);
   rec.vows = ensureVows(state, petitionerId);
   state.europeanLabor.push(rec);
   return rec;
 }
 
 /**
- * Whether a man is eligible for ordination: a scholastic with 12+ years in the Society.
- * Eligibility does not confer ordination; the General must decide.
+ * Whether a man is eligible for ordination: a scholastic whose age in religion
+ * has reached the ordination threshold (12). Eligibility does not confer
+ * ordination; the General must decide.
  */
 export function ordinationEligible(state, petitionerId) {
   if (staffGradeFor(state, petitionerId) !== 'coadjutors') return false;
-  const pet = getGameData().petitioners.find((p) => p.id === petitionerId);
-  const rec = state.petitioners[petitionerId];
-  const years = (rec && rec.yearsInSociety) ?? (pet ? pet.yearsInSociety : 0) ?? 0;
-  // Years increase as the campaign progresses; use entry year + elapsed.
-  const entryYear = (rec && rec.entryYear) ?? (pet ? pet.entryYear : state.year) ?? state.year;
-  return (state.year - entryYear + years) >= 12;
+  return ageInReligion(state, petitionerId) >= FORMATION_THRESHOLDS.ordination;
+}
+
+// ---------------------------------------------------------------------------
+// Age in religion (two counters)
+// ---------------------------------------------------------------------------
+// Each man who has entered the Society carries two counters, both seeded at
+// entry (approved at the desk, or added to europeanLabor) from his historical
+// years plus any years elapsed since rec.entryYear:
+//
+//   rec.totalYearsInSociety  VISIBLE. Whole years in the Society; +1 every
+//                            year-advance, deferred or not. UI/diagnostics show it.
+//   rec.ageInReligion        BACKGROUND. The counter every formation threshold
+//                            reads. +1 every year-advance EXCEPT years in which
+//                            the man is under an active deferral
+//                            (vows.deferredUntil > the year being resolved).
+//
+// rec.entryYear is kept as a historical record only; nothing reads it after seeding.
+
+/** Legacy derivation: historical years + (current year - entry year). Pure. */
+function legacyAgeInReligion(state, petitionerId) {
+  const g = getGameData();
+  const pet = g ? (g.petitioners || []).find((p) => p.id === petitionerId) : null;
+  const rec = (state && state.petitioners) ? state.petitioners[petitionerId] : null;
+  const yearNow = (state && typeof state.year === 'number') ? state.year : 0;
+  const base = (rec && typeof rec.yearsInSociety === 'number') ? rec.yearsInSociety
+    : (pet && typeof pet.yearsInSociety === 'number') ? pet.yearsInSociety
+    : (cardYearsInSociety(state, petitionerId) ?? 0);
+  const labor = ((state && state.europeanLabor) || []).find((e) => e.petitionerId === petitionerId);
+  const entryYear = (rec && typeof rec.entryYear === 'number') ? rec.entryYear
+    : (pet && typeof pet.entryYear === 'number') ? pet.entryYear
+    : (labor && typeof labor.year === 'number') ? labor.year
+    : yearNow;
+  return Math.max(0, base + (yearNow - entryYear));
+}
+
+/**
+ * The years-in-Society figure the desk card shows for this man, using the same
+ * deterministic seeding as the card: enrichPetitioner() for historical men whose
+ * record is silent (null), fictionalPetitioner() for generated men. Null if unknown.
+ */
+export function cardYearsInSociety(state, petitionerId) {
+  try {
+    const g = getGameData();
+    const pet = g ? (g.petitioners || []).find((p) => p.id === petitionerId) : null;
+    if (pet) {
+      const ep = enrichPetitioner(pet, state.seed);
+      return typeof ep.yearsInSociety === 'number' ? ep.yearsInSociety : null;
+    }
+    const rec = state.petitioners ? state.petitioners[petitionerId] : null;
+    if (rec && rec.fictional && rec.ficNum != null && g) {
+      const fp = fictionalData(state, g, rec);
+      return typeof fp.yearsInSociety === 'number' ? fp.yearsInSociety : null;
+    }
+  } catch (e) { /* fall through */ }
+  return null;
+}
+
+function recOf(state, petitionerId) {
+  return (state && state.petitioners) ? state.petitioners[petitionerId] : null;
+}
+
+/**
+ * BACKGROUND counter used by all progression thresholds. Pauses during
+ * deferrals. Unseeded records fall back to the legacy derivation.
+ * Never mutates state and never throws.
+ */
+export function ageInReligion(state, petitionerId) {
+  try {
+    const rec = recOf(state, petitionerId);
+    if (rec && typeof rec.ageInReligion === 'number') return rec.ageInReligion;
+    return legacyAgeInReligion(state, petitionerId);
+  } catch (e) {
+    return 0;
+  }
+}
+
+/**
+ * VISIBLE counter: total years in the Society, never paused. This is what the
+ * UI and diagnostics display. Unseeded records fall back to the legacy derivation.
+ */
+export function yearsInSociety(state, petitionerId) {
+  try {
+    const rec = recOf(state, petitionerId);
+    if (rec && typeof rec.totalYearsInSociety === 'number') return rec.totalYearsInSociety;
+    return legacyAgeInReligion(state, petitionerId);
+  } catch (e) {
+    return 0;
+  }
+}
+
+/** Seed both counters if missing (entry into the Society, or old-save migration). */
+export function initAgeInReligion(state, petitionerId) {
+  const rec = recOf(state, petitionerId);
+  if (!rec) return null;
+  const hasAir = typeof rec.ageInReligion === 'number';
+  const hasTot = typeof rec.totalYearsInSociety === 'number';
+  if (!hasAir || !hasTot) {
+    const legacy = legacyAgeInReligion(state, petitionerId);
+    if (!hasTot) rec.totalYearsInSociety = hasAir ? Math.max(rec.ageInReligion, legacy) : legacy;
+    if (!hasAir) rec.ageInReligion = legacy;
+  }
+  return rec.ageInReligion;
+}
+
+/** Whether the man is under an active deferral during year y. */
+export function formationPaused(state, petitionerId, y = state && state.year) {
+  const rec = recOf(state, petitionerId);
+  const vw = rec && rec.vows;
+  return !!(vw && typeof vw.deferredUntil === 'number' && vw.deferredUntil > y);
+}
+
+/**
+ * Year-advance step for both counters. Only men who have entered the Society
+ * (entryYear set) count; the dismissed and the dead stop. Unseeded members are
+ * seeded at the current year first, so old saves migrate transparently.
+ * The total always moves; ageInReligion skips years under active deferral
+ * (only for the normal +1 step; debug jumps move both counters).
+ */
+function advanceAgeInReligion(state, years = 1, { honorDeferral = true } = {}) {
+  for (const id of Object.keys(state.petitioners || {})) {
+    const rec = state.petitioners[id];
+    if (!rec || rec.status === STATUS.DISMISSED || rec.status === STATUS.DECEASED) continue;
+    if (typeof rec.ageInReligion !== 'number' || typeof rec.totalYearsInSociety !== 'number') {
+      if (typeof rec.entryYear !== 'number' && typeof rec.ageInReligion !== 'number') continue; // not (yet) in the Society
+      initAgeInReligion(state, id);
+    }
+    rec.totalYearsInSociety = Math.max(0, rec.totalYearsInSociety + years);
+    if (honorDeferral && formationPaused(state, id, state.year)) {
+      rec.pausedYears = (rec.pausedYears || 0) + years;
+      rec.deferralPause = (rec.deferralPause || 0) + years;
+      continue;
+    }
+    if (rec.deferralPause) {
+      const n = rec.deferralPause;
+      recordHistory(state, id, { kind: 'formation', event: 'deferral-ended', pausedYears: n,
+        text: `Deferral ends; formation resumes after ${n} ${n === 1 ? 'year' : 'years'} paused (age in religion ${rec.ageInReligion}, ${rec.totalYearsInSociety - years} years in the Society).` });
+      rec.deferralPause = 0;
+    }
+    rec.ageInReligion = Math.max(0, rec.ageInReligion + years);
+  }
 }
 
 /**
@@ -413,6 +800,10 @@ function healthRating(health) {
 export function gradeFor(state, petitionerId) {
   const rec0 = state.petitioners[petitionerId];
   if (rec0 && rec0.ordainedOverride === true) return { grade: 'father', ordained: true };
+  // A grade persisted on the record (e.g. novitiate men) wins over in-memory tables.
+  if (rec0 && rec0.savedGrade && typeof rec0.savedGrade.grade === 'string') {
+    return { grade: rec0.savedGrade.grade, ordained: rec0.savedGrade.ordained ?? null };
+  }
   const g = dispositions.GRADES[petitionerId];
   if (g) return g;
   const rec = state.petitioners[petitionerId];
@@ -1088,7 +1479,18 @@ function resolveVocations(state, y) {
     rec.status = STATUS.DENIED; // available in Europe, may petition
     rec.deniedCount = 0;
     // Set grade via dispositions override
-    if (!dispositions.GRADES[n.id]) dispositions.GRADES[n.id] = { grade: 'scholastic', ordained: false };
+    // Grade and track are persisted on the record (saved with the game), not in
+    // the in-memory dispositions.GRADES table, so they survive save/reload.
+    rec.savedGrade = { grade: 'scholastic', ordained: false };
+    rec.vowsTrack = 'scholastic';
+    // Novitiate years count toward both counters: seed his historical years with
+    // the time actually spent in the mission novitiate (normally 2), then enter.
+    const novYears = Math.max(0, y - (typeof n.startYear === 'number' ? n.startYear : y - 2));
+    rec.yearsInSociety = novYears;
+    if (rec.entryYear == null) rec.entryYear = y;
+    rec.novitiate = { destination: n.destination, startYear: y - novYears, endYear: y, years: novYears };
+    rec.novitiateCounted = true;
+    recordNovitiate(state, n.id, rec.novitiate, false);
     addEuropeanLabor(state, n.id, n.name, 'vocation');
     state.ledger.unshift({
       seq: ++state.seq.ledger, year: y, type: 'vocation',
@@ -1246,7 +1648,8 @@ function isDestOpen(state, destId) {
 
 /** Human-readable history lines for a card. */
 function historyLines(g, rec) {
-  return rec.history.map((h) => `${h.year} — ${h.decision} (${destName(g, h.destination)})`);
+  return rec.history.filter((h) => h && !h.kind && h.decision)
+    .map((h) => `${h.year} — ${h.decision} (${destName(g, h.destination)})`);
 }
 
 /**
@@ -1294,7 +1697,7 @@ function buildCard(g, state, pet, letter, fromFuture = false) {
     petitionerId: ep.id,
     name: ep.name,
     age: ep.age,
-    yearsInSociety: ep.yearsInSociety,
+    yearsInSociety: typeof rec.totalYearsInSociety === 'number' ? rec.totalYearsInSociety : ep.yearsInSociety,
     formation: ep.formation,
     studies: ep.studies,
     skills: ep.skills || [],
@@ -1610,6 +2013,7 @@ export function decide(state, approvals) {
     cRec.status = STATUS.APPROVED;
     // entryYear baseline for years-in-Society.
     if (cRec.entryYear == null) cRec.entryYear = state.year;
+    enterSociety(state, card.petitionerId, 'approved');
     cRec.history.push({ year: state.year, decision: 'approved', destination });
     // He sails: no longer laboring in Europe.
     if (Array.isArray(state.europeanLabor)) {
@@ -2104,6 +2508,7 @@ export function resolveYear(state) {
     v.outcome = outcome;
     v.resolvedYear = y;
     const rec = getRecord(state, v.petitionerId);
+    recordArrival(state, g, v);
     rec.status =
       outcome === 'deceased' ? STATUS.DECEASED
       : outcome === 'returned' ? STATUS.RETURNED
@@ -2279,6 +2684,8 @@ export function resolveYear(state) {
 
   checkVowsMilestones(state, y);
 
+  // Year-advance: total years +1 for every member; ageInReligion +1 unless deferred.
+  advanceAgeInReligion(state, 1);
   state.year = y + 1;
   if (state.mode === 'campaign' && state.year > CAMPAIGN_END) state.ended = true;
   if (state.mode === 'endless' && state.year > CAMPAIGN_END && !state.diverged) {
@@ -2621,7 +3028,17 @@ export function deserialize(obj) {
   if (!('europeanLabor' in state)) state.europeanLabor = [];
   if(!Array.isArray(state.pendingVows))state.pendingVows=[];
   if(!Array.isArray(state.vowsNewsInTransit))state.vowsNewsInTransit=[];
-  for(const e of state.europeanLabor){const r=state.petitioners[e.petitionerId];e.vows=(r&&r.vows&&typeof r.vows==='object')?r.vows:ensureVows(state,e.petitionerId);if(r&&r.entryYear==null){if(e.year!=null)r.entryYear=e.year;else{const hy=(r.history||[]).find(h=>/denied/i.test(h));const hym=hy&&hy.match(/16\d\d/);r.entryYear=hym?parseInt(hym[0]):state.year-2;}}}
+  // Migration: entryYear first, then seed both counters, then vows (ensureVows reads ageInReligion).
+  for(const e of state.europeanLabor){const r=state.petitioners[e.petitionerId];if(r&&r.entryYear==null){if(e.year!=null)r.entryYear=e.year;else{const hy=(r.history||[]).find(h=>/denied/i.test(h));const hym=hy&&hy.match(/16\d\d/);r.entryYear=hym?parseInt(hym[0]):state.year-2;}}}
+  for (const id of Object.keys(state.petitioners || {})) { migrateNovitiate(state, id); persistNovitiateGrade(state, id); }
+  for (const id of Object.keys(state.petitioners || {})) {
+    const r = state.petitioners[id];
+    if (r && typeof r.entryYear === 'number') initAgeInReligion(state, id);
+  }
+  // Formation & Mission history: backfill pre-history saves from ledger/voyages/vows
+  // (before ensureVows, which records any milestones it auto-resolves).
+  for (const id of Object.keys(state.petitioners || {})) backfillHistory(state, id);
+  for(const e of state.europeanLabor){const r=state.petitioners[e.petitionerId];e.vows=(r&&r.vows&&typeof r.vows==='object')?r.vows:ensureVows(state,e.petitionerId);}
   if (!('instructions' in state) || typeof state.instructions !== 'object') state.instructions = {};
   if (!('novices' in state) || !Array.isArray(state.novices)) state.novices = [];
   if (!('zealUntil' in state)) state.zealUntil = 0;
@@ -2657,6 +3074,7 @@ export function deserialize(obj) {
 /** Jump the game clock (debug). */
 export function dbgJumpYear(state, y) {
   if (!Number.isInteger(y)) throw new Error('dbgJumpYear: year must be an integer');
+  if (typeof state.year === 'number' && y !== state.year) advanceAgeInReligion(state, y - state.year, { honorDeferral: false });
   state.year = y;
   state.currentYear = null;
   return state.year;
@@ -2719,6 +3137,7 @@ export function dbgForceOutcome(state, voyageId, outcome) {
     illRec.illYear = state.year;
   }
   const rec = getRecord(state, v.petitionerId);
+  recordArrival(state, g, v);
   rec.status =
     outcome === 'deceased' ? STATUS.DECEASED
     : outcome === 'returned' ? STATUS.RETURNED

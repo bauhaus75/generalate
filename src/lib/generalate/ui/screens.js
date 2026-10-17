@@ -56,6 +56,26 @@ function gradeChip(app, petitionerId) {
     : g.ordained === false ? 'not ordained' : 'ordination not specified in the source';
   return `<span class="grade-chip" title="${esc(ord)}">${esc(Dispositions.gradeLabel(g.grade))}</span>`;
 }
+/** Formation & Mission history panel for one man (read-only). */
+export function historyPanelHTML(app, petitionerId) {
+  if (!app.Engine.personHistory) return '<p class="insp-noev">History unavailable.</p>';
+  const h = app.Engine.personHistory(app.state, petitionerId);
+  const sm = h.summary;
+  const yrs = (n) => `${n} ${n === 1 ? 'year' : 'years'}`;
+  const summary = `<p class="hist-summary">${esc(yrs(sm.totalYearsInSociety))} in the Society · age in religion ${esc(String(sm.ageInReligion))}` +
+    `${sm.paused ? ' <em>(paused: deferred)</em>' : ''}${sm.pausedYears ? ` · ${esc(yrs(sm.pausedYears))} paused by deferral` : ''}` +
+    `${sm.entryYear != null ? ` · on the rolls since ${esc(String(sm.entryYear))}` : ''}<br>Now: ${esc(sm.location)}</p>`;
+  const list = (kind) => {
+    const evs = h.events.filter((e) => e.kind === kind);
+    if (!evs.length) return '<p class="insp-noev">Nothing recorded yet.</p>';
+    return `<ol class="hist-list">${evs.map((e) =>
+      `<li><span class="hist-year">${esc(String(e.year))}</span> <span class="hist-ev">${esc(e.label || e.event)}</span>` +
+      `${e.destinationName ? ` <span class="hist-loc">· ${esc(e.destinationName)}</span>` : ''}` +
+      `${e.text ? `<br><span class="hist-text">${esc(e.text)}</span>` : ''}</li>`).join('')}</ol>`;
+  };
+  return `${summary}<h3 class="sect">Formation</h3>${list('formation')}<h3 class="sect">Mission</h3>${list('mission')}`;
+}
+
 /** Four-layer inspector: evidence / seeded initial / current / observed. */
 export function showInspector(app, petitionerId, name) {
   const d = app.Engine.ensureDisposition(app.state, petitionerId);
@@ -81,6 +101,12 @@ export function showInspector(app, petitionerId, name) {
     <button class="overlay-close" aria-label="Close">✕</button>
     <h2 class="px">${esc(name)}</h2>
     <p class="insp-grade">${gradeChip(app, petitionerId)} <span class="insp-ord">${esc(ordNote)}</span></p>
+    <div class="insp-tabs" role="tablist">
+      <button class="insp-tab active" role="tab" aria-selected="true" data-tab="disp">Disposition</button>
+      <button class="insp-tab" role="tab" aria-selected="false" data-tab="hist">Formation &amp; Mission history</button>
+    </div>
+    <div class="insp-pane" data-pane="hist" role="tabpanel" hidden>${historyPanelHTML(app, petitionerId)}</div>
+    <div class="insp-pane" data-pane="disp" role="tabpanel">
     <h3 class="sect">What his letters attest</h3>
     ${attested.length ? `<ul class="insp-evlist">${attested.map((t) => {
       const ev = d.evidence[t.id];
@@ -93,7 +119,17 @@ export function showInspector(app, petitionerId, name) {
     ${d.observed.length ? `<ul class="insp-obs">${d.observed.map((o) => `<li>${esc(o.text)}</li>`).join('')}</ul>`
       : `<p class="insp-noev">Nothing observed yet.</p>`}
     <p class="insp-foot">Evidence is documentary; initial disposition is seeded; the rest is the game's imagining — formation changes what is present without rewriting what was attested.</p>
+    </div>
   </div>`;
+  ov.querySelectorAll('.insp-tab').forEach((tb) => tb.addEventListener('click', () => {
+    ov.querySelectorAll('.insp-tab').forEach((x) => {
+      const on = x === tb;
+      x.classList.toggle('active', on);
+      x.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    ov.querySelectorAll('.insp-pane').forEach((pn) => { pn.hidden = pn.dataset.pane !== tb.dataset.tab; });
+    app.sound('page');
+  }));
   ov.querySelector('.overlay-close').addEventListener('click', () => { app.sound('page'); ov.remove(); });
   ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); });
   document.body.appendChild(ov);

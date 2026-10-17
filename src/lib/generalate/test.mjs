@@ -2265,6 +2265,155 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
 }
 
+
+// --- 41. Governance: provincial reports & staged decisions -------------------
+{
+  const G = EngineNS;
+  // newGame initializes governance state
+  {
+    const s = newGame({ mode: 'campaign', seed: 'gov-t1' });
+    ok('gov: reports/staged init empty', Array.isArray(s.reports) && s.reports.length === 0
+      && Array.isArray(s.staged) && s.staged.length === 0 && s.seq.report === 0);
+  }
+  // fragile report generation (newly fragile only) + dedupe
+  {
+    const s = newGame({ mode: 'campaign', seed: 'gov-t2' });
+    const st = missionStaff(s, 'goa');
+    st.fathers = 0; st.coadjutors = 1; st.brothers = 0; st.capacity = 5;
+    st.fragileYears = 3; st.fragile = true;
+    // silence other missions' request reports by staffing them
+    for (const d of ['japan', 'china', 'peru', 'philippines']) {
+      const m = missionStaff(s, d); m.fathers = 2; m.coadjutors = 2; m.brothers = 1;
+    }
+    G.generateReports(s, s.year);
+    const fr = s.reports.filter((r) => r.kind === 'fragile' && r.destId === 'goa');
+    ok('gov: fragile report queued', fr.length === 1 && fr[0].status === 'pending');
+    ok('gov: fragile facts honest', fr[0].facts.staffed === 1 && fr[0].facts.capacity === 5 && fr[0].facts.fragile === true);
+    ok('gov: fragile has dispatch + instruct recs',
+      fr[0].recommendations.some((r) => r.action && r.action.type === 'dispatch')
+      && fr[0].recommendations.some((r) => r.action && r.action.type === 'instruct'));
+    const n0 = s.reports.length;
+    G.generateReports(s, s.year);
+    ok('gov: no duplicate pending report', s.reports.length === n0);
+    ok('gov: region from game data', fr[0].region === 'Asia');
+  }
+  // request report for understaffed mission
+  {
+    const s = newGame({ mode: 'campaign', seed: 'gov-t3' });
+    for (const d of ['goa', 'japan', 'china', 'philippines']) {
+      const m = missionStaff(s, d); m.fathers = 2; m.coadjutors = 2; m.brothers = 1;
+    }
+    const st = missionStaff(s, 'peru');
+    st.fathers = 0; st.coadjutors = 1; st.brothers = 0; st.capacity = 5;
+    G.generateReports(s, s.year);
+    const rq = s.reports.filter((r) => r.kind === 'request' && r.destId === 'peru' && r.status === 'pending');
+    ok('gov: request report queued', rq.length === 1);
+  }
+  // decideReport lifecycle
+  {
+    const s = newGame({ mode: 'campaign', seed: 'gov-t4' });
+    const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b', facts: {}, recommendations: [] });
+    G.decideReport(s, rep.id, 'acknowledge');
+    ok('gov: acknowledge sets status', s.reports.find((r) => r.id === rep.id).status === 'acknowledged');
+    ok('gov: acknowledge in ledger', getLedger(s).some((e) => e.type === 'report' && e.decision === 'acknowledged'));
+    let threw = false;
+    try { G.decideReport(s, rep.id, 'decline'); } catch (e) { threw = true; }
+    ok('gov: double-decide throws', threw);
+    threw = false;
+    try { G.decideReport(s, 'rep-nope', 'acknowledge'); } catch (e) { threw = true; }
+    ok('gov: unknown report throws', threw);
+    const rep2 = G.queueReport(s, { kind: 'request', destId: 'japan', year: s.year, title: 't2', body: 'b2', facts: {}, recommendations: [] });
+    G.decideReport(s, rep2.id, 'defer', 'revisit next year');
+    ok('gov: defer records note', s.reports.find((r) => r.id === rep2.id).decision.note === 'revisit next year');
+  }
+  // staging + validation
+  {
+    const s = newGame({ mode: 'campaign', seed: 'gov-t5' });
+    const rep = G.queueReport(s, { kind: 'fragile', destId: 'goa', year: s.year, title: 't', body: 'b',
+      facts: {}, recommendations: [{ id: 'reinforce', text: 'Reinforce', action: { type: 'dispatch', destId: 'goa', counts: { fathers: 0, coadjutors: 1, brothers: 0 } } }] });
+    const sa = G.stageRecommendation(s, rep.id, 'reinforce');
+    ok('gov: staged', s.staged.length === 1 && sa.status === 'staged');
+    let threw = false;
+    try { G.stageRecommendation(s, rep.id, 'reinforce'); } catch (e) { threw = true; }
+    ok('gov: duplicate stage throws', threw);
+    // invalid: drain funds so dispatch cannot be afforded
+    s.resources.funds = 0;
+    threw = false;
+    try { G.validateStagedAction(s, sa); } catch (e) { threw = true; }
+    ok('gov: validate catches insufficient funds', threw);
+    s.resources.funds = 10000;
+    const v = G.validateStagedAction(s, sa);
+    ok('gov: validate passes when affordable', v.ok === true);
+    G.discardStaged(s, sa.id);
+    ok('gov: discard removes staged', s.staged.length === 0);
+  }
+  // applyStaged: happy path + atomic rollback
+  {
+    const s = newGame({ mode: 'campaign', seed: 'gov-t6' });
+    s.resources.funds = 10000; s.available = 50;
+    const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b',
+      facts: {}, recommendations: [{ id: 'reinforce', text: 'Reinforce', action: { type: 'dispatch', destId: 'goa', counts: { fathers: 0, coadjutors: 2, brothers: 0 } } }] });
+    G.stageRecommendation(s, rep.id, 'reinforce');
+    const funds0 = s.resources.funds;
+    const staff0 = missionStaffed(missionStaff(s, 'goa'));
+    const applied = G.applyStaged(s);
+    ok('gov: apply dispatches', applied.length === 1 && s.resources.funds < funds0
+      && missionStaffed(missionStaff(s, 'goa')) === staff0 + 2);
+    ok('gov: report marked acted', s.reports.find((r) => r.id === rep.id).status === 'acted');
+    ok('gov: staged cleared', s.staged.length === 0);
+    let threw = false;
+    try { G.applyStaged(s); } catch (e) { threw = true; }
+    ok('gov: apply with empty staged throws', threw);
+  }
+  {
+    // rollback: first action valid, second fails at apply time
+    const s = newGame({ mode: 'campaign', seed: 'gov-t7' });
+    s.resources.funds = 10000; s.available = 50;
+    const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b',
+      facts: {}, recommendations: [
+        { id: 'r1', text: 'Reinforce Goa', action: { type: 'dispatch', destId: 'goa', counts: { fathers: 0, coadjutors: 1, brothers: 0 } } },
+        { id: 'r2', text: 'Instruct Goa', action: { type: 'instruct', destId: 'goa', instructionType: 'encourage' } },
+      ] });
+    G.stageRecommendation(s, rep.id, 'r1');
+    G.stageRecommendation(s, rep.id, 'r2');
+    // sabotage: put an instruction in transit so r2 fails re-validation at apply
+    s.instructions['goa'] = { type: 'expand', issuedYear: s.year, arriveYear: s.year + 2, status: 'in-transit', outcome: null };
+    const funds0 = s.resources.funds;
+    const staff0 = missionStaffed(missionStaff(s, 'goa'));
+    let threw = false;
+    try { G.applyStaged(s); } catch (e) { threw = true; }
+    ok('gov: batch with invalid action throws', threw);
+    ok('gov: rollback restored funds and staffing', s.resources.funds === funds0
+      && missionStaffed(missionStaff(s, 'goa')) === staff0);
+    ok('gov: rollback kept staged + pending', s.staged.length === 2
+      && s.reports.find((r) => r.id === rep.id).status === 'pending');
+  }
+  // persistence round-trip + legacy backfill
+  {
+    const s = newGame({ mode: 'campaign', seed: 'gov-t8b' });
+    const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b',
+      facts: { staffed: 1 }, recommendations: [{ id: 'r1', text: 't', action: { type: 'instruct', destId: 'goa', instructionType: 'encourage' } }] });
+    G.stageRecommendation(s, rep.id, 'r1');
+    const raw = serialize(s);
+    const s2 = deserialize(raw);
+    ok('gov: reports survive round-trip', s2.reports.length === 1 && s2.reports[0].id === rep.id
+      && s2.reports[0].facts.staffed === 1);
+    ok('gov: staged survives round-trip', s2.staged.length === 1 && s2.staged[0].reportId === rep.id);
+    const raw2 = serialize(s);
+    delete raw2.reports; delete raw2.staged; delete raw2.seq.report;
+    const s3 = deserialize(raw2);
+    ok('gov: legacy save backfills', Array.isArray(s3.reports) && Array.isArray(s3.staged) && s3.seq.report === 0);
+  }
+  // report ids stable across round-trip
+  {
+    const s = newGame({ mode: 'campaign', seed: 'gov-t9' });
+    const a = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 'a', body: 'b', facts: {}, recommendations: [] });
+    const b = G.queueReport(s, { kind: 'request', destId: 'japan', year: s.year, title: 'b', body: 'b', facts: {}, recommendations: [] });
+    const s2 = deserialize(serialize(s));
+    ok('gov: ids stable', s2.reports.map((r) => r.id).join(',') === [a.id, b.id].join(','));
+  }
+}
+
 console.log(`\n${failures === 0 ? 'ALL TESTS PASSED' : failures + ' FAILURES'}`);
 process.exit(failures === 0 ? 0 : 1);
 

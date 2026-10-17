@@ -548,3 +548,14 @@ body > .overlay .hist-list { list-style: none; padding-left: 0; margin: .3em 0 .
 body > .overlay .hist-list li { padding: .25em 0; border-bottom: 1px dotted rgba(107, 90, 62, .4); }
 body > .overlay .hist-year { font-weight: bold; display: inline-block; min-width: 3em; }
 body > .overlay .hist-loc, body > .overlay .hist-text { opacity: .75; }
+
+/* Governance screen */
+.gov-report { border: 1px solid rgba(107,90,62,.35); border-radius: 6px; padding: .6em .8em; margin: .6em 0; }
+.gov-report summary { cursor: pointer; }
+.gov-region { margin: 1em 0 .2em; font-variant: small-caps; letter-spacing: .06em; opacity: .85; }
+#generalate-app .badge {
+  font-size: 0.68rem; letter-spacing: 0.05em; text-transform: uppercase;
+  border: 1px solid; border-radius: 999px; padding: 0.08rem 0.45rem; margin-left: 0.35rem; white-space: nowrap;
+}
+#generalate-app .badge.ok { color: #1f4d2e; border-color: #4a7a5c; background: rgba(120,180,140,.18); }
+#generalate-app .badge.danger { color: #fff; background: var(--wax); border-color: var(--wax-deep); }

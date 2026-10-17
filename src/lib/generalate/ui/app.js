@@ -130,6 +130,7 @@ function renderHeader() {
         <button class="gbtn small ghost" id="gh-briefing">Briefing</button>
         <button class="gbtn small ghost" id="gh-house">House</button>
         <button class="gbtn small ghost" id="gh-missions">Missions</button>
+        <button class="gbtn small ghost" id="gh-governance">Governance</button>
         <button class="gbtn small ghost" id="gh-map">Map</button>
         <button class="gbtn small ghost" id="gh-ledger">Ledger</button>
         <button class="gbtn small ghost" id="gh-sound" aria-label="Toggle sound">🔊</button>
@@ -140,6 +141,7 @@ function renderHeader() {
     h.querySelector('#gh-briefing').addEventListener('click', () => { app.sound('page'); app.go('briefing'); });
     h.querySelector('#gh-house').addEventListener('click', () => { app.sound('page'); app.ui.houseFrom = app.ui.screen; app.go('house'); });
     h.querySelector('#gh-missions').addEventListener('click', () => { app.sound('page'); app.ui.missionsFrom = app.ui.screen; app.go('missions'); });
+    h.querySelector('#gh-governance').addEventListener('click', () => { app.sound('page'); app.go('governance'); });
     h.querySelector('#gh-map').addEventListener('click', () => { app.sound('page'); app.go('map', { from: app.ui.screen }); });
     h.querySelector('#gh-ledger').addEventListener('click', () => Screens.showLedgerOverlay(app));
     h.querySelector('#gh-sound').addEventListener('click', (e) => {
@@ -259,12 +261,13 @@ app.go = function (screen, params = {}) {
     }
     case 'house': app.syncHeader(); Screens.renderHouse(app, r); break;
     case 'missions': app.syncHeader(); Screens.renderMissions(app, r); break;
+    case 'governance': app.syncHeader(); Screens.renderGovernance(app, r); break;
     case 'decision': app.syncHeader(); Screens.renderDecision(app, r, app.ui.decision); break;
     case 'yearreport': app.syncHeader(); Screens.renderYearReport(app, r, app.ui.yearRes); break;
     case 'map': app.syncHeader(); Screens.renderMapScreen(app, r, params.from || app.ui.mapFrom); break;
     case 'ending': { const hh = document.getElementById('gheader'); if (hh) hh.style.display = 'none'; Screens.renderEnding(app, r, app.ui.end); break; }
   }
-  if (['briefing', 'desk', 'decision', 'yearreport', 'map', 'house', 'missions'].includes(screen)) app.save();
+  if (['briefing', 'desk', 'decision', 'yearreport', 'map', 'house', 'missions', 'governance'].includes(screen)) app.save();
 };
 
 app.newGame = function (mode, seed) {

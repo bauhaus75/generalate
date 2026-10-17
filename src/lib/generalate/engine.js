@@ -720,28 +720,6 @@ function advanceAgeInReligion(state, years = 1, { honorDeferral = true } = {}) {
   }
 }
 
-/**
- * Compute a petitioner's effective years in the Society at the current game year.
- * Returns: base yearsInSociety + elapsed years since entryYear.
- * Safe for partial or stale saves; never throws when data is missing.
- */
-export function yearsInSociety(state, petitionerId) {
-  try {
-    const g = getGameData();
-    const pet = g ? (g.petitioners || []).find((p) => p.id === petitionerId) : null;
-    const rec = (state && state.petitioners) ? state.petitioners[petitionerId] : null;
-    const base = (rec && typeof rec.yearsInSociety === 'number')
-      ? rec.yearsInSociety
-      : (pet && typeof pet.yearsInSociety === 'number' ? pet.yearsInSociety : 0);
-    const entryYear = (rec && typeof rec.entryYear === 'number')
-      ? rec.entryYear
-      : (pet && typeof pet.entryYear === 'number' ? pet.entryYear : (state && typeof state.year === 'number' ? state.year : 0));
-    const yearNow = (state && typeof state.year === 'number') ? state.year : 0;
-    return base + (yearNow - entryYear);
-  } catch (e) {
-    return 0;
-  }
-}
 
 /**
  * Ordain an eligible scholastic as a priest. The General's decision, not automatic.
@@ -1338,6 +1316,328 @@ export function issueInstruction(state, destId, typeId) {
   return rec;
 }
 
+// ---------------------------------------------------------------------------
+// Governance: provincial reports & staged decisions
+// ---------------------------------------------------------------------------
+// Provincial reports are communications from the missions to the Generalate,
+// generated from actual mission conditions (never invented). Each report
+// distinguishes: the communication, the reported facts, recommendations,
+// the decision required, the General's decision, its implementation, and the
+// historical record. Reports persist in state.reports; staged recommendations
+// persist in state.staged until applied or discarded.
+
+/** Report kinds. */
+export const REPORT_KINDS = Object.freeze({
+  fragile: 'fragile',     // mission newly fragile (autonomous)
+  request: 'request',     // mission understaffed, asks for men (autonomous)
+  account: 'account',     // full account requested via instruction, now arrived
+  voyage: 'voyage',       // notable voyage outcome: a death at sea or mission
+});
+
+/** Report lifecycle statuses. */
+export const REPORT_STATUS = Object.freeze({
+  PENDING: 'pending',
+  ACKNOWLEDGED: 'acknowledged',
+  DECLINED: 'declined',
+  DEFERRED: 'deferred',
+  ACTED: 'acted',
+});
+
+/** Decisions the General may record on a report. */
+const REPORT_DECISIONS = ['acknowledge', 'decline', 'defer'];
+
+function nextReportId(state) {
+  if (!state.seq) state.seq = {};
+  if (typeof state.seq.report !== 'number') state.seq.report = 0;
+  return `rep-${state.year}-${++state.seq.report}`;
+}
+
+function destRegion(g, destId) {
+  const d = (g.destinations || []).find((x) => x.id === destId);
+  return (d && d.region) || '';
+}
+
+function destDisplayName(g, destId) {
+  const d = (g.destinations || []).find((x) => x.id === destId);
+  return (d && (d.name || destId)) || destId;
+}
+
+/**
+ * Queue a provincial report. Deduplicates: at most one pending report per
+ * (destId, kind). Pure state transition; returns the report or the existing
+ * pending one.
+ */
+export function queueReport(state, { kind, destId, year, title, body, facts, recommendations }) {
+  if (!REPORT_KINDS[kind]) throw new Error(`queueReport: unknown kind "${kind}".`);
+  if (!Array.isArray(state.reports)) state.reports = [];
+  const g = ensureData();
+  const existing = state.reports.find((r) => r.destId === destId && r.kind === kind && r.status === REPORT_STATUS.PENDING);
+  if (existing) return existing;
+  const rep = {
+    id: nextReportId(state),
+    year: year ?? state.year,
+    kind,
+    destId,
+    destName: destDisplayName(g, destId),
+    region: destRegion(g, destId),
+    title: title || `${REPORT_KINDS[kind]} — ${destDisplayName(g, destId)}`,
+    body: body || '',
+    facts: facts && typeof facts === 'object' ? facts : {},
+    recommendations: Array.isArray(recommendations) ? recommendations.map((r, i) => ({
+      id: r.id || `rec-${i + 1}`,
+      text: r.text || '',
+      action: r.action && typeof r.action === 'object' ? r.action : null,
+    })) : [],
+    status: REPORT_STATUS.PENDING,
+    decision: null,
+  };
+  state.reports.push(rep);
+  addLedger(state, {
+    year: rep.year, type: 'report', decision: 'received', destId,
+    text: `Report received: ${rep.title}.`,
+  });
+  return rep;
+}
+
+/** Pending reports, newest first. */
+export function pendingReports(state) {
+  return (state.reports || [])
+    .filter((r) => r.status === REPORT_STATUS.PENDING)
+    .sort((a, b) => b.year - a.year);
+}
+
+function reportFacts(state, g, destId) {
+  const st = missionStaff(state, destId);
+  const staffed = missionStaffed(st);
+  return {
+    staffed, capacity: st.capacity,
+    fathers: st.fathers || 0, coadjutors: st.coadjutors || 0, brothers: st.brothers || 0,
+    fragile: !!st.fragile, fragileYears: st.fragileYears || 0,
+    strength: missionStrength(st),
+    upkeep: missionUpkeep(st),
+    access: (state.destState[destId] || {}).access || 'open',
+    danger: (state.destState[destId] || {}).danger ?? null,
+  };
+}
+
+/**
+ * Generate autonomous provincial reports from actual mission conditions.
+ * Called once per resolved year. Deterministic: text derives from facts;
+ * any randomness uses a seeded stream. Never invents people or events.
+ */
+export function generateReports(state, y) {
+  if (!Array.isArray(state.reports)) state.reports = [];
+  const g = ensureData();
+  for (const d of g.destinations) {
+    const st = missionStaff(state, d.id);
+    const facts = reportFacts(state, g, d.id);
+    // 1. Newly fragile mission: fragileYears just reached 3.
+    if (st.fragile && (st.fragileYears || 0) === 3) {
+      queueReport(state, {
+        kind: 'fragile', destId: d.id, year: y,
+        title: `The mission at ${facts.destName || d.name} is fragile`,
+        body: `Word from ${d.name || d.id}: ${facts.staffed} of ${facts.capacity} places filled, ` +
+          `three years running below strength. The mission's institutional presence is at risk. ` +
+          `Fragility is reported, not decreed: it changes no mechanics, but the General must decide whether to answer it.`,
+        facts,
+        recommendations: [
+          { id: 'reinforce', text: `Reinforce with ${Math.min(2, facts.capacity - facts.staffed)} men`, action: { type: 'dispatch', destId: d.id, counts: { fathers: 0, coadjutors: Math.min(2, facts.capacity - facts.staffed), brothers: 0 } } },
+          { id: 'instruct-consolidate', text: 'Send instruction: Consolidate', action: { type: 'instruct', destId: d.id, instructionType: 'consolidate' } },
+        ],
+      });
+    }
+    // 2. Understaffed mission asking for men (below 60% staffed, not fragile-reporting).
+    const ratio = facts.staffed / (facts.capacity || 5);
+    if (ratio < 0.6 && !(st.fragile && (st.fragileYears || 0) === 3) && facts.access !== 'closed') {
+      const want = facts.capacity - facts.staffed;
+      if (want > 0) {
+        queueReport(state, {
+          kind: 'request', destId: d.id, year: y,
+          title: `${d.name || d.id} asks for men`,
+          body: `The mission at ${d.name || d.id} reports ${facts.staffed} of ${facts.capacity} places filled ` +
+            `and asks the Generalate for reinforcement. The request is recorded; answering it is the General's decision.`,
+          facts,
+          recommendations: [
+            { id: 'reinforce', text: `Reinforce with ${Math.min(2, want)} men`, action: { type: 'dispatch', destId: d.id, counts: { fathers: 0, coadjutors: Math.min(2, want), brothers: 0 } } },
+          ],
+        });
+      }
+    }
+  }
+  // 3. Deaths: voyages resolved 'deceased' this year are reported.
+  for (const v of state.voyages || []) {
+    if (v.outcome === 'deceased' && v.resolvedYear === y && !v.deathReported) {
+      v.deathReported = true;
+      const d = (g.destinations || []).find((x) => x.id === v.destination);
+      queueReport(state, {
+        kind: 'voyage', destId: v.destination, year: y,
+        title: `Death reported: ${v.petitionerName || v.petitionerId}`,
+        body: `Word has reached Rome: ${v.petitionerName || v.petitionerId} died ${v.destination === d?.id ? `in the service of the mission to ${d.name || d.id}` : 'at sea'}. ` +
+          `The General is asked to commend the soul to God and consider encouraging the brethren who remain.`,
+        facts: { petitionerId: v.petitionerId, destination: v.destination, departYear: v.departYear },
+        recommendations: [
+          { id: 'encourage', text: 'Send instruction: Encourage the brethren', action: { type: 'instruct', destId: v.destination, instructionType: 'encourage' } },
+        ],
+      });
+    }
+  }
+}
+
+/**
+ * Record the General's decision on a report. Decisions that change nothing
+ * (acknowledge/decline/defer) are recorded honestly in the ledger.
+ * Accepting a recommendation stages it via stageRecommendation instead.
+ */
+export function decideReport(state, reportId, decision, note) {
+  if (!REPORT_DECISIONS.includes(decision)) {
+    throw new Error(`decideReport: unknown decision "${decision}". Use acknowledge, decline, or defer — or stage a recommendation.`);
+  }
+  const rep = (state.reports || []).find((r) => r.id === reportId);
+  if (!rep) throw new Error(`decideReport: unknown report "${reportId}".`);
+  if (rep.status !== REPORT_STATUS.PENDING) {
+    throw new Error(`decideReport: report "${reportId}" is already ${rep.status}; it cannot be decided twice.`);
+  }
+  const status = decision === 'acknowledge' ? REPORT_STATUS.ACKNOWLEDGED
+    : decision === 'decline' ? REPORT_STATUS.DECLINED : REPORT_STATUS.DEFERRED;
+  rep.status = status;
+  rep.decision = { decision, year: state.year, note: note || null };
+  const verb = decision === 'acknowledge' ? 'acknowledged' : decision === 'decline' ? 'declined' : 'deferred';
+  addLedger(state, {
+    year: state.year, type: 'report', decision: verb, destId: rep.destId, reportId: rep.id,
+    text: `Report ${verb}: ${rep.title}.${note ? ` ${note}` : ''}`,
+  });
+  return rep;
+}
+
+/**
+ * Stage a report recommendation for later batch application. Staging never
+ * mutates authoritative state, spends nothing, and triggers nothing.
+ */
+export function stageRecommendation(state, reportId, recId) {
+  const rep = (state.reports || []).find((r) => r.id === reportId);
+  if (!rep) throw new Error(`stageRecommendation: unknown report "${reportId}".`);
+  if (rep.status !== REPORT_STATUS.PENDING) {
+    throw new Error(`stageRecommendation: report "${reportId}" is ${rep.status}; only pending reports can be acted on.`);
+  }
+  const rec = (rep.recommendations || []).find((r) => r.id === recId);
+  if (!rec) throw new Error(`stageRecommendation: unknown recommendation "${recId}".`);
+  if (!rec.action) throw new Error(`stageRecommendation: recommendation "${recId}" carries no executable action.`);
+  if (!Array.isArray(state.staged)) state.staged = [];
+  const dup = state.staged.find((s) => s.reportId === reportId && s.recId === recId && s.status === 'staged');
+  if (dup) throw new Error(`stageRecommendation: this recommendation is already staged.`);
+  const sa = {
+    id: `stg-${state.year}-${(state.staged || []).length + 1}-${recId}`,
+    reportId, recId, destId: rep.destId,
+    label: rec.text, action: JSON.parse(JSON.stringify(rec.action)),
+    stagedYear: state.year, status: 'staged',
+  };
+  // Validate now so obviously invalid actions never reach the review list.
+  validateStagedAction(state, sa);
+  state.staged.push(sa);
+  return sa;
+}
+
+/** Remove a staged action without applying it. */
+export function discardStaged(state, stagedId) {
+  const ix = (state.staged || []).findIndex((s) => s.id === stagedId);
+  if (ix < 0) throw new Error(`discardStaged: unknown staged action "${stagedId}".`);
+  state.staged.splice(ix, 1);
+  return true;
+}
+
+function stagedDispatchCost(state, action) {
+  let cost = 0, total = 0;
+  for (const gid of rules.MISSION_GRADE_IDS) {
+    const v = (action.counts || {})[gid] ?? 0;
+    if (!Number.isInteger(v) || v < 0) throw new Error(`staged dispatch: "${gid}" must be a whole number ≥ 0.`);
+    total += v;
+    cost += v * rules.MISSION_GRADES[gid].cost;
+  }
+  if (total <= 0) throw new Error('staged dispatch: choose at least one man to send.');
+  return { cost, total };
+}
+
+/**
+ * Dry-run validation of a staged action against CURRENT state.
+ * Throws on invalid; never mutates.
+ */
+export function validateStagedAction(state, sa) {
+  const a = sa.action || {};
+  const g = ensureData();
+  if (a.type === 'dispatch') {
+    const dest = g.destinations.find((d) => d.id === a.destId);
+    if (!dest) throw new Error(`staged dispatch: unknown destination "${a.destId}".`);
+    if (!isDestOpen(state, a.destId)) throw new Error(`staged dispatch: ${dest.name || a.destId} is closed to new men.`);
+    const { cost, total } = stagedDispatchCost(state, a);
+    if (state.resources.funds < cost) throw new Error(`staged dispatch: ${cost} scudi needed, the chest holds ${state.resources.funds}.`);
+    if ((state.available || 0) < total) throw new Error(`staged dispatch: only ${state.available || 0} men can be spared.`);
+    return { ok: true, cost, total };
+  }
+  if (a.type === 'instruct') {
+    const dest = g.destinations.find((d) => d.id === a.destId);
+    if (!dest) throw new Error(`staged instruction: unknown destination "${a.destId}".`);
+    if (!isDestOpen(state, a.destId)) throw new Error(`staged instruction: ${dest.name || a.destId} is closed.`);
+    const known = ['expand', 'consolidate', 'report', 'encourage', 'admonish'];
+    if (!known.includes(a.instructionType)) throw new Error(`staged instruction: unknown instruction "${a.instructionType}".`);
+    const cur = (state.instructions || {})[a.destId];
+    if (cur && cur.status === 'in-transit') throw new Error(`staged instruction: one is already in transit to ${dest.name || a.destId}.`);
+    return { ok: true };
+  }
+  throw new Error(`validateStagedAction: unknown action type "${a.type}".`);
+}
+
+function applyStagedAction(state, sa) {
+  const a = sa.action;
+  if (a.type === 'dispatch') {
+    const res = dispatchMission(state, a.destId, a.counts);
+    return `Dispatched ${res.total} to ${a.destId} (${res.cost} scudi).`;
+  }
+  if (a.type === 'instruct') {
+    issueInstruction(state, a.destId, a.instructionType);
+    return `Instruction sent to ${a.destId}: ${a.instructionType}.`;
+  }
+  throw new Error(`applyStagedAction: unknown action type "${a.type}".`);
+}
+
+/**
+ * Apply all staged actions as one batch. Every action is re-validated against
+ * current state first; then all are applied. If any application throws, the
+ * whole batch is rolled back to the pre-apply snapshot and nothing is
+ * recorded as applied. Reports whose recommendations were applied are marked
+ * acted, with a ledger entry describing what actually happened.
+ */
+export function applyStaged(state) {
+  const staged = (state.staged || []).filter((s) => s.status === 'staged');
+  if (!staged.length) throw new Error('applyStaged: no staged actions to apply.');
+  for (const sa of staged) validateStagedAction(state, sa);
+  const backup = JSON.stringify(state);
+  const applied = [];
+  try {
+    for (const sa of staged) {
+      const note = applyStagedAction(state, sa);
+      sa.status = 'applied';
+      sa.appliedYear = state.year;
+      applied.push({ id: sa.id, note });
+      const rep = (state.reports || []).find((r) => r.id === sa.reportId);
+      if (rep && rep.status === REPORT_STATUS.PENDING) {
+        rep.status = REPORT_STATUS.ACTED;
+        rep.decision = { decision: 'acted', year: state.year, note: sa.label };
+        addLedger(state, {
+          year: state.year, type: 'report', decision: 'acted', destId: rep.destId, reportId: rep.id,
+          text: `Report acted on: ${rep.title} — ${sa.label}. ${note}`,
+        });
+      }
+    }
+  } catch (e) {
+    const restored = JSON.parse(backup);
+    for (const k of Object.keys(state)) delete state[k];
+    Object.assign(state, restored);
+    throw new Error(`applyStaged: batch failed and was rolled back unchanged: ${e.message}`);
+  }
+  state.staged = (state.staged || []).filter((s) => s.status !== 'applied');
+  return applied;
+}
+
 /**
  * Instrumentation only (Stage 0): parallel uncapped score. Every site that
  * moves the capped score calls trackScoreDelta with the IDENTICAL delta.
@@ -1405,9 +1705,25 @@ function resolveInstructions(state, y) {
       }
     } else if (inst.type === 'report') {
       // Reports inform; no mechanical effect, but the General learns.
+      // A cooperative mission now delivers a real, reviewable account.
       effectText = outcome === 'obeyed' ? ' A full account arrives.' :
         outcome === 'disobeyed' ? ' The account is evasive and incomplete.' :
         ' A partial account arrives.';
+      if (outcome === 'obeyed' || outcome === 'adapted') {
+        const facts = reportFacts(state, g, destId);
+        queueReport(state, {
+          kind: 'account', destId, year: y,
+          title: `Full account from ${dName}`,
+          body: outcome === 'obeyed'
+            ? `The account requested of ${dName} has arrived: ${facts.staffed} of ${facts.capacity} places filled ` +
+              `(${facts.fathers} fathers, ${facts.coadjutors} coadjutors, ${facts.brothers} brothers)` +
+              `${facts.fragile ? '; the mission reports itself fragile' : ''}. It awaits the General's reading.`
+            : `A partial account arrives from ${dName}: ${facts.staffed} of ${facts.capacity} places filled. ` +
+              `The superior begs the General's patience for what is missing.`,
+          facts,
+          recommendations: [],
+        });
+      }
     } else if (inst.type === 'encourage') {
       // Encouragement may improve future cooperation: small chance of +1 score.
       if (outcome === 'obeyed') {
@@ -1595,6 +1911,8 @@ export function newGame({ mode = 'campaign', seed = 'generalate', data = null } 
     zealUntil: 0,     // year through which veteran zeal aids voyage checks
     currentTerna: null, // {year, cards:[...]} while awaiting decide()
     instructions: {}, // destId -> {type, issuedYear, arriveYear, status, outcome}
+    reports: [],      // provincial reports: {id, year, kind, destId, title, body, facts, recommendations[], status, decision}
+    staged: [],       // staged governance actions awaiting batch application
     novices: [], // {id, name, destination, startYear, readyYear} - candidates in formation
     currentYear: null,  // UI-facing mirror: {year, briefing, terna, decided, decisionResult}
     stats: {
@@ -1605,7 +1923,7 @@ export function newGame({ mode = 'campaign', seed = 'generalate', data = null } 
       missionDispatches: 0, missionDispatchDests: {}, // report-card instrumentation (additive)
     },
     firedEvents: [],
-    seq: { ledger: 0, voyage: 0, fic: 0, team: 0, deployment: 0 },
+    seq: { ledger: 0, voyage: 0, fic: 0, team: 0, deployment: 0, report: 0 },
     rngState: rng.getState(),
     endlessRngState: endlessRng.getState(),
   };
@@ -2679,6 +2997,9 @@ export function resolveYear(state) {
   // Resolve instructions arriving this year.
   resolveInstructions(state, y);
 
+  // Provincial reports: autonomous reports from actual mission conditions.
+  generateReports(state, y);
+
   // Novitiate vocations.
   resolveVocations(state, y);
 
@@ -3040,6 +3361,9 @@ export function deserialize(obj) {
   for (const id of Object.keys(state.petitioners || {})) backfillHistory(state, id);
   for(const e of state.europeanLabor){const r=state.petitioners[e.petitionerId];e.vows=(r&&r.vows&&typeof r.vows==='object')?r.vows:ensureVows(state,e.petitionerId);}
   if (!('instructions' in state) || typeof state.instructions !== 'object') state.instructions = {};
+  if (!Array.isArray(state.reports)) state.reports = [];
+  if (!Array.isArray(state.staged)) state.staged = [];
+  if (!('report' in (state.seq || {}))) state.seq.report = 0;
   if (!('novices' in state) || !Array.isArray(state.novices)) state.novices = [];
   if (!('zealUntil' in state)) state.zealUntil = 0;
   // Stage 0 instrumentation: pre-instrumentation saves have no uncapped history;

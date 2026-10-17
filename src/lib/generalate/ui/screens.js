@@ -847,6 +847,133 @@ function wireDeploymentPanel(app, root) {
   });
 }
 
+/* ---------------- governance: provincial reports & staged decisions ---------------- */
+
+const GOV_KIND_LABEL = { fragile: 'Fragile mission', request: 'Asks for men', account: 'Full account', voyage: 'Death reported' };
+
+function govReportFactsHTML(facts) {
+  const rows = [];
+  if (facts.staffed != null) rows.push(['Staffed', `${facts.staffed} of ${facts.capacity}`]);
+  if (facts.fathers != null) rows.push(['Fathers / coadjutors / brothers', `${facts.fathers} / ${facts.coadjutors} / ${facts.brothers}`]);
+  if (facts.fragile != null) rows.push(['Fragile', facts.fragile ? `yes (${facts.fragileYears}y)` : 'no']);
+  if (facts.strength != null) rows.push(['Mission strength', String(facts.strength)]);
+  if (facts.danger != null) rows.push(['Danger', '●'.repeat(facts.danger) + '○'.repeat(Math.max(0, 4 - facts.danger))]);
+  if (facts.petitionerId) rows.push(['Soul', esc(facts.petitionerId)]);
+  if (!rows.length) return '';
+  return `<dl class="dossier-list">${rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join('')}</dl>`;
+}
+
+export function renderGovernance(app, root) {
+  const E = app.Engine;
+  const pending = E.pendingReports ? E.pendingReports(app.state) : [];
+  const staged = (app.state.staged || []).filter((s) => s.status === 'staged');
+  const ternaPending = !!(app.state.currentTerna && (app.state.currentTerna.cards || []).length);
+  const vowsPending = (app.state.pendingVows || []).length;
+
+  // Group pending reports by region (from game data; no invented provinces).
+  const byRegion = {};
+  for (const r of pending) {
+    const key = r.region || 'Other';
+    (byRegion[key] = byRegion[key] || []).push(r);
+  }
+
+  // Decision history: governance-relevant ledger entries, newest first.
+  const hist = (app.state.ledger || [])
+    .filter((e) => e.type === 'report' || (e.type === 'decision' && /terna|seal/i.test(e.text || '')) || e.type === 'instruction')
+    .slice(-30).reverse();
+
+  const awaiting = [];
+  if (ternaPending) awaiting.push(`<li><strong>Terna</strong> awaits judgment — <button class="linklike" data-goto="desk">go to the Desk</button></li>`);
+  if (vowsPending) awaiting.push(`<li><strong>${vowsPending} formation decision${vowsPending === 1 ? '' : 's'}</strong> await${vowsPending === 1 ? 's' : ''} judgment — <button class="linklike" data-goto="desk">go to the Desk</button></li>`);
+  if (pending.length) awaiting.push(`<li><strong>${pending.length} provincial report${pending.length === 1 ? '' : 's'}</strong> await${pending.length === 1 ? 's' : ''} review below</li>`);
+
+  const reportCard = (r) => {
+    const recs = (r.recommendations || []).map((rec) => {
+      const already = staged.some((s) => s.reportId === r.id && s.recId === rec.id);
+      return `<li>${esc(rec.text)}${rec.action
+        ? (already ? ` <span class="disp-mini">staged</span>`
+          : ` <button class="gbtn small ghost gov-stage" data-report="${esc(r.id)}" data-rec="${esc(rec.id)}">Stage</button>`)
+        : ''}</li>`;
+    }).join('');
+    return `<details class="gov-report" ${pending.includes(r) ? 'open' : ''}>
+      <summary><span class="badge">${esc(GOV_KIND_LABEL[r.kind] || r.kind)}</span> <strong>${esc(r.title)}</strong>
+      <span class="disp-mini">anno ${r.year} · ${esc(r.destName || r.destId)}</span>
+      <span class="disp-mini">${esc(r.status)}</span></summary>
+      <p>${esc(r.body)}</p>
+      ${govReportFactsHTML(r.facts || {})}
+      ${recs ? `<p><strong>Recommendations</strong> (the mission proposes; the General disposes):</p><ul>${recs}</ul>` : `<p class="howto-note">No recommendations — this report asks only to be read.</p>`}
+      <div class="btn-row">
+        <button class="gbtn small gov-decide" data-report="${esc(r.id)}" data-decision="acknowledge">Acknowledge</button>
+        <button class="gbtn small ghost gov-decide" data-report="${esc(r.id)}" data-decision="defer">Defer</button>
+        <button class="gbtn small warn gov-decide" data-report="${esc(r.id)}" data-decision="decline">Decline</button>
+      </div>
+    </details>`;
+  };
+
+  const stagedRows = staged.map((s) => {
+    let validity = '';
+    try { E.validateStagedAction(app.state, s); validity = '<span class="badge ok">valid</span>'; }
+    catch (e) { validity = `<span class="badge danger">invalid: ${esc(e.message)}</span>`; }
+    return `<li>${esc(s.label)} <span class="disp-mini">(${esc(s.destId)}, staged anno ${s.stagedYear})</span> ${validity}
+      <button class="gbtn small ghost gov-discard" data-staged="${esc(s.id)}">Discard</button></li>`;
+  }).join('');
+
+  root.innerHTML = `
+  <section class="gscreen">
+    <p class="kicker px">GOVERNANCE</p>
+    <h2 class="year-head px">The Generalate — anno ${app.state.year}</h2>
+    <p class="howto-note">Reports from the missions, staged decisions, and the record of what was decided. Staging never spends, moves, or commits anything; applying validates everything again first.</p>
+
+    <h3 class="sect">Awaiting judgment</h3>
+    ${awaiting.length ? `<ul class="news-list">${awaiting.join('')}</ul>` : `<p class="howto-note">Nothing awaits judgment. The desk is clear.</p>`}
+
+    <h3 class="sect">Provincial reports ${pending.length ? `(${pending.length} pending)` : ''}</h3>
+    ${pending.length ? Object.entries(byRegion).map(([region, reps]) => `
+      <h4 class="gov-region">${esc(region)}</h4>
+      ${reps.map(reportCard).join('')}`).join('') : `<p class="howto-note">No pending reports.</p>`}
+
+    <h3 class="sect">Staged actions ${staged.length ? `(${staged.length})` : ''}</h3>
+    ${staged.length ? `<ul class="news-list">${stagedRows}</ul>
+      <div class="btn-row"><button class="gbtn primary" id="gov-apply">Apply all staged actions</button></div>
+      <p class="howto-note">Applying re-validates every action against current state. If any fails, the whole batch is rolled back unchanged.</p>`
+      : `<p class="howto-note">No staged actions. Stage a recommendation from a report above.</p>`}
+
+    <h3 class="sect">Decision record</h3>
+    ${hist.length ? `<ul class="news-list">${hist.map((e) => `<li><span class="disp-mini">anno ${e.year}</span> ${esc(e.text || '')}</li>`).join('')}</ul>`
+      : `<p class="howto-note">No governance decisions recorded yet.</p>`}
+  </section>`;
+
+  root.querySelectorAll('[data-goto]').forEach((b) => b.addEventListener('click', () => { app.sound('page'); app.go(b.dataset.goto); }));
+  root.querySelectorAll('.gov-stage').forEach((b) => b.addEventListener('click', () => {
+    try {
+      E.stageRecommendation(app.state, b.dataset.report, b.dataset.rec);
+      app.save(); app.sound('page'); app.go('governance');
+    } catch (e) { app.sound('error'); alert(e.message); }
+  }));
+  root.querySelectorAll('.gov-decide').forEach((b) => b.addEventListener('click', () => {
+    try {
+      const note = b.dataset.decision === 'decline' ? prompt('Record a reason for declining (optional):') : null;
+      E.decideReport(app.state, b.dataset.report, b.dataset.decision, note || undefined);
+      app.save(); app.sound('page'); app.go('governance');
+    } catch (e) { app.sound('error'); alert(e.message); }
+  }));
+  root.querySelectorAll('.gov-discard').forEach((b) => b.addEventListener('click', () => {
+    try {
+      E.discardStaged(app.state, b.dataset.staged);
+      app.save(); app.sound('page'); app.go('governance');
+    } catch (e) { app.sound('error'); alert(e.message); }
+  }));
+  const applyBtn = root.querySelector('#gov-apply');
+  if (applyBtn) applyBtn.addEventListener('click', () => {
+    try {
+      const applied = E.applyStaged(app.state);
+      app.save(); app.sound('coin');
+      alert(`Applied ${applied.length} action${applied.length === 1 ? '' : 's'}:\n${applied.map((a) => '• ' + a.note).join('\n')}`);
+      app.go('governance');
+    } catch (e) { app.sound('error'); alert(e.message); }
+  });
+}
+
 export function renderMissions(app, root) {
   const E = app.Engine;
   const year = app.state.currentYear ? app.state.currentYear.year : app.state.year;

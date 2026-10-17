@@ -1,0 +1,2879 @@
+/** engine.js — GENERALATE simulation engine. Pure logic: no DOM, no network.
+ * All randomness is seeded and serialized; playthroughs are reproducible. */
+
+import { makeRng } from './rng.js';
+import { getGameData } from './data.js';
+import * as rules from './rules.js';
+import * as dice from './dice.js';
+import * as dispositions from './dispositions.js';
+import { fictionalPetitioner, archiveFictional, MAX_ACTIVE_FICTIONAL } from './generator.js';
+import {decideVows,inviteFinalVows,completeFinalVows,rankSuffix,checkVowsMilestones,ensureVows,purgeVowsState,vowsTrackFor} from './vows.js';
+export {decideVows,inviteFinalVows,completeFinalVows,rankSuffix,purgeVowsState,vowsTrackFor};
+
+export const CAMPAIGN_START = 1615;
+export const CAMPAIGN_END = 1645;
+// 1615–1645 inclusive = 31 ternas (the "30 rounds" in the brief is approximate).
+export const CAMPAIGN_ROUNDS = CAMPAIGN_END - CAMPAIGN_START + 1; // 31
+
+/** Re-exported so the UI can read tuning constants (e.g. COMPANION_MAX). */
+export const RESOURCES = rules.RESOURCES;
+
+/** Re-exported so the UI can read mission grade tuning (costs, strength, upkeep). */
+export const MISSION_GRADES = rules.MISSION_GRADES;
+export const MISSION_GRADE_IDS = rules.MISSION_GRADE_IDS;
+
+/**
+ * Destination lookup for the UI: {id: {id, name, port, region}}.
+ * Populated from game data on first use (data loads async via data.js).
+ */
+export const DESTINATIONS = {};
+
+function refreshDestinations(g) {
+  for (const d of g.destinations) {
+    DESTINATIONS[d.id] = {
+      id: d.id,
+      name: d.name || d.id,
+      port: (d.ports && d.ports[d.ports.length - 1]) || d.id,
+      region: d.region || '',
+    };
+  }
+}
+
+/** Petitioner record statuses. */
+export const STATUS = Object.freeze({
+  NEW: 'new',           // never appeared in a terna
+  DENIED: 'denied',     // denied at least once; may return
+  APPROVED: 'approved', // approved; waiting in the departure queue
+  IN_TRANSIT: 'in-transit',
+  ACTIVE: 'active',     // thriving or reassigned at the mission
+  RETURNED: 'returned',
+  ILL: 'ill',
+  DECEASED: 'deceased',
+  DISMISSED: 'dismissed',
+});
+
+/** Statuses eligible to appear in a terna. */
+const TERNA_ELIGIBLE = [STATUS.NEW, STATUS.DENIED];
+
+/** Fictional petitioners denied this many times lay down the petition (rolling cap). */
+const FIC_DENIAL_RETIREMENT = 3;
+
+function campaignCompleteError() {
+  const e = new Error(`Campaign complete (${CAMPAIGN_START}–${CAMPAIGN_END}). Call endGame().`);
+  e.code = 'CAMPAIGN_COMPLETE';
+  return e;
+}
+
+export function ensureData(override) {
+  const raw = override || getGameData();
+  if (!raw) {
+    throw new Error('GENERALATE: no game data — call loadGameData() or setGameData() first.');
+  }
+  refreshDestinations(raw);
+  return raw;
+}
+
+/** Restore the main RNG from serialized state. */
+function mainRng(state) {
+  const r = makeRng('generalate:main');
+  r.setState(state.rngState);
+  return r;
+}
+
+/** Persist RNG state back into the state object. */
+function saveRng(state, rng) {
+  state.rngState = rng.getState();
+}
+
+/** Deterministic substream from seed + label only; never perturbs other streams. */
+export function streamFor(state, ...parts) {
+  return makeRng(`${state.seed}::${parts.join(':')}`);
+}
+
+function initDestState(destinations) {
+  const ds = {};
+  for (const d of destinations) ds[d.id] = { danger: 1, access: 'open' };
+  return ds;
+}
+
+// ---------------------------------------------------------------------------
+// Mission staffing — men stationed at each mission, by Jesuit grade.
+// ---------------------------------------------------------------------------
+
+/**
+ * Initial staffing per mission. The missions are not empty in 1615 — each
+ * begins at roughly half its capacity, split across the three grades in a
+ * fixed deterministic ratio. The General's task is to bring them to strength.
+ */
+function initMissions(destinations) {
+  const ms = {};
+  const list = destinations || Object.keys(rules.MISSION_CAPACITY).map((id) => ({ id }));
+  for (const d of list) {
+    const id = d.id || d;
+    const capacity = rules.MISSION_CAPACITY[id] ?? 5;
+    const total = Math.floor(capacity * 0.35);
+    const fathers = Math.round(total * 0.2);
+    const coadjutors = Math.round(total * 0.3);
+    ms[id] = {
+      fathers,
+      coadjutors,
+      brothers: Math.max(0, total - fathers - coadjutors),
+      capacity,
+      fragileYears: 0,
+      fragile: false,
+      thrivingCount: 0,
+    };
+  }
+  return ms;
+}
+
+/** Get-or-create the staffing record for a mission. */
+export function missionStaff(state, destId) {
+  if (!state.missions || typeof state.missions !== 'object') state.missions = initMissions();
+  let st = state.missions[destId];
+  if (!st) {
+    st = { fathers: 0, coadjutors: 0, brothers: 0, capacity: rules.MISSION_CAPACITY[destId] ?? 5 };
+    state.missions[destId] = st;
+  }
+  for (const gid of rules.MISSION_GRADE_IDS) if (typeof st[gid] !== 'number' || st[gid] < 0) st[gid] = 0;
+  if (typeof st.capacity !== 'number' || st.capacity < 1) st.capacity = rules.MISSION_CAPACITY[destId] ?? 5;
+  if (typeof st.fragileYears !== 'number' || st.fragileYears < 0) st.fragileYears = 0;
+  if (typeof st.fragile !== 'boolean') st.fragile = st.fragileYears >= 3;
+  if (typeof st.thrivingCount !== 'number' || st.thrivingCount < 0) st.thrivingCount = 0;
+  return st;
+}
+
+/** Total souls stationed at a mission. */
+export function missionStaffed(st) {
+  return rules.MISSION_GRADE_IDS.reduce((n, gid) => n + (st[gid] || 0), 0);
+}
+
+/** Mission strength: grade-weighted station strength (fathers 3, coadjutors 2, brothers 1). */
+export function missionStrength(st) {
+  return rules.MISSION_GRADE_IDS.reduce((n, gid) => n + (st[gid] || 0) * rules.MISSION_GRADES[gid].strength, 0);
+}
+
+/** Voyage bonus from a strengthened mission: +1 per 6 strength, capped. */
+export function missionVoyageBonus(state, destId) {
+  const strength = missionStrength(missionStaff(state, destId));
+  return Math.min(rules.MISSION_BONUS_MAX, Math.floor(strength / rules.MISSION_STRENGTH_PER_BONUS));
+}
+
+/** Yearly upkeep (scudi) for one mission: its capacity costs resources to sustain. */
+export function missionUpkeep(st) {
+  return Math.max(1, Math.round((st.capacity || 5) / 2));
+}
+
+/** Missions below capacity, most-needed first — they ask the General for more men. */
+export function missionRequests(state) {
+  const g = ensureData();
+  const out = [];
+  for (const d of g.destinations) {
+    const st = missionStaff(state, d.id);
+    const staffed = missionStaffed(st);
+    if (staffed < st.capacity) {
+      out.push({ destId: d.id, name: d.name || d.id, staffed, capacity: st.capacity, want: st.capacity - staffed });
+    }
+  }
+  out.sort((a, b) => b.want - a.want);
+  return out;
+}
+
+/**
+ * Dispatch men directly to a mission, choosing the grade mix.
+ * Costs scudi per grade and draws each man from the mission-eligible pool.
+ * Invalid dispatches throw and change nothing.
+ */
+export function dispatchMission(state, destId, counts = {}) {
+  const g = ensureData();
+  const dest = g.destinations.find((d) => d.id === destId);
+  if (!dest) throw new Error(`dispatchMission: unknown destination "${destId}"`);
+  const dst = state.destState[destId];
+  if (dst && dst.access === 'closed') throw new Error(`dispatchMission: ${dest.name || destId} is closed to new men`);
+  const n = {};
+  let total = 0;
+  let cost = 0;
+  for (const gid of rules.MISSION_GRADE_IDS) {
+    const v = counts[gid] ?? 0;
+    if (!Number.isInteger(v) || v < 0) throw new Error(`dispatchMission: "${gid}" must be a whole number ≥ 0`);
+    n[gid] = v;
+    total += v;
+    cost += v * rules.MISSION_GRADES[gid].cost;
+  }
+  if (total <= 0) throw new Error('dispatchMission: choose at least one man to send');
+  if (state.resources.funds < cost) {
+    throw new Error(`dispatchMission: ${cost} scudi needed, the chest holds ${state.resources.funds}`);
+  }
+  if ((state.available || 0) < total) {
+    throw new Error(`dispatchMission: only ${state.available || 0} men can be spared`);
+  }
+  state.resources.funds -= cost;
+  state.available -= total;
+  const st = missionStaff(state, destId);
+  for (const gid of rules.MISSION_GRADE_IDS) st[gid] += n[gid];
+  // Report-card instrumentation (additive only): record mission-strengthening
+  // investments for the end-of-generalate report. Never affects rules.
+  if (!state.stats) state.stats = {};
+  state.stats.missionDispatches = (state.stats.missionDispatches || 0) + total;
+  if (!state.stats.missionDispatchDests || typeof state.stats.missionDispatchDests !== 'object') {
+    state.stats.missionDispatchDests = {};
+  }
+  state.stats.missionDispatchDests[destId] =
+    (state.stats.missionDispatchDests[destId] || 0) + total;
+  const parts = rules.MISSION_GRADE_IDS.filter((gid) => n[gid] > 0)
+    .map((gid) => `${n[gid]} ${rules.MISSION_GRADES[gid].short.toLowerCase()}`);
+  state.ledger.unshift({
+    seq: ++state.seq.ledger, year: state.year, type: 'dispatch',
+    text: `Dispatched ${parts.join(', ')} to ${dest.name || destId} — ${cost} scudi from the chest.`,
+  });
+  return { destId, ...n, total, cost };
+}
+
+/**
+ * Map a petitioner's grade/ordination to a mission-staffing grade bucket.
+ * Fictional and unattested grades land with the brothers (honest default).
+ */
+export function staffGradeFor(state, petitionerId) {
+  // Vows stage takes precedence: it reflects the man's actual rank in the formation system.
+  const entry = (state.europeanLabor || []).find((e) => e.petitionerId === petitionerId);
+  if (entry && entry.vows && entry.vows.stage) {
+    const stage = entry.vows.stage;
+    if (stage === 'ordained' || stage === 'coadjutor' || stage === 'professed') return 'fathers';
+    if (stage === 'scholastic' || stage === 'novice') return 'coadjutors';
+    if (stage === 'brother') return 'brothers';
+  }
+  const gr = gradeFor(state, petitionerId);
+  const grade = String(gr.grade || '').toLowerCase();
+  if (gr.ordained === true || grade === 'father' || grade === 'professed') return 'fathers';
+  if (grade === 'scholastic') return 'coadjutors';
+  return 'brothers';
+}
+
+/**
+ * A thriving arrival joins the mission's stationed strength; the companions
+ * who sailed with him stay on as brothers. Tracked on the voyage so a later
+ * homecoming can release them.
+ */
+function staffArrival(state, v) {
+  const sg = staffGradeFor(state, v.petitionerId);
+  const mst = missionStaff(state, v.destination);
+  mst[sg] += 1;
+  const comps = Math.max(0, v.companions || 0);
+  if (comps > 0) mst.brothers += comps;
+  v.staffGrade = sg;
+  v.staffCompanions = comps;
+}
+
+function destName(g, id) {
+  return g.destinations.find((d) => d.id === id)?.name || DESTINATIONS[id]?.name || id;
+}
+
+/** Get-or-create the engine's per-petitioner record (id → status/history). */
+export function ensureRecord(state, id, fictional = false) {
+  let rec = state.petitioners[id];
+  if (!rec) {
+    rec = {
+      id, fictional: !!fictional, status: STATUS.NEW,
+      history: [], deniedCount: 0, usedLetters: [], voyages: [],
+      archived: false, ficNum: null, genYear: null,
+    };
+    state.petitioners[id] = rec;
+  }
+  return rec;
+}
+
+function getRecord(state, id) {
+  const rec = state.petitioners[id];
+  if (!rec) throw new Error(`Unknown petitioner id "${id}"`);
+  return rec;
+}
+
+/** Append a ledger entry with a monotonic sequence number. */
+export function addLedger(state, entry) {
+  state.ledger.push({ seq: ++state.seq.ledger, ...entry });
+  return state.ledger[state.ledger.length - 1];
+}
+
+/**
+ * Record a man laboring in Europe (denied at the desk, or returned from a
+ * voyage). One entry per man; re-denial refreshes the year. European fruit
+ * is visible in the briefing; only the returned earn score (+1 on the news).
+ */
+function addEuropeanLabor(state, petitionerId, name, via) {
+  if (!Array.isArray(state.europeanLabor)) state.europeanLabor = [];
+  const r0=state.petitioners[petitionerId];
+  if(r0&&(r0.status===STATUS.DISMISSED||r0.status===STATUS.DECEASED))throw new Error(`addEuropeanLabor: "${petitionerId}" is ${r0.status}.`);
+  const existing = state.europeanLabor.find((e) => e.petitionerId === petitionerId);
+  if (existing) {
+    existing.year = state.year;
+    existing.via = via;
+    existing.vows = ensureVows(state, petitionerId);
+    return existing;
+  }
+  const rec = { petitionerId, name, year: state.year, via, assignment: null };
+  // entryYear must precede ensureVows (it auto-resolves past milestones by years).
+  const pr0 = state.petitioners[petitionerId];
+  if (pr0 && pr0.entryYear == null) pr0.entryYear = state.year;
+  rec.vows = ensureVows(state, petitionerId);
+  state.europeanLabor.push(rec);
+  return rec;
+}
+
+/**
+ * Whether a man is eligible for ordination: a scholastic with 12+ years in the Society.
+ * Eligibility does not confer ordination; the General must decide.
+ */
+export function ordinationEligible(state, petitionerId) {
+  if (staffGradeFor(state, petitionerId) !== 'coadjutors') return false;
+  const pet = getGameData().petitioners.find((p) => p.id === petitionerId);
+  const rec = state.petitioners[petitionerId];
+  const years = (rec && rec.yearsInSociety) ?? (pet ? pet.yearsInSociety : 0) ?? 0;
+  // Years increase as the campaign progresses; use entry year + elapsed.
+  const entryYear = (rec && rec.entryYear) ?? (pet ? pet.entryYear : state.year) ?? state.year;
+  return (state.year - entryYear + years) >= 12;
+}
+
+/**
+ * Compute a petitioner's effective years in the Society at the current game year.
+ * Returns: base yearsInSociety + elapsed years since entryYear.
+ * Safe for partial or stale saves; never throws when data is missing.
+ */
+export function yearsInSociety(state, petitionerId) {
+  try {
+    const g = getGameData();
+    const pet = g ? (g.petitioners || []).find((p) => p.id === petitionerId) : null;
+    const rec = (state && state.petitioners) ? state.petitioners[petitionerId] : null;
+    const base = (rec && typeof rec.yearsInSociety === 'number')
+      ? rec.yearsInSociety
+      : (pet && typeof pet.yearsInSociety === 'number' ? pet.yearsInSociety : 0);
+    const entryYear = (rec && typeof rec.entryYear === 'number')
+      ? rec.entryYear
+      : (pet && typeof pet.entryYear === 'number' ? pet.entryYear : (state && typeof state.year === 'number' ? state.year : 0));
+    const yearNow = (state && typeof state.year === 'number') ? state.year : 0;
+    return base + (yearNow - entryYear);
+  } catch (e) {
+    return 0;
+  }
+}
+
+/**
+ * Ordain an eligible scholastic as a priest. The General's decision, not automatic.
+ * Sets an override so staffGradeFor returns 'fathers'. Cannot be undone.
+ */
+export function ordainPriest(state, petitionerId) {
+  if (!ordinationEligible(state, petitionerId)) {
+    throw new Error('Ordination requires an eligible scholastic (12+ years in the Society).');
+  }
+  const entry = (state.europeanLabor || []).find((e) => e.petitionerId === petitionerId);
+  const name = entry ? entry.name : petitionerId;
+  const rec = ensureRecord(state, petitionerId, false);
+  rec.ordainedOverride = true;
+  rec.ordinationYear = state.year;
+  addLedger(state, {
+    year: state.year, type: 'ordination', petitionerId, decision: 'ordained',
+    text: `${name} ordained to the priesthood.`,
+  });
+  return true;
+}
+
+/**
+ * Career stage for display: scholastic, ordination-eligible, ordained, veteran.
+ */
+export function careerStage(state, petitionerId) {
+  const grade = staffGradeFor(state, petitionerId);
+  if (grade === 'fathers') {
+    const rec = state.petitioners[petitionerId];
+    const isVeteran = (state.europeanLabor || []).some((e) => e.petitionerId === petitionerId && e.via === 'veteran');
+    return isVeteran ? 'veteran priest' : 'ordained priest';
+  }
+  if (grade === 'coadjutors') {
+    return ordinationEligible(state, petitionerId) ? 'ordination-eligible scholastic' : 'scholastic';
+  }
+  return 'brother';
+}
+
+/** Health description → 1–5 dot rating for the UI. */
+function healthRating(health) {
+  if (/good health/i.test(health || '')) return 4;
+  if (/delicate/i.test(health || '')) return 2;
+  if (/recovering/i.test(health || '')) return 3;
+  return 3;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2 — persistent dispositions & formation
+// ---------------------------------------------------------------------------
+
+/**
+ * Grade for a petitioner. Historical men: the archive's cataloging, never
+ * altered by game systems ("undetermined" stays "Not specified in the
+ * source"). Fictional men: seeded. Priesthood vs. other states is preserved
+ * as {grade, ordained}.
+ */
+export function gradeFor(state, petitionerId) {
+  const rec0 = state.petitioners[petitionerId];
+  if (rec0 && rec0.ordainedOverride === true) return { grade: 'father', ordained: true };
+  const g = dispositions.GRADES[petitionerId];
+  if (g) return g;
+  const rec = state.petitioners[petitionerId];
+  if (rec && rec.fictional) {
+    const grade = streamFor(state, 'grade', petitionerId)
+      .pick(['brother', 'brother', 'brother', 'scholastic', 'scholastic', 'father']);
+    return { grade, ordained: grade === 'father' };
+  }
+  return { grade: 'undetermined', ordained: null };
+}
+
+/**
+ * Ensure the four-layer disposition record exists. Deterministic per
+ * seed + man: evidence is hand-curated (missing = not attested, never a
+ * low score); initial is seeded (attested traits start at 4–5); current
+ * begins as a copy of initial; observed accumulates along the way.
+ */
+export function ensureDisposition(state, petitionerId) {
+  const rec = ensureRecord(state, petitionerId);
+  if (!rec.disposition) {
+    const evidence = dispositions.EVIDENCE[petitionerId] || {};
+    const rng = streamFor(state, 'disposition', petitionerId);
+    const initial = {};
+    for (const t of dispositions.TRAITS) {
+      if (evidence[t.id]) {
+        initial[t.id] = rng.chance(0.5) ? 5 : 4; // his letters attest it: start strong
+      } else {
+        const r = rng.float();
+        initial[t.id] = r < 0.08 ? 1 : r < 0.25 ? 2 : r < 0.75 ? 3 : r < 0.92 ? 4 : 5;
+      }
+    }
+    rec.disposition = { evidence, initial, current: { ...initial }, observed: [] };
+  }
+  return rec.disposition;
+}
+
+/** Append a simulated observation — labeled observed, never confused with evidence. */
+export function observe(state, petitionerId, text) {
+  const d = ensureDisposition(state, petitionerId);
+  d.observed.push({ year: state.year, text });
+}
+
+/** Voyage d20 modifiers from the man's CURRENT disposition (zeal, prudence). */
+function dispositionVoyageMods(state, petitionerId) {
+  const cur = ensureDisposition(state, petitionerId).current;
+  const mods = [];
+  if (cur.zeal >= 4) mods.push({ label: 'fervent zeal', value: 1 });
+  else if (cur.zeal <= 2) mods.push({ label: 'faltering zeal', value: -1 });
+  if (cur.prudence >= 4) mods.push({ label: 'prudent preparation', value: 1 });
+  else if (cur.prudence <= 2) mods.push({ label: 'imprudent haste', value: -1 });
+  return mods;
+}
+
+/**
+ * Assign a year of formation to a man laboring in Europe. Costs
+ * FORMATION_COST scudi and the man's year. No double-booking: he must be
+ * in Europe, not already in formation, and formation never touches his
+ * grade — a brother does not become a priest in a year.
+ */
+export function assignFormation(state, petitionerId, focusId) {
+  const focus = dispositions.formationById(focusId);
+  if (!focus) throw new Error(`assignFormation: unknown focus "${focusId}".`);
+  const entry = (state.europeanLabor || []).find((e) => e.petitionerId === petitionerId);
+  if (!entry) throw new Error('Formation is for men laboring in Europe.');
+  if (entry.formation && entry.formation.until >= state.year) {
+    throw new Error(`${entry.name} is already in formation until ${entry.formation.until}.`);
+  }
+  if (entry.assignment) {
+    throw new Error(`${entry.name} holds a domestic assignment (${entry.assignment}); release him first or interrupt it explicitly.`);
+  }
+  const cost = hasFormationAide(state)
+    ? Math.max(10, dispositions.FORMATION_COST - (rules.DOMESTIC_ROLES.formationAid.formationDiscount || 0))
+    : dispositions.FORMATION_COST;
+  if (state.resources.funds < cost) {
+    throw new Error(`The mission chest cannot bear the formation cost (${cost} scudi).`);
+  }
+  state.resources.funds -= cost;
+  entry.formation = { focus: focusId, until: state.year + 1 };
+  ensureDisposition(state, petitionerId);
+  addLedger(state, {
+    year: state.year, type: 'formation',
+    petitionerId, decision: 'assigned', status: 'in-formation',
+    note: `${entry.name} begins a year of ${focus.name.toLowerCase()}.`,
+  });
+  return entry.formation;
+}
+
+/**
+ * Assign a man laboring in Europe to a domestic apostolate.
+ * The man must be in europeanLabor, unassigned, and meet the role's requirements.
+ * Assigned men do not petition in ternas (opportunity cost).
+ * Returns the assignment record.
+ */
+export function assignDomestic(state, petitionerId, roleId) {
+  const role = rules.DOMESTIC_ROLES[roleId];
+  if (!role) throw new Error(`assignDomestic: unknown role "${roleId}".`);
+  const entry = (state.europeanLabor || []).find((e) => e.petitionerId === petitionerId);
+  if (!entry) throw new Error('Domestic assignment is for men laboring in Europe.');
+  if (entry.ill) throw new Error(`${entry.name} is recovering from illness and cannot take an assignment.`);
+  if (entry.assignment) throw new Error(`${entry.name} already holds a domestic assignment (${entry.assignment}). Release him first.`);
+  if (entry.formation && entry.formation.until >= state.year) {
+    throw new Error(`${entry.name} is in formation until ${entry.formation.until}; interrupt formation or wait.`);
+  }
+  // Qualification checks
+  const grade = staffGradeFor(state, petitionerId); // 'fathers'|'coadjutors'|'brothers'
+  const disp = ensureDisposition(state, petitionerId);
+  if (roleId === 'teaching') {
+    if (grade === 'brothers') throw new Error('Teaching requires a scholastic or priest, not a brother.');
+  } else if (roleId === 'pastoral') {
+    if (grade !== 'fathers') throw new Error('Pastoral ministry requires an ordained priest.');
+  } else if (roleId === 'formationAid') {
+    if (grade !== 'fathers') throw new Error('Formation service requires an ordained priest.');
+    if ((disp.current?.prudence ?? 3) < 4) throw new Error('Formation service requires proven prudence (4+).');
+  } else if (roleId === 'studies') {
+    if (grade !== 'coadjutors') throw new Error('Continued studies are for scholastics.');
+  }
+  entry.assignment = roleId;
+  entry.assignedYear = state.year;
+  addLedger(state, {
+    year: state.year, type: 'domestic', petitionerId, decision: 'assigned',
+    note: `${entry.name} assigned to ${role.name.toLowerCase()}.`,
+  });
+  return { role: roleId, sinceYear: state.year };
+}
+
+/**
+ * Release a man from his domestic assignment. He becomes available again
+ * (may petition in future ternas, subject to existing eligibility).
+ */
+export function unassignDomestic(state, petitionerId) {
+  const entry = (state.europeanLabor || []).find((e) => e.petitionerId === petitionerId);
+  if (!entry) throw new Error('No such man laboring in Europe.');
+  if (!entry.assignment) throw new Error(`${entry.name} holds no domestic assignment.`);
+  const role = rules.DOMESTIC_ROLES[entry.assignment];
+  entry.assignment = null;
+  delete entry.assignedYear;
+  addLedger(state, {
+    year: state.year, type: 'domestic', petitionerId, decision: 'released',
+    note: `${entry.name} released from ${role ? role.name.toLowerCase() : 'domestic service'}.`,
+  });
+  return true;
+}
+
+/**
+ * Emergency dispatch: send a man directly from the formation house to a mission.
+ * Interrupts his formation (forfeits the 20 scudi cost and any disposition gain;
+ * formation is a fixed 1-year commitment with no partial progress).
+ * Applies normal dispatch costs and mission staffing rules. No voyage — the man
+ * arrives directly, as with dispatchMission. The man must be otherwise eligible
+ * (correct grade for the mission, destination open).
+ * Returns {petitionerId, destId, grade, cost}.
+ */
+export function dispatchFromFormation(state, petitionerId, destId) {
+  const entry = (state.europeanLabor || []).find((e) => e.petitionerId === petitionerId);
+  if (!entry) throw new Error('Emergency dispatch is for men laboring in Europe.');
+  if (entry.ill) {
+    throw new Error(`${entry.name} is recovering from illness and cannot be dispatched.`);
+  }
+  if (!entry.formation || entry.formation.until < state.year) {
+    throw new Error(`${entry.name} is not currently in formation.`);
+  }
+  if (entry.assignment) {
+    throw new Error(`${entry.name} holds a domestic assignment; release him first.`);
+  }
+  const g = ensureData();
+  const dest = g.destinations.find((d) => d.id === destId);
+  if (!dest) throw new Error(`dispatchFromFormation: unknown destination "${destId}"`);
+  const dst = state.destState[destId];
+  if (dst && dst.access === 'closed') throw new Error(`dispatchFromFormation: ${dest.name || destId} is closed to new men`);
+  const grade = staffGradeFor(state, petitionerId);
+  const cost = rules.MISSION_GRADES[grade].cost;
+  if (state.resources.funds < cost) {
+    throw new Error(`dispatchFromFormation: ${cost} scudi needed, the chest holds ${state.resources.funds}`);
+  }
+  // Interrupt formation: forfeit cost and benefit (fixed 1-year, no partial progress).
+  const fName = entry.formation.focus;
+  entry.formation = null;
+  // Remove from European labor; he is now at the mission.
+  state.europeanLabor = state.europeanLabor.filter((e) => e.petitionerId !== petitionerId);
+  state.resources.funds -= cost;
+  const st = missionStaff(state, destId);
+  st[grade] += 1;
+  // Mark the petitioner record as active overseas.
+  const rec = ensureRecord(state, petitionerId, false);
+  rec.status = STATUS.ACTIVE;
+  rec.history.push({ year: state.year, decision: 'emergency-dispatch', destination: destId, fromFormation: fName });
+  addLedger(state, {
+    year: state.year, type: 'dispatch', petitionerId, decision: 'emergency',
+    text: `${entry.name} dispatched from formation to ${dest.name || destId} — formation interrupted (forfeited), ${cost} scudi from the chest.`,
+  });
+  return { petitionerId, destId, grade, cost, forfeitedFormation: fName };
+}
+
+/**
+ * Dispatch a man from European labor directly to a mission.
+ * For men who have completed formation or were never in formation.
+ * Unlike terna approvals, this does not create a voyage — the man
+ * is placed directly at the mission (representing arranged travel).
+ * The man must not be ill, in formation, or holding a domestic assignment.
+ */
+export function dispatchFromEurope(state, petitionerId, destId) {
+  const entry = (state.europeanLabor || []).find((e) => e.petitionerId === petitionerId);
+  if (!entry) throw new Error('Dispatch is for men laboring in Europe.');
+  if (entry.ill) throw new Error(`${entry.name} is recovering from illness and cannot be dispatched.`);
+  if (entry.formation && entry.formation.until >= state.year) {
+    throw new Error(`${entry.name} is in formation until ${entry.formation.until}; use emergency dispatch or wait.`);
+  }
+  if (entry.assignment) {
+    throw new Error(`${entry.name} holds a domestic assignment; release him first.`);
+  }
+  const g = ensureData();
+  const dest = g.destinations.find((d) => d.id === destId);
+  if (!dest) throw new Error(`dispatchFromEurope: unknown destination "${destId}"`);
+  const dst = state.destState[destId];
+  if (dst && dst.access === 'closed') throw new Error(`dispatchFromEurope: ${dest.name || destId} is closed to new men`);
+  const grade = staffGradeFor(state, petitionerId);
+  const cost = rules.MISSION_GRADES[grade].cost;
+  if (state.resources.funds < cost) {
+    throw new Error(`dispatchFromEurope: ${cost} scudi needed, the chest holds ${state.resources.funds}`);
+  }
+  state.europeanLabor = state.europeanLabor.filter((e) => e.petitionerId !== petitionerId);
+  state.resources.funds -= cost;
+  const st = missionStaff(state, destId);
+  st[grade] += 1;
+  const rec = ensureRecord(state, petitionerId, false);
+  rec.status = STATUS.ACTIVE;
+  rec.history.push({ year: state.year, decision: 'dispatch-europe', destination: destId });
+  addLedger(state, {
+    year: state.year, type: 'dispatch', petitionerId, decision: 'europe',
+    text: `${entry.name} dispatched from Europe to ${dest.name || destId} — ${cost} scudi from the chest.`,
+  });
+  return { petitionerId, destId, grade, cost };
+}
+
+// ---------------------------------------------------------------------------
+// Collective deployment (Stage 1)
+//
+// Moves a group of eligible European Jesuits to a mission without an
+// individual terna decision for every man. The order commits named men from
+// europeanLabor into the departure queue; they sail via the existing
+// departure loop (berths → men to spare → funds → hulls), costing
+// DEPARTURE_COST per man at departure, and their voyages resolve through
+// the existing seeded mechanics. Deployment purpose is informational only.
+// ---------------------------------------------------------------------------
+
+/**
+ * Deployment purposes are recorded intent only (Stage 1). They have no
+ * mechanical effect on costs, voyages, staffing, scoring, or outcomes.
+ */
+export const DEPLOYMENT_PURPOSES = Object.freeze({
+  reinforce: 'Reinforce an established mission',
+  found: 'Establish a new work',
+  replace: 'Replace losses / strengthen a fragile community',
+  college: 'Support an expanding college or institution',
+});
+
+/** Minimum men for a collective deployment (a single man uses terna/dispatch). */
+export const DEPLOYMENT_MIN_SIZE = 2;
+
+/**
+ * Whether a europeanLabor entry may be selected for a collective deployment.
+ * Same guards as direct dispatch from Europe: the man must be present in
+ * Europe, healthy, out of formation, and free of domestic assignment.
+ */
+export function deploymentEligible(state, entry) {
+  if (!entry) return false;
+  if (entry.ill) return false;
+  if (entry.formation && entry.formation.until >= state.year) return false;
+  if (entry.assignment) return false;
+  return true;
+}
+
+/** Men currently selectable for a deployment, with grades attached. */
+export function deploymentCandidates(state) {
+  return (state.europeanLabor || [])
+    .filter((e) => deploymentEligible(state, e))
+    .map((e) => ({ ...e, staffGrade: staffGradeFor(state, e.petitionerId) }));
+}
+
+function sortCandidates(a, b) {
+  return (a.year - b.year) || (a.petitionerId < b.petitionerId ? -1 : a.petitionerId > b.petitionerId ? 1 : 0);
+}
+
+/**
+ * Deterministically select deployment members from the eligible pool.
+ * Sort: longest in Europe (earliest labor year), then petitionerId. No RNG:
+ * same state + request selects the same contingent.
+ * Mode: { count } for a headcount, or { grades: { fathers, coadjutors, brothers } }
+ * for grade composition (keys from rules.MISSION_GRADE_IDS).
+ * Throws when fewer than requested are eligible — never silently shrinks.
+ */
+export function selectDeploymentMembers(state, sel = {}) {
+  const cands = deploymentCandidates(state);
+  let picked = [];
+  if (sel.grades) {
+    for (const gid of rules.MISSION_GRADE_IDS) {
+      const want = sel.grades[gid] ?? 0;
+      if (!Number.isInteger(want) || want < 0) {
+        throw new Error(`selectDeploymentMembers: grade "${gid}" count must be a whole number ≥ 0`);
+      }
+      const have = cands.filter((c) => c.staffGrade === gid).sort(sortCandidates);
+      if (have.length < want) {
+        throw new Error(`selectDeploymentMembers: only ${have.length} eligible ${gid}, ${want} requested`);
+      }
+      picked = picked.concat(have.slice(0, want));
+    }
+  } else {
+    const count = sel.count ?? 0;
+    if (!Number.isInteger(count) || count < 0) {
+      throw new Error('selectDeploymentMembers: count must be a whole number ≥ 0');
+    }
+    const sorted = [...cands].sort(sortCandidates);
+    if (sorted.length < count) {
+      throw new Error(`selectDeploymentMembers: only ${sorted.length} eligible men, ${count} requested`);
+    }
+    picked = sorted.slice(0, count);
+  }
+  return picked.map((c) => c.petitionerId);
+}
+
+/** Order a collective deployment of named eligible men to a destination. */
+export function orderDeployment(state, { destId, purpose, memberIds }) {
+  const g = ensureData();
+  const dest = g.destinations.find((d) => d.id === destId);
+  if (!dest) throw new Error(`orderDeployment: unknown destination "${destId}"`);
+  const dst = state.destState[destId];
+  if (dst && dst.access === 'closed') {
+    throw new Error(`orderDeployment: ${dest.name || destId} is closed to new men`);
+  }
+  if (!DEPLOYMENT_PURPOSES[purpose]) {
+    throw new Error(`orderDeployment: unknown purpose "${purpose}"`);
+  }
+  if (!Array.isArray(memberIds) || memberIds.length < DEPLOYMENT_MIN_SIZE) {
+    throw new Error(`orderDeployment: a deployment needs at least ${DEPLOYMENT_MIN_SIZE} men`);
+  }
+  const seen = new Set();
+  for (const id of memberIds) {
+    if (seen.has(id)) throw new Error(`orderDeployment: "${id}" is listed twice`);
+    seen.add(id);
+  }
+  // Re-validate eligibility at order time: the UI's candidate list may be stale.
+  const entries = new Map((state.europeanLabor || []).map((e) => [e.petitionerId, e]));
+  for (const id of memberIds) {
+    const e = entries.get(id);
+    if (!e) throw new Error(`orderDeployment: "${id}" is not laboring in Europe`);
+    if (!deploymentEligible(state, e)) {
+      throw new Error(`orderDeployment: "${e.name || id}" is not eligible (ill, in formation, or assigned)`);
+    }
+    if ((state.queue || []).some((q) => q.petitionerId === id && q.status === 'awaiting')) {
+      throw new Error(`orderDeployment: "${e.name || id}" is already awaiting departure`);
+    }
+  }
+  // Fail early on funds: the loop would otherwise strand the men in the queue.
+  const estCost = memberIds.length * rules.RESOURCES.DEPARTURE_COST;
+  if ((state.resources.funds || 0) < estCost) {
+    throw new Error(`orderDeployment: ${estCost} scudi needed to embark ${memberIds.length} men; the chest holds ${state.resources.funds || 0}`);
+  }
+  if (!Array.isArray(state.deployments)) state.deployments = [];
+  if (!state.seq || typeof state.seq.deployment !== 'number') {
+    state.seq = state.seq || {};
+    state.seq.deployment = state.seq.deployment || 0;
+  }
+  const depId = `dep-${state.year}-${++state.seq.deployment}`;
+  const teamId = `deploy-team-${depId}`;
+  const destName = dest.name || destId;
+  for (const id of memberIds) {
+    const e = entries.get(id);
+    state.europeanLabor = state.europeanLabor.filter((x) => x.petitionerId !== id);
+    const rec = ensureRecord(state, id, false);
+    rec.status = STATUS.APPROVED;
+    rec.history.push({ year: state.year, decision: 'deployment', destination: destId, deploymentId: depId });
+    state.queue.push({
+      petitionerId: id,
+      petitionerName: e.name || id, // europeanLabor name; voyage records prefer this over cardName
+      approvedYear: state.year,
+      destination: destId,
+      status: 'awaiting',
+      teamId,
+      teamSize: memberIds.length,
+      companions: 0,
+      deploymentId: depId,
+    });
+  }
+  const dep = {
+    id: depId, year: state.year, destId, destName,
+    purpose, memberIds: [...memberIds], voyageIds: [],
+    // Names are snapshotted here: members leave europeanLabor at order time,
+    // and their voyage record (with the name) only exists once they sail.
+    memberNames: Object.fromEntries(memberIds.map((id) => [id, entries.get(id).name || id])),
+  };
+  state.deployments.push(dep);
+  addLedger(state, {
+    year: state.year, type: 'deployment', destination: destId,
+    text: `Collective deployment ordered: ${memberIds.map((id) => (entries.get(id).name || id)).join(', ')} for ${destName} — ${DEPLOYMENT_PURPOSES[purpose].toLowerCase()} (${memberIds.length} men, ${estCost} scudi to embark).`,
+  });
+  return dep;
+}
+
+/**
+ * Record a deployment voyage on its registry entry when the departure loop
+ * creates it. Called by the departure loop only.
+ */
+function recordDeploymentVoyage(state, voyage) {
+  if (!voyage || !voyage.deploymentId) return;
+  const dep = (state.deployments || []).find((d) => d.id === voyage.deploymentId);
+  if (dep && !dep.voyageIds.includes(voyage.id)) dep.voyageIds.push(voyage.id);
+}
+
+/**
+ * Derive a deployment's status from its members' voyage states.
+ * 'ordered' = no member has sailed yet; 'in-transit' = at least one sailed
+ * and at least one voyage unresolved; 'arrived' = every member's voyage
+ * resolved (any outcome). Descriptive only — it never drives resolution.
+ */
+export function deploymentStatus(state, depId) {
+  const dep = (state.deployments || []).find((d) => d.id === depId);
+  if (!dep) return null;
+  const byMember = new Map();
+  for (const v of (state.voyages || [])) {
+    if (v.deploymentId === depId) byMember.set(v.petitionerId, v);
+  }
+  let awaiting = 0, transit = 0, resolved = 0;
+  for (const id of dep.memberIds) {
+    const v = byMember.get(id);
+    if (v && v.outcome) resolved++;
+    else if (v) transit++;
+    else awaiting++;
+  }
+  const status = awaiting === dep.memberIds.length ? 'ordered'
+    : resolved === dep.memberIds.length ? 'arrived' : 'in-transit';
+  return { status, awaiting, transit, resolved, total: dep.memberIds.length };
+}
+
+/**
+ * Constraint analysis for a prospective deployment of `count` men.
+ * Reports each of the four departure constraints separately and names the
+ * binding one in planning order: funds (which gates the order itself),
+ * then men to spare, berths, hulls. Pure: no mutation.
+ * Hull capacity is per-hull souls; berths are per-man per-year — a contingent
+ * that fits one hull can still need several sailing years of berths.
+ */
+export function deploymentConstraints(state, count) {
+  const berthsPerYear = state.resources.berthsPerYear || 0;
+  const freeHulls = (state.resources.ships || []).filter((s) => (s.freeYear || 0) <= state.year);
+  const cost = count * rules.RESOURCES.DEPARTURE_COST;
+  const avail = state.available || 0;
+  const funds = state.resources.funds || 0;
+  const sailingYears = berthsPerYear > 0 ? Math.ceil(count / berthsPerYear) : Infinity;
+  let bottleneck = null;
+  if (funds < cost) bottleneck = 'funds';
+  else if (avail < count) bottleneck = 'men';
+  else if (berthsPerYear < count) bottleneck = 'berths';
+  else if (freeHulls.length === 0) bottleneck = 'hulls';
+  return {
+    count, cost,
+    berthsNeeded: count, berthsPerYear, sailingYears,
+    hullSouls: count, hullCapacity: rules.RESOURCES.SHIP_CAPACITY, hullsFree: freeHulls.length,
+    menNeeded: count, menAvailable: avail,
+    fundsNeeded: cost, funds,
+    bottleneck, // null when the whole contingent can sail this year
+  };
+}
+
+/**
+ * Per-member roster for a deployment: each member's name, grade, and current
+ * state — 'awaiting' (in the departure queue), 'in-transit' (voyage en route),
+ * or the resolved voyage outcome ('thriving', 'returned', 'ill', 'deceased').
+ * Used by the UI status list and tests.
+ */
+export function deploymentRoster(state, depId) {
+  const dep = (state.deployments || []).find((d) => d.id === depId);
+  if (!dep) return null;
+  const byMember = new Map();
+  for (const v of (state.voyages || [])) {
+    if (v.deploymentId === depId) byMember.set(v.petitionerId, v);
+  }
+  const names = new Map((state.europeanLabor || []).map((e) => [e.petitionerId, e.name]));
+  return dep.memberIds.map((id) => {
+    const v = byMember.get(id);
+    return {
+      petitionerId: id,
+      name: (v && (v.petitionerName || v.name)) || names.get(id) || (dep.memberNames && dep.memberNames[id]) || id,
+      grade: staffGradeFor(state, id),
+      state: v && v.outcome ? v.outcome : v ? 'in-transit' : 'awaiting',
+      voyageId: v ? v.id : null,
+      arriveYear: v ? v.arriveYear : null,
+    };
+  });
+}
+
+/**
+ * Instruction types the General may issue to a mission superior.
+ * Instructions travel by the same delays as voyages; they do not take effect before arrival.
+ */
+const INSTRUCTION_TYPES = Object.freeze({
+  expand: Object.freeze({ id: 'expand', name: 'Expand the mission', desc: 'Seek growth: new stations, more baptisms.' }),
+  consolidate: Object.freeze({ id: 'consolidate', name: 'Consolidate', desc: 'Be cautious: strengthen what exists.' }),
+  report: Object.freeze({ id: 'report', name: 'Send full account', desc: 'Request a detailed report of the mission\'s state.' }),
+  encourage: Object.freeze({ id: 'encourage', name: 'Encourage the brethren', desc: 'Praise their labors; strengthen resolve.' }),
+  admonish: Object.freeze({ id: 'admonish', name: 'Admonish', desc: 'Correct faults; demand amendment.' }),
+});
+
+/**
+ * Issue an instruction to a mission superior. The instruction travels by sea;
+ * it arrives after the destination's travel time and is then resolved by seeded
+ * mechanics using the mission's leadership (fathers present).
+ * Returns the instruction record.
+ */
+export function issueInstruction(state, destId, typeId) {
+  const type = INSTRUCTION_TYPES[typeId];
+  if (!type) throw new Error(`issueInstruction: unknown instruction "${typeId}".`);
+  const g = ensureData();
+  const dest = g.destinations.find((d) => d.id === destId);
+  if (!dest) throw new Error(`issueInstruction: unknown destination "${destId}"`);
+  const dst = state.destState[destId];
+  if (dst && dst.access === 'closed') throw new Error(`issueInstruction: ${dest.name || destId} is closed`);
+  if (!state.instructions) state.instructions = {};
+  if (state.instructions[destId] && state.instructions[destId].status === 'in-transit') {
+    throw new Error(`An instruction to ${dest.name || destId} is already in transit.`);
+  }
+  const travelYears = Math.max(1, Math.min(3, Math.round(dest.travelYears || 2)));
+  const rec = {
+    type: typeId, issuedYear: state.year,
+    arriveYear: state.year + travelYears,
+    status: 'in-transit', outcome: null,
+  };
+  state.instructions[destId] = rec;
+  addLedger(state, {
+    year: state.year, type: 'instruction', decision: 'issued',
+    text: `Instruction to ${dest.name || destId}: ${type.name.toLowerCase()} (arrives ${rec.arriveYear}).`,
+  });
+  return rec;
+}
+
+/**
+ * Instrumentation only (Stage 0): parallel uncapped score. Every site that
+ * moves the capped score calls trackScoreDelta with the IDENTICAL delta.
+ * This never affects rules, the cap, voyage resolution, or any mechanic —
+ * it is a measurement counter for balance simulations.
+ * @param {object} state
+ * @param {number} delta the exact delta applied to the capped score
+ */
+function trackScoreDelta(state, delta) {
+  if (typeof state.scoreUncapped !== 'number') state.scoreUncapped = rules.SCORE.START;
+  state.scoreUncapped += delta;
+}
+
+/**
+ * Resolve instructions arriving this year. Uses the mission's fathers as a proxy
+ * for leadership quality. Outcomes: obeyed, adapted, delayed, disobeyed.
+ * All seeded and reproducible.
+ */
+function resolveInstructions(state, y) {
+  if (!state.instructions) return;
+  for (const [destId, inst] of Object.entries(state.instructions)) {
+    if (inst.status !== 'in-transit' || inst.arriveYear > y) continue;
+    const st = missionStaff(state, destId);
+    const fathers = st.fathers || 0;
+    // Leadership quality: more fathers = better odds, but never guaranteed.
+    const obedienceBase = 0.55 + Math.min(0.3, fathers * 0.1);
+    const rng = streamFor(state, 'instruction', destId, String(y));
+    const roll = rng.float();
+    let outcome;
+    if (roll < obedienceBase * 0.7) outcome = 'obeyed';
+    else if (roll < obedienceBase) outcome = 'adapted';
+    else if (roll < obedienceBase + 0.15) outcome = 'delayed';
+    else outcome = 'disobeyed';
+    inst.status = 'resolved';
+    inst.outcome = outcome;
+    inst.resolvedYear = y;
+    const g = ensureData();
+    const dest = g.destinations.find((d) => d.id === destId);
+    const dName = dest ? dest.name || destId : destId;
+    // Effects depend on instruction type and outcome.
+    let effectText = '';
+    if (inst.type === 'expand') {
+      if (outcome === 'obeyed') {
+        // Growth: small chance of a new vocation joining the mission
+        const vrng = streamFor(state, 'instruction-voc', destId, String(y));
+        if (vrng.chance(0.3) && st.brothers < 10) {
+          st.brothers += 1;
+          effectText = ' A new brother joins the mission.';
+        }
+      } else if (outcome === 'disobeyed') {
+        // Reckless overreach: costs score
+        state.score = rules.addScore(state.score, -1);
+        trackScoreDelta(state, -1);
+        effectText = ' Reckless overreach causes scandal (-1 score).';
+      } else if (outcome === 'adapted') {
+        effectText = ' The superior adapts prudently to local conditions.';
+      }
+    } else if (inst.type === 'consolidate') {
+      if (outcome === 'disobeyed') {
+        state.score = rules.addScore(state.score, -1);
+        trackScoreDelta(state, -1);
+        effectText = ' The superior ignores caution and overextends (-1 score).';
+      } else {
+        effectText = outcome === 'obeyed' ? ' The mission steadies.' : ' The superior adapts prudently.';
+      }
+    } else if (inst.type === 'report') {
+      // Reports inform; no mechanical effect, but the General learns.
+      effectText = outcome === 'obeyed' ? ' A full account arrives.' :
+        outcome === 'disobeyed' ? ' The account is evasive and incomplete.' :
+        ' A partial account arrives.';
+    } else if (inst.type === 'encourage') {
+      // Encouragement may improve future cooperation: small chance of +1 score.
+      if (outcome === 'obeyed') {
+        const erng = streamFor(state, 'instruction-enc', destId, String(y));
+        if (erng.chance(0.4)) {
+          state.score = rules.addScore(state.score, 1);
+          trackScoreDelta(state, 1);
+          effectText = ' The brethren take heart; their fervor bears fruit (+1 score).';
+        } else {
+          effectText = ' The brethren receive the encouragement gladly.';
+        }
+      } else {
+        effectText = ' The encouragement arrives but changes little.';
+      }
+    } else if (inst.type === 'admonish') {
+      // Admonishment may improve compliance or have little effect.
+      if (outcome === 'obeyed') {
+        effectText = ' The superior receives the correction humbly.';
+      } else if (outcome === 'disobeyed') {
+        state.score = rules.addScore(state.score, -1);
+        trackScoreDelta(state, -1);
+        effectText = ' The admonition is resented; discipline suffers (-1 score).';
+      } else {
+        effectText = ' The admonition produces a partial amendment.';
+      }
+    }
+    state.ledger.unshift({
+      seq: ++state.seq.ledger, year: y, type: 'instruction',
+      text: `From ${dName}: instruction ${outcome}.${effectText}`,
+    });
+  }
+}
+
+/**
+ * Resolve novitiate vocations. Each functioning novitiate (mission with 2+ fathers)
+ * has a 20% yearly chance to receive a candidate. Candidates mature after 2 years
+ * and enter European labor as scholastics. Seeded and reproducible.
+ * These are new vocations, distinct from the abstract annual Society intake.
+ */
+function resolveVocations(state, y) {
+  if (!state.novices) state.novices = [];
+  for (const nov of state.novitiates || []) {
+    const st = missionStaff(state, nov.destination);
+    if ((st.fathers || 0) < 2) continue; // understaffed: no vocations
+    const rng = streamFor(state, 'vocation', nov.destination, String(y));
+    if (rng.chance(0.20)) {
+      const nid = `nov-${nov.destination}-${y}-${state.novices.length}`;
+      // Simple name generation from destination
+      const names = ['Paolo', 'Giovanni', 'Antonio', 'Francesco', 'Pietro', 'Giuseppe'];
+      const name = rng.pick(names) + ' (novice)';
+      state.novices.push({
+        id: nid, name, destination: nov.destination,
+        startYear: y, readyYear: y + 2,
+      });
+      const g = ensureData();
+      const dest = g.destinations.find((d) => d.id === nov.destination);
+      state.ledger.unshift({
+        seq: ++state.seq.ledger, year: y, type: 'vocation',
+        text: `A candidate presents himself at the ${dest ? dest.name : nov.destination} novitiate.`,
+      });
+    }
+  }
+  // Mature novices enter European labor
+  const ready = state.novices.filter((n) => n.readyYear <= y);
+  for (const n of ready) {
+    // Create a petitioner record as scholastic
+    const rec = ensureRecord(state, n.id, true);
+    rec.fictional = true;
+    rec.status = STATUS.DENIED; // available in Europe, may petition
+    rec.deniedCount = 0;
+    // Set grade via dispositions override
+    if (!dispositions.GRADES[n.id]) dispositions.GRADES[n.id] = { grade: 'scholastic', ordained: false };
+    addEuropeanLabor(state, n.id, n.name, 'vocation');
+    state.ledger.unshift({
+      seq: ++state.seq.ledger, year: y, type: 'vocation',
+      text: `${n.name} completes initial formation and is available for assignment.`,
+    });
+  }
+  state.novices = state.novices.filter((n) => n.readyYear > y);
+}
+
+/** Yearly funds from domestic assignments. Called during resolveYear. */
+function domesticYearlyFunds(state) {
+  let total = 0;
+  for (const e of state.europeanLabor || []) {
+    if (!e.assignment) continue;
+    const role = rules.DOMESTIC_ROLES[e.assignment];
+    if (role && role.fundsPerYear) total += role.fundsPerYear;
+  }
+  return total;
+}
+
+/** Whether any formation aide is serving (reduces formation cost). */
+function hasFormationAide(state) {
+  return (state.europeanLabor || []).some((e) => e.assignment === 'formationAid');
+}
+
+/** Complete formations due this year: primary +1 always, secondary +1 on a seeded fifty-fifty. */
+function completeFormations(state, g, y, outcomes) {
+  for (const entry of state.europeanLabor || []) {
+    const f = entry.formation;
+    if (!f || f.until > y) continue;
+    const focus = dispositions.formationById(f.focus);
+    entry.formation = null;
+    const d = ensureDisposition(state, entry.petitionerId);
+    const gains = [];
+    if (d.current[focus.primary] < 5) {
+      d.current[focus.primary] += 1;
+      gains.push(focus.primary);
+    }
+    if (d.current[focus.secondary] < 5
+        && streamFor(state, 'formation', entry.petitionerId, String(y)).chance(0.5)) {
+      d.current[focus.secondary] += 1;
+      gains.push(focus.secondary);
+    }
+    const gainText = gains.length
+      ? ` His ${gains.map((t) => t).join(' and ')} has deepened.`
+      : ' He is as he was; the year was not wasted.';
+    observe(state, entry.petitionerId, `Completed a year of ${focus.name.toLowerCase()} (observed ${y}).`);
+    const note = `${entry.name} completes a year of ${focus.name.toLowerCase()}.${gainText}`;
+    addLedger(state, {
+      year: y, type: 'formation', petitionerId: entry.petitionerId,
+      decision: 'completed', status: 'in-europe', counterfactual: true, delta: 0, note,
+    });
+    outcomes.push(note);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Game lifecycle
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a new game state.
+ * @param {{mode?:'campaign'|'endless', seed?:string, data?:object}} opts
+ *   data: optional inline game data (overrides the data.js cache) — for tests.
+ * @returns {object} serializable game state
+ */
+export function newGame({ mode = 'campaign', seed = 'generalate', data = null } = {}) {
+  if (mode !== 'campaign' && mode !== 'endless') {
+    throw new Error(`newGame: mode must be 'campaign' or 'endless', got "${mode}"`);
+  }
+  const g = ensureData(data);
+  const rng = makeRng(`${seed}:main`);
+  const endlessRng = makeRng(`${seed}:endless`);
+  return {
+    version: 1,
+    seed: String(seed),
+    mode,
+    year: CAMPAIGN_START,
+    phase: 'campaign',
+    diverged: false,
+    ended: false,
+    score: rules.SCORE.START,
+    scoreUncapped: rules.SCORE.START, // Stage 0 instrumentation: parallel uncapped score
+    society: rules.RESOURCES.SOCIETY_START, // the whole Society (13,112 in 1615)
+    available: Math.round(rules.RESOURCES.SOCIETY_START * rules.RESOURCES.MISSION_PCT), // men the General can spare: 1%
+    petitioners: {},   // id → record {status, history, deniedCount, usedLetters, voyages, archived}
+    queue: [],         // approved, awaiting departure
+    voyages: [],       // sailing / resolved
+    ledger: [],        // every decision, departure, outcome, event
+    resources: {
+      funds: rules.RESOURCES.START_FUNDS,
+      berthsPerYear: rules.RESOURCES.BERTHS_PER_YEAR,
+      ships: rules.RESOURCES.SHIP_NAMES.map((name, i) => ({ id: `ship-${i + 1}`, name, freeYear: 0 })),
+    },
+    destState: initDestState(g.destinations),
+    missions: initMissions(g.destinations), // per-mission staffing: {fathers, coadjutors, brothers, capacity}
+    novitiates: [],   // {destination, foundedYear} — houses of formation at missions
+    europeanLabor: [], // men working in Europe: {petitionerId, name, year, via:'denied'|'returned'|'veteran'}
+    pendingVows: [],
+    vowsNewsInTransit: [],
+    deployments: [], // collective deployment orders (Stage 1): {id, year, destId, destName, purpose, memberIds, voyageIds}
+    zealUntil: 0,     // year through which veteran zeal aids voyage checks
+    currentTerna: null, // {year, cards:[...]} while awaiting decide()
+    instructions: {}, // destId -> {type, issuedYear, arriveYear, status, outcome}
+    novices: [], // {id, name, destination, startYear, readyYear} - candidates in formation
+    currentYear: null,  // UI-facing mirror: {year, briefing, terna, decided, decisionResult}
+    stats: {
+      ternas: 0, approvals: 0, denials: 0,
+      departures: 0, arrivals: 0, deaths: 0,
+      returns: 0, illnesses: 0, reassignments: 0, thriving: 0,
+      teams: 0, novitiates: 0,
+      missionDispatches: 0, missionDispatchDests: {}, // report-card instrumentation (additive)
+    },
+    firedEvents: [],
+    seq: { ledger: 0, voyage: 0, fic: 0, team: 0, deployment: 0 },
+    rngState: rng.getState(),
+    endlessRngState: endlessRng.getState(),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Terna assembly
+// ---------------------------------------------------------------------------
+
+/**
+ * Letters of a petitioner usable in the given game year. Campaign prefers
+ * letters of year <= current game year ("prefer", not "require"): when no
+ * letter is that old yet, the earliest letters stand in, flagged fromFuture
+ * so the UI can present them honestly.
+ * @returns {{letters:object[], fromFuture:boolean}}
+ */
+function candidateLetters(pet, year) {
+  const all = (pet.letters || [])
+    .filter((l) => l && l.year != null)
+    .sort((a, b) => a.year - b.year || a.n - b.n);
+  const past = all.filter((l) => l.year <= year);
+  return past.length > 0 ? { letters: past, fromFuture: false } : { letters: all, fromFuture: true };
+}
+
+/**
+ * Featured letter: earliest unused letter of the year-or-earlier; else the
+ * latest available. Never consumes a future letter's "unused" slot.
+ * @returns {{letter:object, fromFuture:boolean}|null}
+ */
+function featuredLetter(pet, rec, year) {
+  const { letters, fromFuture } = candidateLetters(pet, year);
+  if (letters.length === 0) return null;
+  const unused = letters.filter((l) => !rec.usedLetters.includes(l.n));
+  return { letter: unused.length > 0 ? unused[0] : letters[letters.length - 1], fromFuture };
+}
+
+function isDestOpen(state, destId) {
+  return (state.destState[destId]?.access ?? 'open') !== 'closed';
+}
+
+/** Human-readable history lines for a card. */
+function historyLines(g, rec) {
+  return rec.history.map((h) => `${h.year} — ${h.decision} (${destName(g, h.destination)})`);
+}
+
+/**
+ * Enrich a historical petitioner with deterministic game attributes where
+ * the historical record is silent. Seeded by petitioner ID so the same
+ * man always has the same constitution. These are gameplay attributes,
+ * not historical claims — the archive itself records "not specified."
+ */
+function enrichPetitioner(pet, seedBase) {
+  if (pet.fictional) return pet; // fictional already have full data
+  if (pet._enriched) return pet;
+  const rng = makeRng(`${seedBase}:constitution:${pet.id}`);
+  const enriched = { ...pet };
+  if (enriched.age == null) enriched.age = rng.int(20, 45);
+  if (enriched.yearsInSociety == null) {
+    enriched.yearsInSociety = rng.int(1, Math.min(enriched.age - 16, 28));
+  }
+  if (!enriched.formation) {
+    const yis = enriched.yearsInSociety;
+    enriched.formation = yis < 2 ? 'novice' : yis <= 8 ? 'scholastic' : rng.pick(['priest', 'professed', 'priest']);
+  }
+  if (!enriched.studies) {
+    enriched.studies = enriched.formation === 'novice' ? 'Humanities'
+      : enriched.formation === 'scholastic' ? rng.pick(['Philosophy', 'Theology'])
+      : 'Theology';
+  }
+  if (!enriched.skills || enriched.skills.length === 0) {
+    const pool = ['Latin', 'preaching', 'teaching', 'music', 'languages', 'rhetoric', 'medicine', 'mathematics'];
+    enriched.skills = rng.shuffle(pool).slice(0, rng.int(1, 3));
+  }
+  if (!enriched.health) {
+    enriched.health = rng.pick(['Good health', 'Good health', 'Good health', 'Delicate constitution', 'Robust health', 'Recovering from illness']);
+  }
+  enriched._enriched = true;
+  return enriched;
+}
+
+/** Build the UI-facing card for a petitioner + featured letter. */
+function buildCard(g, state, pet, letter, fromFuture = false) {
+  const rec = ensureRecord(state, pet.id, pet.fictional);
+  const ep = enrichPetitioner(pet, state.seed);
+  const destination = letter.destination || ep.destination;
+  return {
+    id: ep.id,                    // UI primary key (alias of petitionerId)
+    petitionerId: ep.id,
+    name: ep.name,
+    age: ep.age,
+    yearsInSociety: ep.yearsInSociety,
+    formation: ep.formation,
+    studies: ep.studies,
+    skills: ep.skills || [],
+    health: healthRating(ep.health),
+    healthNote: ep.health || null,
+    destination,
+    destinationName: destName(g, destination),
+    dossier: ep.dossier,
+    letter,
+    /** True when the featured letter is dated after the current game year (shown early). */
+    letterFromFuture: fromFuture,
+    history: historyLines(g, rec),
+    fictional: !!ep.fictional,
+    deniedCount: rec.deniedCount,
+    status: rec.status,
+  };
+}
+
+/** Regenerate a fictional petitioner's full data deterministically from the seed. */
+function fictionalData(state, g, rec) {
+  const ids = g.destinations.map((d) => d.id);
+  const names = g.destinations.map((d) => d.name);
+  return fictionalPetitioner(state.seed, rec.ficNum, ids, names, rec.genYear);
+}
+
+/**
+ * Spawn one fictional petitioner into the pool (endless mode).
+ * Returns {pet, letter, fromFuture} or null when the active cap is reached
+ * and no archived denied petitioner can be reactivated.
+ *
+ * Petitioners generated for a currently-closed destination are archived at
+ * birth (they never enter the pool, so they can't clog it or the cap).
+ */
+function spawnFictional(state, g, rng) {
+  const tryRec = (rec) => {
+    const pet = fictionalData(state, g, rec);
+    const feat = featuredLetter(pet, rec, state.year);
+    if (!feat) return null;
+    const dest = feat.letter.destination || pet.destination;
+    if (!isDestOpen(state, dest)) return null;
+    return { pet, letter: feat.letter, fromFuture: feat.fromFuture };
+  };
+  const activeFic = Object.values(state.petitioners).filter(
+    (r) => r.fictional && !r.archived && [STATUS.NEW, STATUS.DENIED, STATUS.APPROVED].includes(r.status)
+  ).length;
+  if (activeFic >= MAX_ACTIVE_FICTIONAL) {
+    // Reactivate archived denied fictional instead of growing; skip any
+    // whose destination is (still) closed.
+    const candidates = Object.values(state.petitioners)
+      .filter((r) => r.fictional && r.archived && r.status === STATUS.DENIED && r.deniedCount < FIC_DENIAL_RETIREMENT)
+      .sort((a, b) => a.ficNum - b.ficNum);
+    for (const rec of candidates) {
+      rec.archived = false;
+      const got = tryRec(rec);
+      if (got) return got;
+      rec.archived = true;
+    }
+    return null;
+  }
+  for (let attempt = 0; attempt < 25; attempt++) {
+    const n = ++state.seq.fic;
+    const rec = ensureRecord(state, `fic-${n}`, true);
+    rec.ficNum = n;
+    rec.genYear = state.year;
+    const got = tryRec(rec);
+    if (got) return got;
+    rec.archived = true; // born for a closed mission — never enters the pool
+  }
+  return null;
+}
+
+/**
+ * Assemble exactly 3 distinct eligible petitioners: a mix of new historical
+ * and returning denied. Campaign prefers letters of year <= current game
+ * year, unused first. Closed destinations are excluded.
+ */
+function assembleTerna(state, g, rng) {
+  const year = state.year;
+  const newC = [];   // {pet, letter, fromFuture, dest}
+  const retC = [];
+  // Men in formation are in retreat: they cannot petition until their year ends.
+  // Men holding domestic assignments are occupied: they do not petition.
+  const inFormation = new Set(
+    (state.europeanLabor || [])
+      .filter((e) => e.formation && e.formation.until >= year)
+      .map((e) => e.petitionerId));
+  const assignedDomestic = new Set(
+    (state.europeanLabor || [])
+      .filter((e) => e.assignment)
+      .map((e) => e.petitionerId));
+  const consider = (pet, rec, status) => {
+    if (inFormation.has(pet.id)) return;
+    if (assignedDomestic.has(pet.id)) return;
+    const feat = featuredLetter(pet, rec, year);
+    if (!feat) return;
+    const dest = feat.letter.destination || pet.destination;
+    if (!dest || !isDestOpen(state, dest)) return;
+    const entry = { pet, letter: feat.letter, fromFuture: feat.fromFuture, dest };
+    if (status === STATUS.DENIED) retC.push(entry);
+    else newC.push(entry);
+  };
+  for (const pet of g.petitioners) {
+    if (pet.fictional) continue; // historical pool here; fictional below
+    const rec = state.petitioners[pet.id];
+    const status = rec ? rec.status : STATUS.NEW;
+    if (!TERNA_ELIGIBLE.includes(status) || rec?.archived) continue;
+    consider(pet, rec || { usedLetters: [] }, status);
+  }
+  // Returning fictional petitioners keep id + history and re-petition.
+  for (const rec of Object.values(state.petitioners)) {
+    if (!rec.fictional || rec.archived || !TERNA_ELIGIBLE.includes(rec.status)) continue;
+    consider(fictionalData(state, g, rec), rec, rec.status);
+  }
+  // Unused letters first, then earliest letter year; shuffle within for variety.
+  const rankNew = (c) => [
+    c.letter && state.petitioners[c.pet.id]?.usedLetters.includes(c.letter.n) ? 1 : 0,
+    c.letter.year,
+  ];
+  const newS = rng.shuffle(newC).sort((a, b) => rankNew(a)[0] - rankNew(b)[0] || rankNew(a)[1] - rankNew(b)[1]);
+  const retS = rng.shuffle(retC);
+
+  const picks = [];
+  picks.push(...newS.slice(0, 2), ...retS.slice(0, 1)); // the intended mix
+  const rest = [...newS.slice(2), ...retS.slice(1)];
+  while (picks.length < 3 && rest.length > 0) picks.push(rest.shift());
+
+  // Supplement with fictional petitioners when history runs dry
+  // (endless mode, or campaign mode once the historical pool is exhausted).
+  while (picks.length < 3) {
+    const fic = spawnFictional(state, g, rng);
+    if (!fic) break;
+    picks.push(fic);
+    // In campaign mode, only use fictional as a last resort to fill the terna;
+    // in endless mode they are a regular source.
+    if (state.mode === 'campaign' && picks.length >= 3) break;
+  }
+
+  // Last resort: relax the closed-destination exclusion rather than fail,
+  // and note it in the briefing.
+  let relaxedClosed = false;
+  if (picks.length < 3) {
+    const seen = new Set(picks.map((p) => p.pet.id));
+    for (const pet of rng.shuffle(g.petitioners.filter((p) => !p.fictional))) {
+      if (picks.length >= 3) break;
+      if (seen.has(pet.id)) continue;
+      const rec = state.petitioners[pet.id];
+      const status = rec ? rec.status : STATUS.NEW;
+      if (!TERNA_ELIGIBLE.includes(status) || rec?.archived) continue;
+      const feat = featuredLetter(pet, rec || { usedLetters: [] }, year);
+      if (!feat) continue;
+      picks.push({ pet, letter: feat.letter, fromFuture: feat.fromFuture, dest: feat.letter.destination || pet.destination });
+      relaxedClosed = true;
+      seen.add(pet.id);
+    }
+  }
+
+  if (picks.length < 3) {
+    throw new Error(`Cannot assemble a terna: only ${picks.length} eligible petitioners in ${year}.`);
+  }
+  const cards = picks.slice(0, 3).map(({ pet, letter, fromFuture }) => buildCard(g, state, pet, letter, fromFuture));
+  return { cards, relaxedClosed };
+}
+
+/** Year briefing for the UI: resources, recent news, upcoming events. */
+function buildBriefing(state, g, relaxedClosed) {
+  const news = state.ledger
+    .filter((e) => e.type === 'outcome' || e.type === 'event')
+    .slice(-5)
+    .reverse()
+    .map((e) => e.note);
+  if (!news.length) news.push('No word yet from those at sea. The General commends them to St. Francis Xavier.');
+  const eventsUpcoming = g.events
+    .filter((e) => e.year > state.year && e.year <= state.year + 3 && !state.firedEvents.includes(e.id))
+    .sort((a, b) => a.year - b.year)
+    .map((e) => `${e.year} — ${e.title}`);
+  return {
+    funds: state.resources.funds,
+    berths: state.resources.berthsPerYear,
+    ships: state.resources.ships.length,
+    shipNames: state.resources.ships.map((s) => s.name),
+    missionNews: news,
+    eventsUpcoming,
+    relaxedClosed: !!relaxedClosed,
+    missionRequests: missionRequests(state),
+    novitiates: (state.novitiates || []).map((n) => ({
+      destination: n.destination,
+      name: destName(g, n.destination),
+      foundedYear: n.foundedYear,
+      danger: state.destState[n.destination]?.danger ?? null,
+    })),
+  };
+}
+
+/**
+ * Rebuild the current year's briefing in place (e.g. after the General
+ * spends from the mission chest between ternas). Does not touch the terna.
+ * @param {object} state
+ * @returns {object} the refreshed briefing
+ */
+export function refreshBriefing(state) {
+  const g = ensureData();
+  const briefing = buildBriefing(state, g, false);
+  if (state.currentYear) state.currentYear.briefing = briefing;
+  return briefing;
+}
+
+/**
+ * Begin a year: produce the briefing and a terna of exactly 3 distinct
+ * eligible petitioners.
+ * @param {object} state
+ * @returns {{year:number, briefing:object, terna:object[]}}
+ */
+export function startYear(state) {
+  if (state.ended) throw campaignCompleteError();
+  if (state.mode === 'campaign' && state.year > CAMPAIGN_END) {
+    state.ended = true;
+    throw campaignCompleteError();
+  }
+  if (state.currentTerna) {
+    throw new Error('A terna is already awaiting your decision.');
+  }
+  const g = ensureData();
+  const rng = mainRng(state);
+  const { cards, relaxedClosed } = assembleTerna(state, g, rng);
+  saveRng(state, rng);
+  const briefing = buildBriefing(state, g, relaxedClosed);
+  state.currentTerna = { year: state.year, cards };
+  state.currentYear = { year: state.year, briefing, terna: cards, decided: false, decisionResult: null };
+  return { year: state.year, briefing, terna: cards };
+}
+
+// ---------------------------------------------------------------------------
+// Decision
+// ---------------------------------------------------------------------------
+
+/** Seal the current terna: approve any subset (0-3), redirect destinations.
+ * @param {object} state @param {Array} approvals ({id, destination?, companions?}).
+ * @returns {{approved, denied, teams, report, scoreDelta}} */
+export function decide(state, approvals) {
+  const t = state.currentTerna;
+  if (!t) throw new Error('No terna is awaiting decision.');
+  if (!Array.isArray(approvals)) {
+    throw new Error('decide: approvals must be an array of {id, destination}.');
+  }
+  const g = ensureData();
+  const scoreBefore = state.score;
+  const byId = new Map(t.cards.map((c) => [c.petitionerId, c]));
+  const seen = new Set();
+  const normalized = approvals.map((a) => {
+    const id = a && a.id;
+    if (!id || !byId.has(id)) {
+      throw new Error(`decide: "${id}" is not in the current terna.`);
+    }
+    if (seen.has(id)) throw new Error(`decide: "${id}" is listed twice.`);
+    seen.add(id);
+    const card = byId.get(id);
+    const destination = (a.destination && isDestOpen(state, a.destination)) ? a.destination : card.destination;
+    const companions = a.companions == null ? 0 : a.companions;
+    if (!Number.isInteger(companions) || companions < 0 || companions > rules.RESOURCES.COMPANION_MAX) {
+      throw new Error(`decide: companions for "${id}" must be 0–${rules.RESOURCES.COMPANION_MAX}.`);
+    }
+    return { card, destination, companions };
+  });
+
+  // The seal is not free. Approvals and denials alike draw on the mission
+  // chest — an approval commits resources, a refusal still requires care.
+  // (Checked after validation so invalid input never moves money.)
+  const sealCost = normalized.length * rules.RESOURCES.APPROVAL_COST
+    + (t.cards.length - normalized.length) * rules.RESOURCES.DENIAL_COST;
+  if (state.resources.funds < sealCost) {
+    throw new Error(
+      `The mission chest cannot bear this seal: ${sealCost} scudi required, ${state.resources.funds} in hand.`);
+  }
+  state.resources.funds -= sealCost;
+
+  // Mark featured letters as used (denied petitioners will bring a new letter next time).
+  // A letter dated after the current year is shown early and does not consume the "unused" slot.
+  for (const card of t.cards) {
+    const rec = ensureRecord(state, card.petitionerId, card.fictional);
+    if (card.letter && card.letter.year <= state.year && !rec.usedLetters.includes(card.letter.n)) {
+      rec.usedLetters.push(card.letter.n);
+    }
+  }
+
+  // Teams: approvals sharing a destination sail in company.
+  const destGroups = new Map();
+  for (const n of normalized) {
+    if (!destGroups.has(n.destination)) destGroups.set(n.destination, []);
+    destGroups.get(n.destination).push(n);
+  }
+  const teams = [];
+  for (const [dest, members] of destGroups) {
+    if (members.length >= rules.RESOURCES.TEAM_MIN_SIZE) {
+      const teamId = `team-${state.year}-${++state.seq.team}`;
+      teams.push({
+        id: teamId,
+        destination: dest,
+        destinationName: destName(g, dest),
+        members: members.map((m) => m.card.petitionerId),
+        size: members.length,
+      });
+      for (const m of members) m.teamId = teamId;
+    }
+  }
+
+  const approved = [];
+  for (const n of normalized) {
+    const { card, destination } = n;
+    const finalDestName = destName(g, destination);
+    const redirected = destination !== card.destination;
+    const teamSize = destGroups.get(destination).length;
+    const cRec = getRecord(state, card.petitionerId);
+    cRec.status = STATUS.APPROVED;
+    // entryYear baseline for years-in-Society.
+    if (cRec.entryYear == null) cRec.entryYear = state.year;
+    cRec.history.push({ year: state.year, decision: 'approved', destination });
+    // He sails: no longer laboring in Europe.
+    if (Array.isArray(state.europeanLabor)) {
+      state.europeanLabor = state.europeanLabor.filter(
+        (e) => e.petitionerId !== card.petitionerId);
+    }
+    state.queue.push({
+      petitionerId: card.petitionerId,
+      approvedYear: state.year,
+      destination,
+      status: 'awaiting',
+      teamId: n.teamId || null,
+      teamSize,
+      companions: n.companions || 0,
+    });
+    addLedger(state, {
+      year: state.year, type: 'decision',
+      petitionerId: card.petitionerId, destination,
+      decision: 'approved', status: STATUS.APPROVED,
+      note: redirected
+        ? `${card.name} is approved and redirected to ${finalDestName} (petitioned for ${card.destinationName})${n.companions ? `, taking ${n.companions} ${n.companions === 1 ? 'companion' : 'companions'}` : ''}.`
+        : n.teamId
+          ? `${card.name} is approved for ${finalDestName}, sailing in company with ${teamSize - 1} ${teamSize - 1 === 1 ? 'other' : 'others'}${n.companions ? ` and ${n.companions} ${n.companions === 1 ? 'companion' : 'companions'}` : ''}.`
+          : `${card.name} is approved for ${finalDestName} and enters the departure queue${n.companions ? ` with ${n.companions} ${n.companions === 1 ? 'companion' : 'companions'}` : ''}.`,
+    });
+    approved.push({
+      ...card,
+      destination,
+      destinationName: finalDestName,
+      redirected,
+      teamId: n.teamId || null,
+      teamSize,
+    });
+  }
+
+  const denied = [];
+  for (const card of t.cards) {
+    if (seen.has(card.petitionerId)) continue;
+    const dRec = getRecord(state, card.petitionerId);
+    dRec.status = STATUS.DENIED;
+    dRec.deniedCount += 1;
+    dRec.history.push({ year: state.year, decision: 'denied', destination: card.destination });
+    // Fictional petitioners denied repeatedly lay down the petition and
+    // leave the active pool (id + history persist; rolling population cap).
+    let retired = '';
+    if (dRec.fictional && dRec.deniedCount >= FIC_DENIAL_RETIREMENT) {
+      archiveFictional(dRec);
+      retired = ' He lays down his petition.';
+    }
+    addLedger(state, {
+      year: state.year, type: 'decision',
+      petitionerId: card.petitionerId, destination: card.destination,
+      decision: 'denied', status: STATUS.DENIED,
+      note: `${card.name} is denied${dRec.deniedCount > 1 ? ` (denied ${dRec.deniedCount} times)` : ''}; he remains to labor in Europe.${retired}`,
+    });
+    addEuropeanLabor(state, card.petitionerId, card.name, 'denied');
+    denied.push(card);
+  }
+
+  // No points for sending men: the General is judged by fruit, not dispatches.
+  // Score moves when voyage news arrives (see deliverNews) and through
+  // lasting foundations (see foundNovitiate / resolveYear).
+  state.stats.ternas += 1;
+  state.stats.approvals += approved.length;
+  state.stats.denials += denied.length;
+  state.stats.teams += teams.length;
+  state.currentTerna = null;
+
+  const teamPhrases = teams.map((tm) => {
+    const names = tm.members.map((id) => cardName(state, g, id));
+    return `${names.join(', ')} sail in company for ${tm.destinationName}`;
+  });
+  const soloPhrases = approved
+    .filter((c) => !c.teamId)
+    .map((c) => `${c.name} sails for ${c.destinationName}`);
+  const report = {
+    year: state.year,
+    approvedIds: approved.map((c) => c.petitionerId),
+    deniedIds: denied.map((d) => d.petitionerId),
+    teams: teams.map((tm) => ({
+      ...tm,
+      memberNames: tm.members.map((id) => cardName(state, g, id)),
+    })),
+    queueLength: state.queue.length,
+    score: state.score,
+    sealCost,
+    funds: state.resources.funds,
+    summary: approved.length === 0
+      ? 'All three are denied; they may petition again.'
+      : [...teamPhrases, ...soloPhrases].join('; ') + '.',
+    detail:
+      `${denied.length ? denied.map((d) => d.name).join(' and ') + (denied.length > 1 ? ' are' : ' is') + ' denied and may petition again. ' : ''}` +
+      `The approved enter the departure queue; sailing depends on free hulls, berths, and the mission chest. ` +
+      `The seal costs ${sealCost} scudi (${approved.length} approval${approved.length === 1 ? '' : 's'} × 30${denied.length ? `, ${denied.length} denial${denied.length === 1 ? '' : 's'} × 15` : ''}).`,
+  };
+  const result = { approved, denied, teams: report.teams, report, scoreDelta: state.score - scoreBefore };
+  if (state.currentYear) {
+    state.currentYear.decided = true;
+    state.currentYear.decisionResult = result;
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Year resolution
+// ---------------------------------------------------------------------------
+
+/**
+ * Commission additional sailing berths: spend from the mission chest to
+ * expand yearly capacity. The General may do this at any time between
+ * ternas (not mid-terna).
+ * @param {object} state
+ * @returns {{berthsPerYear:number, funds:number, cost:number}}
+ */
+export function expandBerths(state) {
+  if (state.currentTerna) {
+    throw new Error('Finish deciding on the current terna first.');
+  }
+  const cost = rules.RESOURCES.BERTH_EXPANSION_COST;
+  if (state.resources.funds < cost) {
+    throw new Error(`Insufficient funds: need ${cost} ducats, have ${state.resources.funds}.`);
+  }
+  state.resources.funds -= cost;
+  state.resources.berthsPerYear += rules.RESOURCES.BERTH_EXPANSION_AMOUNT;
+  addLedger(state, {
+    year: state.year, type: 'expansion',
+    note: `The General commissions additional berths (+${rules.RESOURCES.BERTH_EXPANSION_AMOUNT}/year, ${cost} ducats). Yearly capacity is now ${state.resources.berthsPerYear}.`,
+  });
+  return {
+    berthsPerYear: state.resources.berthsPerYear,
+    funds: state.resources.funds,
+    cost,
+  };
+}
+
+/**
+ * Charter an additional hull for the mission trade. A chartered ship joins
+ * the pool permanently and is free to sail at once. The General may do this
+ * at any time between ternas (not mid-terna).
+ * @param {object} state
+ * @returns {{ship:{id:string,name:string}, ships:number, funds:number, cost:number}}
+ */
+export function charterShip(state) {
+  if (state.currentTerna) {
+    throw new Error('Finish deciding on the current terna first.');
+  }
+  if (state.ended) throw campaignCompleteError();
+  const cost = rules.RESOURCES.SHIP_CHARTER_COST;
+  if (state.resources.funds < cost) {
+    throw new Error(`Insufficient funds: need ${cost} ducats, have ${state.resources.funds}.`);
+  }
+  state.resources.funds -= cost;
+  const used = new Set(state.resources.ships.map((s) => s.name));
+  const name = rules.RESOURCES.SPARE_SHIP_NAMES.find((n) => !used.has(n))
+    || `Chartered hull ${state.resources.ships.length + 1}`;
+  const ship = { id: `ship-${state.resources.ships.length + 1}`, name, freeYear: 0 };
+  state.resources.ships.push(ship);
+  addLedger(state, {
+    year: state.year, type: 'expansion',
+    note: `The General charters another hull, the ${name} (${cost} ducats). ${state.resources.ships.length} hulls now serve the missions.`,
+  });
+  return { ship, ships: state.resources.ships.length, funds: state.resources.funds, cost };
+}
+
+/**
+ * Found a novitiate — a house of formation — at an open mission.
+ * A costly foundation, but formation steadies the mission: its danger
+ * falls by one (never below 0). The foundation honors the General
+ * (+score), and each operating novitiate yields +1 score every year.
+ * The General may do this at any time between ternas (not mid-terna).
+ * @param {object} state
+ * @param {string} destinationId
+ * @returns {{destination:string, destinationName:string, danger:number, funds:number, score:number}}
+ */
+export function foundNovitiate(state, destinationId) {
+  if (state.currentTerna) {
+    throw new Error('Finish deciding on the current terna first.');
+  }
+  if (state.ended) throw campaignCompleteError();
+  const g = ensureData();
+  const dest = g.destinations.find((d) => d.id === destinationId);
+  if (!dest) throw new Error(`Unknown destination "${destinationId}".`);
+  if (!isDestOpen(state, destinationId)) {
+    throw new Error(`${dest.name || destinationId} is closed to missions.`);
+  }
+  if ((state.novitiates || []).some((n) => n.destination === destinationId)) {
+    throw new Error(`A novitiate already stands at ${dest.name || destinationId}.`);
+  }
+  const cost = rules.RESOURCES.NOVITIATE_COST;
+  if (state.resources.funds < cost) {
+    throw new Error(`The mission chest holds ${state.resources.funds} scudi; a novitiate requires ${cost}.`);
+  }
+  state.resources.funds -= cost;
+  if (!state.destState[destinationId]) state.destState[destinationId] = { danger: 1, access: 'open' };
+  const st = state.destState[destinationId];
+  st.danger = Math.max(0, (st.danger ?? dest.danger ?? 1) - 1);
+  state.novitiates.push({ destination: destinationId, foundedYear: state.year });
+  state.score = rules.addScore(state.score, rules.SCORE.NOVITIATE_FOUND_BONUS);
+  trackScoreDelta(state, rules.SCORE.NOVITIATE_FOUND_BONUS);
+  state.stats.novitiates += 1;
+  addLedger(state, {
+    year: state.year, type: 'novitiate', destination: destinationId,
+    note: `A novitiate is founded at ${dest.name || destinationId}; formation steadies the mission (danger now ${st.danger}).`,
+  });
+  return {
+    destination: destinationId,
+    destinationName: dest.name || destinationId,
+    danger: st.danger,
+    funds: state.resources.funds,
+    score: state.score,
+  };
+}
+
+function applyEvent(state, g, ev) {
+  for (const [destId, fx] of Object.entries(ev.effects || {})) {
+    if (!state.destState[destId]) state.destState[destId] = { danger: 1, access: 'open' };
+    if (typeof fx.danger === 'number') state.destState[destId].danger = fx.danger;
+    if (fx.access) state.destState[destId].access = fx.access;
+  }
+  const parts = Object.entries(ev.effects || {}).map(
+    ([destId, fx]) => `${destName(g, destId)}: danger ${fx.danger ?? '—'}, ${fx.access ?? '—'}`
+  );
+  addLedger(state, {
+    year: state.year, type: 'event', eventId: ev.id,
+    note: `${ev.year} — ${ev.title}.${parts.length ? ' ' + parts.join('; ') + '.' : ''}`,
+  });
+}
+
+function deliverNews(state, g, voyage, outcomes) {
+  const rec = getRecord(state, voyage.petitionerId);
+  const petName = voyage.petitionerName || voyage.petitionerId;
+  const dName = destName(g, voyage.destination);
+  voyage.newsDelivered = true;
+  // Transparent dice: the player sees the roll, DC, modifiers and degree.
+  const rollNote = voyage.resolveRoll
+    ? ' ' + dice.exposition({ ...voyage.resolveRoll, modifiers: voyage.resolveRoll.modifiers || [] })
+    : '';
+  const note = rules.counterfactualNote(voyage.outcome, petName, dName) + rollNote;
+  // Fruit, not dispatches: the General's score moves when word comes back.
+  // Diminishing returns: thriving beyond THRIVING_DIMINISH_AFTER at a single
+  // mission gives reduced score. Encourages spreading men across missions.
+  let fruitDelta = rules.SCORE.FRUIT[voyage.outcome] ?? 0;
+  let diminishNote = '';
+  if (voyage.outcome === 'thriving') {
+    const st = missionStaff(state, voyage.destination);
+    const priorThriving = st.thrivingCount || 0;
+    if (priorThriving >= rules.SCORE.THRIVING_DIMINISH_AFTER) {
+      fruitDelta = rules.SCORE.THRIVING_DIMINISHED;
+      diminishNote = ` (diminishing returns: ${priorThriving + 1}th thriving at ${dName}, +${fruitDelta} instead of +${rules.SCORE.FRUIT.thriving})`;
+    }
+    st.thrivingCount = priorThriving + 1;
+  }
+  state.score = rules.addScore(state.score, fruitDelta);
+  trackScoreDelta(state, fruitDelta);
+  if (voyage.outcome === 'returned') {
+    addEuropeanLabor(state, voyage.petitionerId, petName, 'returned');
+  }
+  const entry = addLedger(state, {
+    year: state.year, type: 'outcome',
+    petitionerId: voyage.petitionerId, destination: voyage.destination,
+    decision: 'approved', status: voyage.outcome,
+    counterfactual: true, delta: fruitDelta,
+    note: note + diminishNote,
+  });
+  outcomes.push({
+    voyageId: voyage.id,
+    petitionerId: voyage.petitionerId,
+    name: petName,
+    destination: voyage.destination,
+    destinationName: dName,
+    outcome: voyage.outcome,
+    result: voyage.outcome, // UI alias
+    outcomeLabel: rules.OUTCOME_LABELS[voyage.outcome],
+    text: note,
+    delta: fruitDelta,
+    historical: false,
+    counterfactual: true,
+    ledgerSeq: entry.seq,
+    resolveRoll: voyage.resolveRoll || null,
+  });
+  // Resolved fictional petitioners leave the active pool (identity + history persist).
+  if (rec.fictional) archiveFictional(rec);
+}
+
+/** Cap stored voyage detail: keep full records for unresolved + newest 150 resolved. */
+function archiveVoyages(state) {
+  const resolved = state.voyages
+    .filter((v) => v.stage === 'arrived')
+    .sort((a, b) => (b.resolvedYear || 0) - (a.resolvedYear || 0) || (a.id < b.id ? 1 : -1));
+  for (const v of resolved.slice(150)) {
+    if (!v.summarized) {
+      v.summarized = true;
+      delete v.petitionerName; // drop display detail; ids + outcome suffice
+    }
+  }
+}
+
+/**
+ * Resolve the current year: fire events, sail due departures, resolve
+ * arrived voyages (outcomes), deliver delayed news, update resources.
+ * @param {object} state
+ * @returns {{outcomes:object[], eventsFired:object[], yearReport:object, score:number}}
+ */
+export function resolveYear(state) {
+  if (state.currentTerna) {
+    throw new Error('An undecided terna is pending.');
+  }
+  if (state.ended) throw campaignCompleteError();
+  const g = ensureData();
+  const rng = mainRng(state);
+  const y = state.year;
+
+  // 1. Historical events fire on their dates and mutate destState.
+  const eventsFired = [];
+  for (const ev of g.events.filter((e) => e.year === y && !state.firedEvents.includes(e.id))) {
+    applyEvent(state, g, ev);
+    state.firedEvents.push(ev.id);
+    eventsFired.push({
+      id: ev.id, year: ev.year, title: ev.title, effects: ev.effects,
+      text: ev.description || ev.title, historical: true, counterfactual: false,
+    });
+  }
+
+  // 2. Departures from the queue, oldest approval first.
+  //    Binding constraints, in order: free hulls, berths, men to spare, funds.
+  //    Each hull carries up to SHIP_CAPACITY men for ONE destination per
+  //    sailing, then is busy for the voyage's travel years. Men bound for the
+  //    same mission share hulls — teams sail together.
+  const departures = [];
+  let berths = state.resources.berthsPerYear;
+  const ships = Array.isArray(state.resources.ships) ? state.resources.ships : [];
+  const awaiting = state.queue
+    .filter((q) => q.status === 'awaiting')
+    .sort((a, b) => a.approvedYear - b.approvedYear);
+  // Group by destination, preserving oldest-approval order of first appearance.
+  const groups = new Map();
+  for (const q of awaiting) {
+    if (!groups.has(q.destination)) groups.set(q.destination, []);
+    groups.get(q.destination).push(q);
+  }
+  for (const [destId, men] of groups) {
+    const dest = g.destinations.find((d) => d.id === destId);
+    const travel = dest?.travelYears ?? rules.defaultTravelYears();
+    const CAP = rules.RESOURCES.SHIP_CAPACITY;
+    let idx = 0;
+    let ship = null; // hull currently being packed for this destination
+    const packed = new Set(); // hulls given a sailing this year, per destination group
+    const aboard = []; // {q, ship, comps}
+    while (idx < men.length) {
+      if (berths <= 0) {
+        for (; idx < men.length; idx++) men[idx].note = 'delayed: no berths free';
+        break;
+      }
+      const q = men[idx];
+      const avail = state.available || 0;
+      if (avail < 1) {
+        q.note = 'delayed: no men to spare';
+        idx += 1;
+        continue;
+      }
+      // Companions are capped by what can be spared AND by the hull — never
+      // by an arbitrary per-man rule. The shortfall is honest: the voyage
+      // sails with fewer and the record says so.
+      const comps = Math.min(q.companions || 0, rules.RESOURCES.COMPANION_MAX, avail - 1);
+      const party = 1 + comps; // souls this retinue needs aboard
+      const cost = rules.RESOURCES.DEPARTURE_COST + comps * rules.RESOURCES.COMPANION_COST;
+      if (state.resources.funds < cost) {
+        q.note = 'delayed: insufficient funds';
+        idx += 1;
+        continue;
+      }
+      if (!ship || (ship.used || 0) + party > CAP) {
+        // Select a hull not already packed this year. Using !packed.has(s)
+        // (not s !== ship) prevents re-selecting a hull that was already
+        // filled earlier in this packing operation, which would reset its
+        // used counter and exceed capacity.
+        ship = ships.find((s) => (s.freeYear || 0) <= y && !packed.has(s));
+        if (!ship) {
+          for (; idx < men.length; idx++) men[idx].note = 'delayed: no hulls free';
+          break;
+        }
+        ship.used = 0;
+      }
+      state.resources.funds -= cost;
+      // The man and his companions leave the mission-eligible pool.
+      state.available = avail - (1 + comps);
+      if (comps < (q.companions || 0)) q.spareShortfall = (q.companions || 0) - comps;
+      q.embarked = comps; // companions who actually sailed (may be fewer than requested)
+      berths -= 1;
+      ship.used += party;
+      packed.add(ship);
+      aboard.push({ q, ship, comps });
+      idx += 1;
+    }
+    for (const s of packed) {
+      s.freeYear = y + travel;
+      s.lastDestination = destId;
+    }
+    if (aboard.length) {
+      // Team size reflects ACTUAL departure composition: men sailing on the
+      // same hull are truly "in company." The approval-group size (q.teamSize)
+      // is wrong when departures split across ships or years.
+      const shipmates = new Map();
+      for (const { ship } of aboard) {
+        shipmates.set(ship.id, (shipmates.get(ship.id) || 0) + 1);
+      }
+      for (const { q, ship: hull, comps } of aboard) {
+        // Prefer the queue entry's name (deployment members carry their
+        // europeanLabor name); terna sailors fall back to the card name.
+        const pname = q.petitionerName || cardName(state, g, q.petitionerId);
+        const actualTeamSize = shipmates.get(hull.id) || 1;
+        const voyage = {
+          id: `voy-${++state.seq.voyage}`,
+          petitionerId: q.petitionerId,
+          petitionerName: pname,
+          name: pname, // UI alias
+          destination: q.destination,
+          departYear: y,
+          travelYears: travel,
+          arriveYear: y + travel,
+          newsYear: y + travel + (rng.chance(0.5) ? 1 : 0), // news arrives +0–1 years after arrival
+          stage: 'transit',
+          status: 'enroute', // UI alias for the debug panel
+          outcome: null,
+          resolvedYear: null,
+          newsDelivered: false,
+          teamId: q.teamId || null,
+          teamSize: actualTeamSize,
+          companions: comps,
+          shipId: hull.id,
+          shipName: hull.name,
+          deploymentId: q.deploymentId || null, // collective deployment lineage, if any
+        };
+        state.voyages.push(voyage);
+        recordDeploymentVoyage(state, voyage);
+        q.status = 'departed';
+        q.voyageId = voyage.id;
+        const rec = getRecord(state, q.petitionerId);
+        rec.status = STATUS.IN_TRANSIT;
+        rec.voyages.push(voyage.id);
+        state.stats.departures += 1;
+        const inCompany = actualTeamSize >= rules.RESOURCES.TEAM_MIN_SIZE;
+        const compNote = comps ? `, with ${comps} ${comps === 1 ? 'companion' : 'companions'}` : '';
+        const shortNote = q.spareShortfall ? ` (only ${comps} could be spared)` : '';
+        addLedger(state, {
+          year: y, type: 'departure',
+          petitionerId: q.petitionerId, destination: q.destination,
+          decision: 'approved', status: STATUS.IN_TRANSIT,
+          note: inCompany
+            ? `${pname} sails for ${destName(g, q.destination)} aboard the ${hull.name}${compNote}${shortNote}, in company with ${actualTeamSize - 1} ${actualTeamSize - 1 === 1 ? 'other' : 'others'} (voyage ${voyage.id}, ~${travel} years).`
+            : `${pname} sails for ${destName(g, q.destination)} aboard the ${hull.name}${compNote}${shortNote} (voyage ${voyage.id}, ~${travel} years).`,
+        });
+        departures.push({
+          voyageId: voyage.id, petitionerId: q.petitionerId,
+          name: pname, destination: q.destination,
+          destinationName: destName(g, q.destination), arriveYear: voyage.arriveYear,
+          teamId: q.teamId || null, teamSize: q.teamSize || 1,
+          shipName: hull.name,
+        });
+      }
+    }
+  }
+  state.queue = state.queue.filter((q) => q.status === 'awaiting');
+
+  // 3. Voyages due this year arrive; outcomes resolve; news delivered when due.
+  const outcomes = [];
+  for (const v of state.voyages.filter((v) => v.stage === 'transit' && v.arriveYear <= y)) {
+    const danger = Math.max(0, Math.min(3, Math.round(state.destState[v.destination]?.danger ?? 1)));
+    const inCompany = (v.teamSize || 1) >= rules.RESOURCES.TEAM_MIN_SIZE;
+    const compMod = Math.min(v.companions || 0, rules.RESOURCES.COMPANION_MOD_CAP);
+    const staffBonus = missionVoyageBonus(state, v.destination);
+    const staffStrength = staffBonus > 0 ? missionStrength(missionStaff(state, v.destination)) : 0;
+    // Isolated stream: resolving this voyage can never perturb any other roll.
+    const check = dice.d20check(streamFor(state, 'voyage', v.id), {
+      dc: rules.VOYAGE_DC,
+      modifiers: [
+        ...(danger > 0 ? [{ label: `peril of ${destName(g, v.destination)} (${danger})`, value: danger * rules.VOYAGE_DANGER_MOD }] : []),
+        ...(inCompany ? [{ label: 'sailing in company', value: rules.VOYAGE_TEAM_MOD }] : []),
+        ...((state.zealUntil || 0) >= y ? [{ label: 'zeal of the missions', value: rules.VETERAN.ZEAL_MOD }] : []),
+        ...(compMod > 0 ? [{ label: `${compMod} ${compMod === 1 ? 'companion' : 'companions'}`, value: compMod }] : []),
+        ...(staffBonus > 0 ? [{ label: `a strengthened mission (${staffStrength} strength)`, value: staffBonus }] : []),
+        ...dispositionVoyageMods(state, v.petitionerId),
+      ],
+    });
+    const outcome = rules.VOYAGE_DEGREE_OUTCOMES[check.degree];
+    v.resolveRoll = {
+      roll: check.roll, total: check.total, dc: check.dc,
+      modifiers: check.modifiers, degree: check.degree, danger,
+    };
+    v.stage = 'arrived';
+    v.status = 'arrived';
+    v.outcome = outcome;
+    v.resolvedYear = y;
+    const rec = getRecord(state, v.petitionerId);
+    rec.status =
+      outcome === 'deceased' ? STATUS.DECEASED
+      : outcome === 'returned' ? STATUS.RETURNED
+      : outcome === 'ill' ? STATUS.ILL
+      : STATUS.ACTIVE;
+    if (outcome === 'deceased') purgeVowsState(state, v.petitionerId);
+    state.stats.arrivals += 1;
+    if (outcome === 'deceased') {
+      state.stats.deaths += 1;
+      state.society = Math.max(0, (state.society || 0) - 1);
+    }
+    if (outcome === 'returned') {
+      state.stats.returns += 1;
+      state.available = (state.available || 0) + 1;
+    }
+    if (outcome === 'ill') {
+      state.stats.illnesses += 1;
+      // Ill survivors remain in the personnel system: they are in Europe
+      // recovering, not stationed at the mission, not available for dispatch.
+      const illName = v.petitionerName || cardName(state, g, v.petitionerId);
+      const illRec = addEuropeanLabor(state, v.petitionerId, illName, 'ill');
+      illRec.ill = true;
+      illRec.illYear = y;
+    }
+    if (outcome === 'reassigned') state.stats.reassignments += 1;
+    if (outcome === 'thriving') {
+      state.stats.thriving += 1;
+      staffArrival(state, v);
+    }
+    // Observed behavior — simulated, labeled as such, never as evidence.
+    const pname = v.petitionerName || cardName(state, g, v.petitionerId);
+    const dName = destName(g, v.destination);
+    if (outcome === 'ill') observe(state, v.petitionerId, `Bore a grievous illness on the voyage to ${dName} (observed ${y}).`);
+    else if (outcome === 'thriving') observe(state, v.petitionerId, `Reached ${dName} and labored fruitfully (observed ${y}).`);
+    else if (outcome === 'returned') observe(state, v.petitionerId, `Turned back from ${dName}; his account moves the brethren (observed ${y}).`);
+    if (y >= v.newsYear) deliverNews(state, g, v, outcomes);
+  }
+  for (const v of state.voyages.filter((v) => v.stage === 'arrived' && !v.newsDelivered && v.newsYear <= y)) {
+    deliverNews(state, g, v, outcomes);
+  }
+
+  // 3b. Veteran returns: a man thriving in the mission may come home after
+  // years of service. His homecoming stirs zeal for the missions — a bonus
+  // to voyage checks for a few years — and scores for the fruit of testimony.
+  // Isolated stream per voyage: unrelated rolls never perturb a homecoming.
+  for (const v of state.voyages.filter((v) => v.outcome === 'thriving' && !v.veteranReturned)) {
+    const yearsServed = y - (v.resolvedYear ?? v.arriveYear);
+    if (yearsServed < rules.VETERAN.MIN_YEARS) continue;
+    // Include the year in the stream label: a fresh stream per call would
+    // otherwise return the same draw every year (15% in year 3 or never).
+    if (!streamFor(state, 'veteran', v.id, String(y)).chance(rules.VETERAN.YEARLY_CHANCE)) continue;
+    v.veteranReturned = true;
+    v.veteranYear = y;
+    const pname = v.petitionerName || cardName(state, g, v.petitionerId);
+    const dName = destName(g, v.destination);
+    state.score = rules.addScore(state.score, rules.VETERAN.SCORE);
+    trackScoreDelta(state, rules.VETERAN.SCORE);
+    state.zealUntil = Math.max(state.zealUntil || 0, y + rules.VETERAN.ZEAL_YEARS);
+    // He leaves the mission's stationed strength (and his companions with him).
+    if (v.staffGrade) {
+      const mst = missionStaff(state, v.destination);
+      mst[v.staffGrade] = Math.max(0, mst[v.staffGrade] - 1);
+      if (v.staffCompanions) mst.brothers = Math.max(0, mst.brothers - v.staffCompanions);
+    }
+    addEuropeanLabor(state, v.petitionerId, pname, 'veteran');
+    state.available = (state.available || 0) + 1; // he rejoins the mission-eligible pool
+    observe(state, v.petitionerId, `Came home a veteran after ${yearsServed} years in ${dName}; his testimony kindles zeal (observed ${y}).`);
+    const rec = getRecord(state, v.petitionerId);
+    rec.status = STATUS.RETURNED;
+    const note = `${pname} has returned to Europe after ${yearsServed} years laboring in ${dName}; his account of the harvest stirs zeal for the missions.`;
+    const entry = addLedger(state, {
+      year: y, type: 'veteran',
+      petitionerId: v.petitionerId, destination: v.destination,
+      decision: 'approved', status: 'veteran',
+      counterfactual: true, delta: rules.VETERAN.SCORE,
+      note,
+    });
+    outcomes.push({
+      voyageId: v.id,
+      petitionerId: v.petitionerId,
+      name: pname,
+      destination: v.destination,
+      destinationName: dName,
+      outcome: 'veteran',
+      result: 'thriving', // UI alias: rendered with the thriving style
+      outcomeLabel: 'Veteran homecoming',
+      text: note,
+      delta: rules.VETERAN.SCORE,
+      historical: false,
+      counterfactual: true,
+      ledgerSeq: entry.seq,
+      resolveRoll: null,
+    });
+  }
+
+  // 4. Resources: yearly income, Society intake, and each operating novitiate bears fruit.
+  state.resources.funds += rules.RESOURCES.YEARLY_INCOME;
+  // Domestic assignments contribute to the chest.
+  const domesticFunds = domesticYearlyFunds(state);
+  if (domesticFunds > 0) {
+    state.resources.funds += domesticFunds;
+    state.ledger.unshift({
+      seq: ++state.seq.ledger, year: y, type: 'domestic',
+      text: `Domestic service contributed ${domesticFunds} scudi to the chest.`,
+    });
+  }
+  state.society = (state.society || 0) + rules.RESOURCES.SOCIETY_YEARLY_INTAKE;
+  state.available = (state.available || 0)
+    + Math.round(rules.RESOURCES.SOCIETY_YEARLY_INTAKE * rules.RESOURCES.MISSION_PCT);
+  if ((state.novitiates || []).length) {
+    const novYearly = state.novitiates.length * rules.SCORE.NOVITIATE_YEARLY;
+    state.score = rules.addScore(state.score, novYearly);
+    trackScoreDelta(state, novYearly);
+  }
+
+  // 4a. Mission upkeep: a high-capacity mission costs scudi every year to sustain.
+  let upkeep = 0;
+  for (const id of Object.keys(state.missions || {})) upkeep += missionUpkeep(missionStaff(state, id));
+  if (upkeep > 0) {
+    const paid = Math.min(upkeep, state.resources.funds);
+    state.resources.funds -= paid;
+    state.ledger.unshift({
+      seq: ++state.seq.ledger, year: y, type: 'upkeep',
+      text: paid >= upkeep
+        ? `Sustained the missions: ${upkeep} scudi of provisions and stipends.`
+        : `The missions wanted ${upkeep} scudi; the chest could bear only ${paid}.`,
+    });
+  }
+
+  // 4b. Formation: men whose year of formation ends now complete it.
+  completeFormations(state, g, y, outcomes);
+
+  archiveVoyages(state);
+  saveRng(state, rng);
+  state.currentYear = null;
+
+  const firstDeparture = departures[0] || null;
+  const yearReport = {
+    year: y,
+    eventsFired,
+    departures,
+    departed: firstDeparture, // UI: singular (one sailing per year in practice)
+    outcomes,
+    arrivals: outcomes.map((o) => ({ voyageId: o.voyageId, name: o.name, destinationName: o.destinationName, outcome: o.outcome, outcomeLabel: o.outcomeLabel })),
+    delayedDepartures: state.queue.length,
+    funds: state.resources.funds,
+    berthsUsed: state.resources.berthsPerYear - berths,
+  };
+
+  // Mission fragility (informational only): track accumulated years each mission
+  // spends below 40% staffing. 40-60% pauses the counter; 60%+ resets it.
+  // At 3 accumulated years, the mission is marked FRAGILE. This affects no
+  // mechanics — it is a warning that the Society's institutional presence
+  // (not the local Christian community) is at risk from sustained understaffing.
+  for (const destId of Object.keys(state.missions || {})) {
+    const st = missionStaff(state, destId);
+    const ratio = missionStaffed(st) / (st.capacity || 5);
+    if (ratio < 0.4) {
+      st.fragileYears += 1;
+      if (st.fragileYears >= 3) st.fragile = true;
+    } else if (ratio >= 0.6) {
+      st.fragileYears = 0;
+      st.fragile = false;
+    }
+    // 40%-60%: pause (counter unchanged)
+  }
+
+  // Resolve instructions arriving this year.
+  resolveInstructions(state, y);
+
+  // Novitiate vocations.
+  resolveVocations(state, y);
+
+  checkVowsMilestones(state, y);
+
+  state.year = y + 1;
+  if (state.mode === 'campaign' && state.year > CAMPAIGN_END) state.ended = true;
+  if (state.mode === 'endless' && state.year > CAMPAIGN_END && !state.diverged) {
+    state.diverged = true;
+    state.phase = 'alternate history';
+  }
+  return { outcomes, eventsFired, yearReport, score: state.score };
+}
+
+/** Best-effort display name for a petitioner id (historical data or regenerated fictional). */
+export function cardName(state, g, id) {
+  const hist = g.petitioners.find((p) => p.id === id);
+  if (hist) return hist.name;
+  const rec = state.petitioners[id];
+  if (rec?.fictional) {
+    const ids = g.destinations.map((d) => d.id);
+    const names = g.destinations.map((d) => d.name);
+    return fictionalPetitioner(state.seed, rec.ficNum, ids, names, rec.genYear).name;
+  }
+  return id;
+}
+
+// ---------------------------------------------------------------------------
+// Queries
+// ---------------------------------------------------------------------------
+
+/** @param {object} state @returns {number} 0..100 */
+export function getScore(state) {
+  return Math.max(rules.SCORE.MIN, Math.min(rules.SCORE.MAX, state.score));
+}
+
+/**
+ * Query the ledger.
+ * @param {object} state
+ * @param {{year?:number,petitionerId?:string,destination?:string,decision?:string,status?:string,type?:string}} [filter]
+ * @returns {object[]} matching entries, oldest first
+ */
+export function getLedger(state, filter = {}) {
+  return state.ledger.filter((e) => {
+    for (const [k, v] of Object.entries(filter)) {
+      if (v !== undefined && e[k] !== v) return false;
+    }
+    return true;
+  });
+}
+
+/**
+ * Map-screen state for the UI: year, voyage copies, and per-destination
+ * rollups (name, port, access, danger, missions sent, arrived, lost).
+ * @param {object} state
+ * @returns {{year:number, voyages:object[], destinations:object}}
+ */
+export function getMapState(state) {
+  const g = getGameData();
+  const dests = {};
+  const ids = g ? g.destinations.map((d) => d.id) : Object.keys(state.destState);
+  for (const id of ids) {
+    const info = DESTINATIONS[id] || { name: id, port: id };
+    const st = state.destState[id] || { danger: 1, access: 'open' };
+    const vs = state.voyages.filter((v) => v.destination === id);
+    dests[id] = {
+      id,
+      name: info.name,
+      port: info.port,
+      access: st.access,
+      danger: st.danger,
+      closed: st.access === 'closed',
+      missions: vs.length,
+      arrived: vs.filter((v) => v.stage === 'arrived' && v.outcome !== 'deceased').length,
+      lost: vs.filter((v) => v.outcome === 'deceased').length,
+    };
+  }
+  return {
+    year: state.year,
+    voyages: state.voyages.map((v) => ({ ...v })),
+    destinations: dests,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// End of game
+// ---------------------------------------------------------------------------
+
+const REFLECTIONS = Object.freeze({
+  'The Failed Generalate': [
+    'The letters kept coming, and the answers kept missing their mark. Somewhere between Rome and the far missions, the thread of trust wore thin — a reminder that stewardship is not only about saying yes or no, but about seeing clearly enough to choose well.',
+    'Year after year the ternas were weighed and found wanting in the outcome. The Society endured; the General did not. Yet even a failed generalate leaves its record: every denial, every lost voyage, a lesson for whoever takes up the seal next.',
+  ],
+  'The Reluctant Steward': [
+    'He governed, but his heart was never quite in the sending. The missions received too little and too late, and the ledger shows it. Reluctance, too, is a kind of answer — the petitioners learned to read it.',
+    'Caution has its virtues, and its costs. The ships sailed half-empty some years while fervent men waited at home. The Church asks her stewards for prudence, but prudence without courage is only delay.',
+  ],
+  'The Steady General': [
+    'Neither brilliant nor ruinous: the ternas were weighed, the ships sailed, the news came home in its season. Most of the men he sent are names in a ledger now — but a ledger, kept honestly, is itself a kind of fidelity.',
+    'He did the work set before him without fanfare. Some missionaries thrived, some returned, some rest in unmarked graves across the sea. The steady hand does not make history; it makes the history of others possible.',
+  ],
+  'The Ardent General': [
+    'He loved the missions and it showed — in full berths, in prompt answers, in letters that carried hope across oceans. Not every voyage returned, but none was sent carelessly. Zeal, governed by prayer, built more than ships could carry.',
+    'The petitioners called him a father before Rome called him anything else. He sent them with blessing and received their news — glad or grievous — as a father receives word of his sons. The Indies are richer for his ardor.',
+  ],
+  'The Great Missionary Steward': [
+    'Thirty years of ternas, and history will remember the choosing. He sent the right men to the hard places, bore the losses without flinching, and kept the Society’s gaze fixed on the far shore. Xavier himself would have recognized the hand.',
+    'Rare is the General under whom both the missions and the men flourish. His ledger reads like a litany: sent, arrived, labored, and — for some — crowned. The Society’s greatest age of missions bears his fingerprints.',
+  ],
+});
+
+/**
+ * End the game and summarize.
+ * @param {object} state
+ * @returns {{stats:object, title:string, reflection:string}}
+ */
+// ---------------------------------------------------------------------------
+// End-of-generalate report card (Stage 2)
+// ---------------------------------------------------------------------------
+
+/** Build the end-of-generalate report card (plain-data summary). */
+export function generalateReport(state) {
+  const g = ensureData();
+  const s = state.stats || {};
+  const startYear = CAMPAIGN_START;
+  const endYear = (typeof state.year === 'number' ? state.year : startYear) - 1;
+  const fundsStart = rules.RESOURCES.START_FUNDS;
+  const fundsEnd = state.resources && typeof state.resources.funds === 'number'
+    ? state.resources.funds : null;
+
+  let souls = 0, deployVoyages = 0;
+  for (const v of (state.voyages || [])) {
+    souls += 1 + (v.companions || 0);
+    if (v.deploymentId) deployVoyages += 1;
+  }
+
+  const novitiates = (state.novitiates || [])
+    .map((n) => ({
+      destination: n.destination,
+      name: destName(g, n.destination),
+      foundedYear: n.foundedYear,
+    }))
+    .sort((a, b) => a.foundedYear - b.foundedYear);
+
+  // Mission-strengthening investments are tracked only in saves created
+  // after the tracking was introduced; older saves report it as unknown.
+  const hasDispatchData = !!s && typeof s.missionDispatches === 'number';
+  const strengthened = hasDispatchData
+    ? Object.entries(s.missionDispatchDests || {})
+      .map(([destId, men]) => ({ destId, name: destName(g, destId), men }))
+      .sort((a, b) => b.men - a.men)
+    : null;
+
+  const events = [];
+  for (const id of (state.firedEvents || [])) {
+    const ev = (g.events || []).find((e) => e.id === id);
+    if (ev) {
+      events.push({
+        year: ev.year,
+        title: ev.title,
+        description: ev.description || ev.title,
+        effects: summarizeEventEffects(g, ev.effects),
+      });
+    }
+  }
+  events.sort((a, b) => a.year - b.year);
+
+  const score = getScore(state);
+  const report = {
+    startYear,
+    endYear,
+    yearsRuled: Math.max(0, endYear - startYear + 1),
+    score,
+    scoreTitle: rules.titleForScore(score),
+    outcomes: {
+      thriving: s.thriving || 0,
+      returned: s.returns || 0,
+      ill: s.illnesses || 0,
+      deceased: s.deaths || 0,
+      reassigned: s.reassignments || 0,
+    },
+    personnel: {
+      dispatched: s.departures || 0,
+      souls,
+      viaDeployment: deployVoyages,
+      available: typeof state.available === 'number' ? state.available : null,
+    },
+    treasury: {
+      start: fundsStart,
+      end: fundsEnd,
+      net: fundsEnd === null ? null : fundsEnd - fundsStart,
+    },
+    institutions: {
+      novitiates,
+      strengthened,
+      strengthenedTotal: hasDispatchData ? s.missionDispatches : null,
+      strengthenedUnknown: !hasDispatchData,
+    },
+    events,
+  };
+  report.narrative = reportNarrative(report);
+  return report;
+}
+
+/** One-line human summary of a historical event's mechanical effects. */
+function summarizeEventEffects(g, effects) {
+  const parts = [];
+  for (const [destId, fx] of Object.entries(effects || {})) {
+    const bits = [];
+    if (typeof fx.danger === 'number') bits.push(`peril ${fx.danger}`);
+    if (fx.access === 'closed') bits.push('closed to new men');
+    else if (fx.access === 'restricted') bits.push('sailings restricted');
+    else if (fx.access === 'open') bits.push('opened to new men');
+    if (bits.length) parts.push(`${destName(g, destId)}: ${bits.join(', ')}`);
+  }
+  return parts.join('; ');
+}
+
+/**
+ * Descriptive closing narrative: what happened, in plain words. No grades,
+ * no judgments, no attribution of divine favor or disfavor to the outcomes.
+ */
+function reportNarrative(r) {
+  const o = r.outcomes, p = r.personnel, t = r.treasury, ins = r.institutions;
+  const sents = [];
+  const menWord = p.dispatched === 1 ? 'man' : 'men';
+  sents.push(
+    `From ${r.startYear} to ${r.endYear}, ${p.dispatched} ${menWord} embarked for the missions` +
+    (p.souls > p.dispatched ? ` (${p.souls} souls counting the companions who sailed with them)` : '') +
+    '.',
+  );
+  if (p.dispatched > 0) {
+    const bits = [];
+    if (o.thriving) bits.push(`${o.thriving} reported thriving in their stations`);
+    if (o.returned) bits.push(`${o.returned} returned to Europe`);
+    if (o.ill) bits.push(`${o.ill} fallen gravely ill`);
+    if (o.deceased) bits.push(`${o.deceased} dead in the missions`);
+    sents.push(
+      bits.length
+        ? `Word has come back of ${bits.join('; ')}.`
+        : 'No word has yet come back from those who sailed.',
+    );
+    if (o.thriving > 0) {
+      const per10 = Math.round((o.thriving / p.dispatched) * 10);
+      sents.push(`Roughly ${per10} in ten of those embarked are thriving.`);
+    }
+  }
+  if (t.end !== null) {
+    const dir = t.net > 0 ? 'more' : t.net < 0 ? 'less' : 'no more nor less';
+    sents.push(
+      t.net === 0
+        ? `The mission chest holds ${t.end} scudi, as at the election.`
+        : `The mission chest, which held ${t.start} scudi at the election, now holds ${t.end} — ${Math.abs(t.net)} scudi ${dir} than at the beginning.`,
+    );
+  }
+  const found = [];
+  if (ins.novitiates.length) {
+    found.push(
+      `${ins.novitiates.length} ${ins.novitiates.length === 1 ? 'novitiate' : 'novitiates'} founded` +
+      ` (${ins.novitiates.map((n) => `${n.name} ${n.foundedYear}`).join(', ')})`,
+    );
+  }
+  if (ins.strengthenedUnknown) {
+    found.push('earlier mission reinforcements are not recorded in this account');
+  } else if (ins.strengthenedTotal > 0) {
+    found.push(
+      `${ins.strengthenedTotal} ${ins.strengthenedTotal === 1 ? 'man' : 'men'} dispatched to strengthen the missions` +
+      ` (${ins.strengthened.map((m) => `${m.name}: ${m.men}`).join(', ')})`,
+    );
+  }
+  if (found.length) sents.push(`The Society's foundations grew by ${found.join('; ')}.`);
+  return sents.join(' ');
+}
+
+export function endGame(state) {
+  const s = state.stats;
+  const unresolved =
+    state.queue.length +
+    state.voyages.filter((v) => v.stage === 'transit').length +
+    state.voyages.filter((v) => v.stage === 'arrived' && !v.newsDelivered).length;
+  const score = getScore(state);
+  const stats = {
+    ternas: s.ternas,
+    approvals: s.approvals,
+    approved: s.approvals,   // UI alias
+    denials: s.denials,
+    denied: s.denials,       // UI alias
+    departures: s.departures,
+    departed: s.departures,  // UI alias
+    arrivals: s.arrivals,
+    arrived: s.arrivals,     // UI alias
+    deaths: s.deaths,
+    lost: s.deaths,          // UI alias
+    returns: s.returns,
+    returned: s.returns,     // UI alias
+    illnesses: s.illnesses,
+    reassignments: s.reassignments,
+    thriving: s.thriving,
+    unresolved,
+    yearsPlayed: state.year - CAMPAIGN_START,
+    yearsRuled: state.year - CAMPAIGN_START, // UI alias
+    finalYear: state.year - 1,
+    score,
+    finalScore: score,       // UI alias
+    seed: state.seed,
+    mode: state.mode,
+    phase: state.phase,
+  };
+  const title = rules.titleForScore(score);
+  const variants = REFLECTIONS[title];
+  const r = makeRng(`${state.seed}:reflection`);
+  const reflection = variants[r.int(0, variants.length - 1)];
+  return { stats, title, reflection, report: generalateReport(state) };
+}
+
+// ---------------------------------------------------------------------------
+// Serialization
+// ---------------------------------------------------------------------------
+
+/**
+ * Deep-clone the state into a JSON-safe object. RNG states are already
+ * stored as plain arrays inside state.
+ * @param {object} state
+ * @returns {object}
+ */
+export function serialize(state) {
+  return JSON.parse(JSON.stringify(state));
+}
+
+/**
+ * Restore a state object from serialize(). Validates minimally.
+ * Handles older saves lacking currentYear by defaulting it to null.
+ * @param {object} obj
+ * @returns {object}
+ */
+export function deserialize(obj) {
+  if (!obj || typeof obj !== 'object' || obj.version !== 1) {
+    throw new Error('deserialize: not a GENERALATE state object');
+  }
+  const state = JSON.parse(JSON.stringify(obj));
+  if (!('currentYear' in state)) state.currentYear = null;
+  if (!('novitiates' in state)) state.novitiates = [];
+  if (!state.missions || typeof state.missions !== 'object') state.missions = initMissions();
+  else for (const id of Object.keys(state.missions)) missionStaff(state, id); // normalize shape
+  if (!('europeanLabor' in state)) state.europeanLabor = [];
+  if(!Array.isArray(state.pendingVows))state.pendingVows=[];
+  if(!Array.isArray(state.vowsNewsInTransit))state.vowsNewsInTransit=[];
+  for(const e of state.europeanLabor){const r=state.petitioners[e.petitionerId];e.vows=(r&&r.vows&&typeof r.vows==='object')?r.vows:ensureVows(state,e.petitionerId);if(r&&r.entryYear==null){if(e.year!=null)r.entryYear=e.year;else{const hy=(r.history||[]).find(h=>/denied/i.test(h));const hym=hy&&hy.match(/16\d\d/);r.entryYear=hym?parseInt(hym[0]):state.year-2;}}}
+  if (!('instructions' in state) || typeof state.instructions !== 'object') state.instructions = {};
+  if (!('novices' in state) || !Array.isArray(state.novices)) state.novices = [];
+  if (!('zealUntil' in state)) state.zealUntil = 0;
+  // Stage 0 instrumentation: pre-instrumentation saves have no uncapped history;
+  // seed from the capped score (a floor, documented approximation).
+  if (!('scoreUncapped' in state)) state.scoreUncapped = state.score;
+  if (typeof state.society !== 'number') state.society = rules.RESOURCES.SOCIETY_START;
+  if (typeof state.available !== 'number') {
+    state.available = Math.round((state.society || rules.RESOURCES.SOCIETY_START) * rules.RESOURCES.MISSION_PCT);
+  }
+  if (Array.isArray(state.resources && state.resources.ships)) {
+    for (const sh of state.resources.ships) {
+      if (sh.freeYear == null) sh.freeYear = 0;
+    }
+  }
+  if (!('team' in (state.seq || {}))) state.seq.team = 0;
+  if (!('deployment' in (state.seq || {}))) state.seq.deployment = 0; // collective deployments (Stage 1)
+  if (!('deployments' in state) || !Array.isArray(state.deployments)) state.deployments = []; // Stage 1 registry
+  if (!('teams' in (state.stats || {}))) state.stats.teams = 0;
+  if (!('novitiates' in (state.stats || {}))) state.stats.novitiates = 0;
+  // Validate RNG states are restorable.
+  const r = makeRng('generalate:main');
+  r.setState(state.rngState);
+  const e = makeRng('generalate:endless');
+  e.setState(state.endlessRngState);
+  return state;
+}
+
+// ---------------------------------------------------------------------------
+// Debug tools
+// ---------------------------------------------------------------------------
+
+/** Jump the game clock (debug). */
+export function dbgJumpYear(state, y) {
+  if (!Number.isInteger(y)) throw new Error('dbgJumpYear: year must be an integer');
+  state.year = y;
+  state.currentYear = null;
+  return state.year;
+}
+
+/**
+ * Force a historical event to fire now (debug): applies its destState
+ * effects and records it as fired.
+ */
+export function dbgFireEvent(state, eventId) {
+  const g = ensureData();
+  const ev = g.events.find((e) => e.id === eventId);
+  if (!ev) throw new Error(`dbgFireEvent: unknown event "${eventId}"`);
+  applyEvent(state, g, ev);
+  if (!state.firedEvents.includes(ev.id)) state.firedEvents.push(ev.id);
+  return { id: ev.id, year: ev.year, title: ev.title, effects: ev.effects };
+}
+
+/** Force-assemble a terna for the current year, replacing any pending one (debug). */
+export function dbgSpawnTerna(state) {
+  const g = ensureData();
+  const rng = mainRng(state);
+  const { cards } = assembleTerna(state, g, rng);
+  saveRng(state, rng);
+  state.currentTerna = { year: state.year, cards };
+  state.currentYear = { year: state.year, briefing: buildBriefing(state, g, false), terna: cards, decided: false, decisionResult: null, debug: true };
+  return cards;
+}
+
+/**
+ * Force a voyage's outcome (debug). Posts the (counterfactual) news immediately.
+ */
+export function dbgForceOutcome(state, voyageId, outcome) {
+  if (!rules.TERMINAL_OUTCOMES.includes(outcome)) {
+    throw new Error(`dbgForceOutcome: outcome must be one of ${rules.TERMINAL_OUTCOMES.join(', ')}`);
+  }
+  const g = ensureData();
+  const v = state.voyages.find((x) => x.id === voyageId);
+  if (!v) throw new Error(`dbgForceOutcome: unknown voyage "${voyageId}"`);
+  // Guard against re-forcing: the normal path filters by stage === 'transit'.
+  // Re-running on an arrived voyage would double-apply staffing, score, and news.
+  if (v.stage === 'arrived' && v.outcome) {
+    throw new Error(`dbgForceOutcome: voyage "${voyageId}" already resolved as ${v.outcome}`);
+  }
+  v.stage = 'arrived';
+  v.status = 'arrived';
+  v.outcome = outcome;
+  v.resolvedYear = state.year;
+  if (outcome === 'thriving') staffArrival(state, v);
+  if (outcome === 'deceased') {
+    state.stats.deaths += 1;
+    state.society = Math.max(0, (state.society || 0) - 1);
+  }
+  if (outcome === 'returned') state.available = (state.available || 0) + 1; // rejoins the mission-eligible pool
+  if (outcome === 'ill') {
+    state.stats.illnesses += 1;
+    const illName = v.petitionerName || cardName(state, g, v.petitionerId);
+    const illRec = addEuropeanLabor(state, v.petitionerId, illName, 'ill');
+    illRec.ill = true;
+    illRec.illYear = state.year;
+  }
+  const rec = getRecord(state, v.petitionerId);
+  rec.status =
+    outcome === 'deceased' ? STATUS.DECEASED
+    : outcome === 'returned' ? STATUS.RETURNED
+    : outcome === 'ill' ? STATUS.ILL
+    : STATUS.ACTIVE;
+  if (outcome === 'deceased') purgeVowsState(state, v.petitionerId);
+  const outcomes = [];
+  deliverNews(state, g, v, outcomes);
+  return outcomes[0];
+}
+
+// UI-compat debug aliases (the UI was coded against the mock's __ names).
+/** @deprecated alias of dbgFireEvent for the UI debug panel */
+export const __fireEvent = dbgFireEvent;
+/**
+ * UI-compat alias of dbgForceOutcome. Accepts the mock's outcome vocabulary:
+ * 'arrived' → thriving, 'lost' → deceased, 'returned' → returned.
+ */
+export function __forceOutcome(state, voyageId, outcome) {
+  const map = { arrived: 'thriving', lost: 'deceased', returned: 'returned' };
+  return dbgForceOutcome(state, voyageId, map[outcome] || outcome);
+}
+/** UI debug panel data: {EVENTS: [event ids], DESTINATIONS: [{id, name}]} */
+export function __debug() {
+  const g = getGameData();
+  return {
+    EVENTS: g ? g.events.map((e) => e.id) : [],
+    DESTINATIONS: g ? g.destinations.map((d) => ({ id: d.id, name: d.name || d.id })) : [],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Soak test
+// ---------------------------------------------------------------------------
+
+/**
+ * Headless soak test: plays N rounds with random valid decisions,
+ * asserting the engine invariants every round.
+ * @param {{rounds?:number, seed?:string, mode?:'campaign'|'endless'}} opts
+ * @returns {{rounds:number, errors:string[], invariantsChecked:number, finalScore:number|null, finalYear:number|null, completedCampaign:boolean}}
+ */
+export function soakTest({ rounds = 100, seed = 'soak', mode = 'endless' } = {}) {
+  const errors = [];
+  let invariantsChecked = 0;
+  const check = (name, cond) => {
+    invariantsChecked += 1;
+    if (!cond) errors.push(`INVARIANT FAILED: ${name}`);
+  };
+  const decider = makeRng(`${seed}:soak-decider`);
+
+  let state;
+  try {
+    state = newGame({ mode, seed });
+  } catch (e) {
+    return { rounds: 0, errors: [`newGame threw: ${e.message}`], invariantsChecked, finalScore: null, finalYear: null, completedCampaign: false };
+  }
+
+  let completed = 0;
+  let completedCampaign = false;
+  for (let i = 0; i < rounds; i++) {
+    try {
+      // --- startYear ---
+      const { terna } = startYear(state);
+      // Invariant 1: exactly 3 distinct petitioner ids per terna.
+      check(`round ${i}: terna has exactly 3 cards`, terna.length === 3);
+      check(`round ${i}: terna ids distinct`, new Set(terna.map((c) => c.petitionerId)).size === 3);
+      check(`round ${i}: card id alias`, terna.every((c) => c.id === c.petitionerId));
+
+      // Invariant 2: decide() validates its approvals; anything else throws.
+      if (i === 2) {
+        let threw = false;
+        try { decide(state, [{ id: 'bogus-id' }]); } catch { threw = true; }
+        check('decide rejects unknown id', threw);
+        let threw2 = false;
+        try { decide(state, [{ id: terna[0].petitionerId + '-nope' }]); } catch { threw2 = true; }
+        check('decide rejects near-miss id', threw2);
+        let threw3 = false;
+        try { decide(state, 'not-an-array'); } catch { threw3 = true; }
+        check('decide rejects non-array approvals', threw3);
+        let threw4 = false;
+        try { decide(state, [{ id: terna[0].petitionerId }, { id: terna[0].petitionerId }]); } catch { threw4 = true; }
+        check('decide rejects duplicate id', threw4);
+      }
+
+      // Approve a random subset (0–3) of the terna; sometimes redirect one.
+      const approvals = terna.filter(() => decider.chance(0.5)).map((c) => ({ id: c.petitionerId }));
+      if (approvals.length && decider.chance(0.25)) {
+        const openDests = Object.keys(state.destState).filter((d) => isDestOpen(state, d));
+        if (openDests.length) approvals[0].destination = decider.pick(openDests);
+      }
+      const res = decide(state, approvals);
+      // Invariant 5: approved + denied partition the terna; no double role.
+      const approvedIds = new Set(res.approved.map((c) => c.petitionerId));
+      check(`round ${i}: partition covers terna`, res.approved.length + res.denied.length === 3);
+      check(`round ${i}: no double role`, !res.denied.some((d) => approvedIds.has(d.petitionerId)));
+      check(`round ${i}: teams consistent`,
+        res.teams.every((tm) => tm.size >= 2 && tm.members.every((id) => approvedIds.has(id))));
+      // Invariant 3: score within [0,100].
+      check(`round ${i}: score in range after decide`, state.score >= 0 && state.score <= 100);
+
+      const r = resolveYear(state);
+      check(`round ${i}: score in range after resolve`, state.score >= 0 && state.score <= 100);
+      check(`round ${i}: outcomes is array`, Array.isArray(r.outcomes));
+      check(`round ${i}: eventsFired is array`, Array.isArray(r.eventsFired));
+      // Invariant 4: returning petitioners keep id + history (year-ordered).
+      let histOk = true;
+      for (const rec of Object.values(state.petitioners)) {
+        if (rec.history.length > 1) {
+          const years = rec.history.map((h) => h.year);
+          if (!years.every((y2, k) => k === 0 || y2 >= years[k - 1])) { histOk = false; break; }
+        }
+      }
+      check(`round ${i}: histories ordered`, histOk);
+
+      // Invariant 6: serialize → deserialize round-trips identically.
+      if (i % 25 === 24) {
+        const a = JSON.stringify(serialize(state));
+        const b = JSON.stringify(serialize(deserialize(serialize(state))));
+        check(`round ${i}: serialize round-trip identical`, a === b);
+      }
+
+      // Invariant 7: bounded growth (voyage detail capped; ledger sane).
+      check(`round ${i}: voyages bounded`, state.voyages.length <= 1200);
+      check(`round ${i}: ledger sane`, state.ledger.length <= 100000);
+      const resolved = state.voyages.filter((v) => v.stage === 'arrived' && !v.summarized).length;
+      check(`round ${i}: voyage detail capped`, resolved <= 160);
+
+      completed += 1;
+    } catch (e) {
+      if (e && e.code === 'CAMPAIGN_COMPLETE') {
+        completedCampaign = true;
+        break;
+      }
+      errors.push(`round ${i}: ${e.message}`);
+      break;
+    }
+  }
+  return {
+    rounds: completed,
+    errors,
+    invariantsChecked,
+    finalScore: state ? getScore(state) : null,
+    finalYear: state ? state.year : null,
+    completedCampaign,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Node self-test (also runnable via test.mjs)
+// ---------------------------------------------------------------------------
+
+if (typeof process !== 'undefined' && process.argv[1]?.endsWith('engine.js')) {
+  const { setGameData, FIXTURES } = await import('./data.js');
+  setGameData(FIXTURES);
+  const r = soakTest({ rounds: 60, seed: 'engine-selftest' });
+  console.log(JSON.stringify(r, null, 2));
+  if (r.errors.length > 0) process.exit(1);
+}

@@ -152,17 +152,18 @@ export function renderDraft(app, root) {
   const hqPicked = Object.keys(hqs).length;
   const dests = E.openDestinations(app.state);
   const destName = (id) => (dests.find((d) => d.id === id) || {}).name || id;
-  const tName = (id) => { const t = Dispositions.TRAITS.find((x) => x.id === id); return t ? t.name : id; };
 
   const candCard = (region, c) => {
     const sel = draft.picks[region.id] === c.id;
-    const top = Object.entries(c.traits).sort((a, b) => b[1] - a[1]).slice(0, 3);
     return `
       <article class="pcard draft-cand${sel ? ' approved-pick' : ''}" data-region="${esc(region.id)}" data-id="${esc(c.id)}" tabindex="0" role="button" aria-pressed="${sel}">
         <h3 class="pcard-name">${esc(c.name)}</h3>
         <p class="pcard-meta">${c.age} years old &middot; ${c.yearsInSociety} years in the Society</p>
         <ul class="draft-traits">
-          ${top.map(([tid, v]) => `<li><strong>${esc(tName(tid))}</strong> &mdash; ${esc(Dispositions.traitLabel(v))}</li>`).join('')}
+          ${Dispositions.TRAITS.map((t) => {
+            const v = Math.max(1, Math.min(5, c.traits[t.id] || 3));
+            return `<li><span class="insp-dots" aria-label="${v} of 5">${dispDots(v)}</span> <strong>${esc(t.name)}</strong></li>`;
+          }).join('')}
         </ul>
         <p class="draft-note">${esc(c.note)}</p>
         ${sel ? '<p class="team-tag">named provincial</p>' : ''}

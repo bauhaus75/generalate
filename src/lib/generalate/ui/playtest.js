@@ -162,7 +162,15 @@ function warningsHTML(d) {
 
 /** HTML for the collapsible Playtest Tools section. Read-only. */
 export function playtestSectionHTML(app) {
-  const d = buildDiagnostics(app.Engine, app.state);
+  // Defensive: ensure diagnostics failures don't abort the main UI render.
+  let d;
+  try {
+    d = buildDiagnostics(app.Engine, app.state);
+  } catch (e) {
+    // Transparent failure: log to console and render an empty diagnostics panel.
+    console.error('Playtest.buildDiagnostics failed:', e);
+    d = { men: [], warnings: [] };
+  }
   return `
   <details class="playtest-tools" style="margin-top:1.2em;border-top:1px solid #6b5a3e;padding-top:.8em">
     <summary class="px" style="cursor:pointer">🔧 PLAYTEST TOOLS</summary>

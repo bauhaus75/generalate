@@ -2659,6 +2659,92 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
 }
 
+
+// --- 44. Governance: declined report blocks application of staged actions ---
+{
+  const G = EngineNS;
+  const mkDispatchRep = (s, destId, title) => G.queueReport(s, { kind: 'request', destId, year: s.year,
+    title, body: 'b', facts: {},
+    recommendations: [{ id: 'r1', text: 'Send men',
+      action: { type: 'dispatch', destId, counts: { fathers: 0, coadjutors: 1, brothers: 0 } } }] });
+  const snap = (s) => ({ funds: s.resources.funds, avail: s.available,
+    goa: missionStaffed(missionStaff(s, 'goa')), japan: missionStaffed(missionStaff(s, 'japan')),
+    ledger: s.ledger.length, seq: JSON.stringify(s.seq), rng: JSON.stringify(s.rngState) });
+
+  // 1+2. decline-after-staging: apply rejected, state fully unchanged
+  {
+    const s = newGame({ mode: 'campaign', seed: 'gov-d1' });
+    s.resources.funds = 10000; s.available = 50;
+    const rep = mkDispatchRep(s, 'goa', 'Goa asks');
+    G.stageRecommendation(s, rep.id, 'r1');
+    G.decideReport(s, rep.id, 'decline', 'not now');
+    const before = snap(s);
+    let threw = false, msg = '';
+    try { G.applyStaged(s); } catch (e) { threw = true; msg = e.message; }
+    const after = snap(s);
+    ok('gov-decline: apply rejected after decline', threw && /declined/.test(msg));
+    ok('gov-decline: game state unchanged',
+      after.funds === before.funds && after.avail === before.avail && after.goa === before.goa
+      && after.ledger === before.ledger && after.seq === before.seq && after.rng === before.rng);
+    ok('gov-decline: report stays declined',
+      s.reports.find((r) => r.id === rep.id).status === 'declined');
+    ok('gov-decline: staged action survives for discard',
+      s.staged.length === 1 && s.staged[0].status === 'staged');
+    ok('gov-decline: no applied actions recorded',
+      (s.reports.find((r) => r.id === rep.id).appliedActions || []).length === 0);
+  }
+  // 3. mixed batch: valid + declined -> whole batch rejected and rolled back
+  {
+    const s = newGame({ mode: 'campaign', seed: 'gov-d2' });
+    s.resources.funds = 10000; s.available = 50;
+    const repA = mkDispatchRep(s, 'goa', 'Goa asks');
+    const repB = mkDispatchRep(s, 'japan', 'Japan asks');
+    G.stageRecommendation(s, repA.id, 'r1');
+    G.stageRecommendation(s, repB.id, 'r1');
+    G.decideReport(s, repB.id, 'decline');
+    const before = snap(s);
+    let threw = false;
+    try { G.applyStaged(s); } catch (e) { threw = true; }
+    const after = snap(s);
+    ok('gov-decline: mixed batch rejected', threw);
+    ok('gov-decline: mixed batch fully rolled back',
+      after.funds === before.funds && after.goa === before.goa && after.japan === before.japan
+      && after.ledger === before.ledger);
+    ok('gov-decline: valid report still pending, nothing applied',
+      s.reports.find((r) => r.id === repA.id).status === 'pending'
+      && (s.reports.find((r) => r.id === repA.id).appliedActions || []).length === 0);
+    ok('gov-decline: both staged entries intact', s.staged.length === 2);
+    // discarding the declined one lets the valid batch apply cleanly
+    const bad = s.staged.find((x) => x.reportId === repB.id);
+    G.discardStaged(s, bad.id);
+    const applied = G.applyStaged(s);
+    ok('gov-decline: valid action applies after discard', applied.length === 1
+      && s.reports.find((r) => r.id === repA.id).status === 'acted');
+  }
+  // 4. validator flags it directly (UI badge path)
+  {
+    const s = newGame({ mode: 'campaign', seed: 'gov-d3' });
+    s.resources.funds = 10000; s.available = 50;
+    const rep = mkDispatchRep(s, 'goa', 'Goa asks');
+    const sa = G.stageRecommendation(s, rep.id, 'r1');
+    G.decideReport(s, rep.id, 'decline');
+    let threw = false, msg = '';
+    try { G.validateStagedAction(s, sa); } catch (e) { threw = true; msg = e.message; }
+    ok('gov-decline: validator rejects declined-report action', threw && /declined/.test(msg));
+  }
+  // 5. scope lock: acknowledge-after-stage still applies (only decline blocks)
+  {
+    const s = newGame({ mode: 'campaign', seed: 'gov-d4' });
+    s.resources.funds = 10000; s.available = 50;
+    const rep = mkDispatchRep(s, 'goa', 'Goa asks');
+    G.stageRecommendation(s, rep.id, 'r1');
+    G.decideReport(s, rep.id, 'acknowledge');
+    const applied = G.applyStaged(s);
+    ok('gov-decline: acknowledge does not block apply', applied.length === 1
+      && s.reports.find((r) => r.id === rep.id).status === 'acted');
+  }
+}
+
 console.log(`\n${failures === 0 ? 'ALL TESTS PASSED' : failures + ' FAILURES'}`);
 process.exit(failures === 0 ? 0 : 1);
 

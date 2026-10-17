@@ -1632,6 +1632,14 @@ function stagedDispatchCost(state, action) {
 export function validateStagedAction(state, sa) {
   const a = sa.action || {};
   const g = ensureData();
+  // A declined report is a final judgment: its recommendations may not be
+  // executed, even if they were staged while the report was pending. This is
+  // checked at apply time (and in the UI validity badge) because the report's
+  // status can change after staging.
+  const rep = (state.reports || []).find((r) => r.id === sa.reportId);
+  if (rep && rep.status === REPORT_STATUS.DECLINED) {
+    throw new Error(`staged action "${sa.id}" comes from the report "${rep.title}", which was declined; discard it before applying.`);
+  }
   if (a.type === 'dispatch') {
     const dest = g.destinations.find((d) => d.id === a.destId);
     if (!dest) throw new Error(`staged dispatch: unknown destination "${a.destId}".`);
@@ -1697,12 +1705,10 @@ export function applyStaged(state) {
         if (!Array.isArray(rep.appliedActions)) rep.appliedActions = [];
         rep.appliedActions.push({ stagedId: sa.id, recId: sa.recId, label: sa.label, note, year: state.year });
         const labels = rep.appliedActions.map((a) => a.label).join('; ');
-        if (rep.status === REPORT_STATUS.PENDING) {
-          rep.status = REPORT_STATUS.ACTED;
-          rep.decision = { decision: 'acted', year: state.year, note: labels };
-        } else {
-          rep.decision = { ...(rep.decision || {}), decision: 'acted', year: state.year, note: labels };
-        }
+        // Any report that has actions applied from it was acted on, whatever its
+        // prior non-declined status (declined reports are rejected at validation).
+        rep.status = REPORT_STATUS.ACTED;
+        rep.decision = { decision: 'acted', year: state.year, note: labels };
         addLedger(state, {
           year: state.year, type: 'report', decision: 'acted', destId: rep.destId, reportId: rep.id,
           text: `Report acted on: ${rep.title} — ${sa.label}. ${note}`,

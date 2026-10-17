@@ -2414,6 +2414,166 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
 }
 
+
+// --- 42. Governance audit fixes: lost deaths, multi-action, ids, conflicts, rollback, reopen ---
+{
+  const G = EngineNS;
+  // Fix 1: two deaths at one destination -> two distinct, traceable reports; none lost
+  {
+    const s = newGame({ mode: 'campaign', seed: 'gov-a1' });
+    for (const d of ['japan', 'china', 'peru', 'philippines']) {
+      const m = missionStaff(s, d); m.fathers = 2; m.coadjutors = 2; m.brothers = 1;
+    }
+    const mkVoy = (n) => ({ id: `voy-test-${n}`, petitionerId: `hist-${n}`, petitionerName: `Test Man ${n}`,
+      destination: 'goa', departYear: s.year, travelYears: 2, arriveYear: s.year, stage: 'resolved',
+      outcome: 'deceased', resolvedYear: s.year, newsDelivered: true });
+    s.voyages.push(mkVoy(1), mkVoy(2));
+    G.generateReports(s, s.year);
+    const deaths = s.reports.filter((r) => r.kind === 'voyage');
+    ok('gov-audit: two deaths -> two reports', deaths.length === 2);
+    ok('gov-audit: deaths traceable', deaths.every((r) => r.facts.petitionerId && r.facts.voyageId)
+      && new Set(deaths.map((r) => r.facts.voyageId)).size === 2);
+    ok('gov-audit: both voyages marked', s.voyages.every((v) => v.deathReported === true));
+    // second generation: no duplicates, no unmarking
+    G.generateReports(s, s.year);
+    ok('gov-audit: no duplicate death reports', s.reports.filter((r) => r.kind === 'voyage').length === 2);
+  }
+  // Fix 1b: death while a voyage report pending for same dest -> still reported
+  {
+    const s = newGame({ mode: 'campaign', seed: 'gov-a1b' });
+    for (const d of ['japan', 'china', 'peru', 'philippines']) {
+      const m = missionStaff(s, d); m.fathers = 2; m.coadjutors = 2; m.brothers = 1;
+    }
+    s.voyages.push({ id: 'voy-a', petitionerId: 'hist-1', petitionerName: 'Man A', destination: 'goa',
+      departYear: s.year, travelYears: 2, arriveYear: s.year, stage: 'resolved', outcome: 'deceased', resolvedYear: s.year, newsDelivered: true });
+    G.generateReports(s, s.year);
+    s.voyages.push({ id: 'voy-b', petitionerId: 'hist-2', petitionerName: 'Man B', destination: 'goa',
+      departYear: s.year, travelYears: 2, arriveYear: s.year, stage: 'resolved', outcome: 'deceased', resolvedYear: s.year, newsDelivered: true });
+    G.generateReports(s, s.year);
+    const deaths = s.reports.filter((r) => r.kind === 'voyage');
+    ok('gov-audit: second death not suppressed', deaths.length === 2
+      && deaths.some((r) => r.facts.voyageId === 'voy-b'));
+  }
+  // Fix 2: two recommendations from one report staged + applied -> both recorded
+  {
+    const s = newGame({ mode: 'campaign', seed: 'gov-a2' });
+    s.resources.funds = 10000; s.available = 50;
+    const rep = G.queueReport(s, { kind: 'fragile', destId: 'goa', year: s.year, title: 't', body: 'b',
+      facts: {}, recommendations: [
+        { id: 'r1', text: 'Reinforce', action: { type: 'dispatch', destId: 'goa', counts: { fathers: 0, coadjutors: 1, brothers: 0 } } },
+        { id: 'r2', text: 'Encourage', action: { type: 'instruct', destId: 'goa', instructionType: 'encourage' } },
+      ] });
+    G.stageRecommendation(s, rep.id, 'r1');
+    G.stageRecommendation(s, rep.id, 'r2');
+    const applied = G.applyStaged(s);
+    const r2 = s.reports.find((r) => r.id === rep.id);
+    ok('gov-audit: both actions applied', applied.length === 2);
+    ok('gov-audit: both recorded on report', r2.appliedActions.length === 2
+      && r2.appliedActions.some((a) => a.recId === 'r1') && r2.appliedActions.some((a) => a.recId === 'r2'));
+    ok('gov-audit: decision note lists both', /Reinforce/.test(r2.decision.note) && /Encourage/.test(r2.decision.note));
+    ok('gov-audit: ledger has both', getLedger(s).filter((e) => e.type === 'report' && e.decision === 'acted' && e.reportId === rep.id).length === 2);
+  }
+  // Fix 3: staged IDs unique across discard/re-stage/apply cycles
+  {
+    const s = newGame({ mode: 'campaign', seed: 'gov-a3' });
+    const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b',
+      facts: {}, recommendations: [
+        { id: 'r1', text: 'A', action: { type: 'instruct', destId: 'goa', instructionType: 'encourage' } },
+        { id: 'r2', text: 'B', action: { type: 'instruct', destId: 'japan', instructionType: 'encourage' } },
+      ] });
+    const a = G.stageRecommendation(s, rep.id, 'r1');
+    G.discardStaged(s, a.id);
+    const b = G.stageRecommendation(s, rep.id, 'r1');
+    const c = G.stageRecommendation(s, rep.id, 'r2');
+    ok('gov-audit: staged ids unique after discard', new Set([a.id, b.id, c.id]).size === 3);
+    G.applyStaged(s);
+    const rep2 = G.queueReport(s, { kind: 'request', destId: 'china', year: s.year, title: 't2', body: 'b2',
+      facts: {}, recommendations: [{ id: 'r1', text: 'A2', action: { type: 'instruct', destId: 'china', instructionType: 'encourage' } }] });
+    const d = G.stageRecommendation(s, rep2.id, 'r1');
+    ok('gov-audit: staged id unique after apply', ![a.id, b.id, c.id].includes(d.id));
+  }
+  // Fix 4: batch conflict detected (two dispatches, each affordable alone, not together)
+  {
+    const s = newGame({ mode: 'campaign', seed: 'gov-a4' });
+    s.available = 50;
+    // coadjutor cost: find it
+    const cost1 = 1 * (await import('./rules.js')).MISSION_GRADES.coadjutors.cost;
+    s.resources.funds = cost1 * 3; // affords 3, not 4
+    const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b',
+      facts: {}, recommendations: [
+        { id: 'r1', text: 'Send 2', action: { type: 'dispatch', destId: 'goa', counts: { fathers: 0, coadjutors: 2, brothers: 0 } } },
+        { id: 'r2', text: 'Send 2 more', action: { type: 'dispatch', destId: 'japan', counts: { fathers: 0, coadjutors: 2, brothers: 0 } } },
+      ] });
+    G.stageRecommendation(s, rep.id, 'r1');
+    G.stageRecommendation(s, rep.id, 'r2');
+    const funds0 = s.resources.funds;
+    const staff0 = missionStaffed(missionStaff(s, 'goa')) + missionStaffed(missionStaff(s, 'japan'));
+    let threw = false, msg = '';
+    try { G.applyStaged(s); } catch (e) { threw = true; msg = e.message; }
+    ok('gov-audit: batch conflict throws', threw && /rolled back/.test(msg));
+    ok('gov-audit: conflict rollback restores funds+staff', s.resources.funds === funds0
+      && missionStaffed(missionStaff(s, 'goa')) + missionStaffed(missionStaff(s, 'japan')) === staff0);
+    ok('gov-audit: conflict keeps staged+pending', s.staged.length === 2
+      && s.reports.find((r) => r.id === rep.id).status === 'pending');
+  }
+  // Fix 4b: rollback restores rngState, seq counters, ledger length
+  {
+    const s = newGame({ mode: 'campaign', seed: 'gov-a4b' });
+    s.resources.funds = 10000; s.available = 50;
+    const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b',
+      facts: {}, recommendations: [
+        { id: 'r1', text: 'Reinforce', action: { type: 'dispatch', destId: 'goa', counts: { fathers: 0, coadjutors: 1, brothers: 0 } } },
+        { id: 'r2', text: 'Bad instruct', action: { type: 'instruct', destId: 'nope-nowhere', instructionType: 'encourage' } },
+      ] });
+    // r2 passes staging? No — validateStagedAction runs at stage time and would throw for unknown dest.
+    // So stage only r1, then corrupt r2's action post-staging to simulate mid-batch failure.
+    G.stageRecommendation(s, rep.id, 'r1');
+    const sa2 = { id: 'stg-evil', reportId: rep.id, recId: 'r2', destId: 'goa', label: 'Evil',
+      action: { type: 'dispatch', destId: 'goa', counts: { fathers: 0, coadjutors: 1, brothers: 0 } },
+      stagedYear: s.year, status: 'staged' };
+    s.staged.push(sa2);
+    const rng0 = JSON.stringify(s.rngState);
+    const seq0 = JSON.stringify(s.seq);
+    const ledger0 = s.ledger.length;
+    const repStatus0 = rep.status;
+    // sabotage sa2 after validation snapshot: make funds insufficient mid-batch
+    const origDispatch = EngineNS.dispatchMission;
+    let threw = false;
+    // force failure by draining funds between actions: patch via staged action that spends all
+    s.staged[1].action = { type: 'dispatch', destId: 'goa', counts: { fathers: 0, coadjutors: 1000, brothers: 0 } };
+    try { G.applyStaged(s); } catch (e) { threw = true; }
+    ok('gov-audit: mid-batch failure throws', threw);
+    ok('gov-audit: rollback restores rngState', JSON.stringify(s.rngState) === rng0);
+    ok('gov-audit: rollback restores seq', JSON.stringify(s.seq) === seq0);
+    ok('gov-audit: rollback restores ledger length', s.ledger.length === ledger0);
+    ok('gov-audit: rollback restores report status', s.reports.find((r) => r.id === rep.id).status === repStatus0);
+  }
+  // Fix 5: deferred reports can be reopened and re-decided
+  {
+    const s = newGame({ mode: 'campaign', seed: 'gov-a5' });
+    const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b', facts: {}, recommendations: [] });
+    G.decideReport(s, rep.id, 'defer');
+    ok('gov-audit: deferred leaves pending inbox', G.pendingReports(s).length === 0);
+    G.reopenReport(s, rep.id);
+    ok('gov-audit: reopened returns to pending', G.pendingReports(s).some((r) => r.id === rep.id));
+    G.decideReport(s, rep.id, 'acknowledge');
+    ok('gov-audit: re-decided after reopen', s.reports.find((r) => r.id === rep.id).status === 'acknowledged');
+    let threw = false;
+    try { G.reopenReport(s, rep.id); } catch (e) { threw = true; }
+    ok('gov-audit: reopen non-deferred throws', threw);
+  }
+  // Fix 5b: legacy reports gain dedupeKey + appliedActions on load
+  {
+    const s = newGame({ mode: 'campaign', seed: 'gov-a5b' });
+    const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b', facts: {}, recommendations: [] });
+    const raw = serialize(s);
+    delete raw.reports[0].dedupeKey; delete raw.reports[0].appliedActions;
+    const s2 = deserialize(raw);
+    ok('gov-audit: legacy report backfilled', typeof s2.reports[0].dedupeKey === 'string'
+      && Array.isArray(s2.reports[0].appliedActions));
+  }
+}
+
 console.log(`\n${failures === 0 ? 'ALL TESTS PASSED' : failures + ' FAILURES'}`);
 process.exit(failures === 0 ? 0 : 1);
 

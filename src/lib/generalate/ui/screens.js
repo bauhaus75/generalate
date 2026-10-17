@@ -866,6 +866,8 @@ function govReportFactsHTML(facts) {
 export function renderGovernance(app, root) {
   const E = app.Engine;
   const pending = E.pendingReports ? E.pendingReports(app.state) : [];
+  const deferred = (app.state.reports || []).filter((r) => r.status === 'deferred');
+  const acted = (app.state.reports || []).filter((r) => r.status === 'acted' || r.status === 'acknowledged' || r.status === 'declined');
   const staged = (app.state.staged || []).filter((s) => s.status === 'staged');
   const ternaPending = !!(app.state.currentTerna && (app.state.currentTerna.cards || []).length);
   const vowsPending = (app.state.pendingVows || []).length;
@@ -892,7 +894,7 @@ export function renderGovernance(app, root) {
       const already = staged.some((s) => s.reportId === r.id && s.recId === rec.id);
       return `<li>${esc(rec.text)}${rec.action
         ? (already ? ` <span class="disp-mini">staged</span>`
-          : ` <button class="gbtn small ghost gov-stage" data-report="${esc(r.id)}" data-rec="${esc(rec.id)}">Stage</button>`)
+          : (r.status === 'pending' ? ` <button class="gbtn small ghost gov-stage" data-report="${esc(r.id)}" data-rec="${esc(rec.id)}">Stage</button>` : ''))
         : ''}</li>`;
     }).join('');
     return `<details class="gov-report" ${pending.includes(r) ? 'open' : ''}>
@@ -902,11 +904,13 @@ export function renderGovernance(app, root) {
       <p>${esc(r.body)}</p>
       ${govReportFactsHTML(r.facts || {})}
       ${recs ? `<p><strong>Recommendations</strong> (the mission proposes; the General disposes):</p><ul>${recs}</ul>` : `<p class="howto-note">No recommendations — this report asks only to be read.</p>`}
-      <div class="btn-row">
+      ${(r.appliedActions || []).length ? `<p><strong>Applied</strong>:</p><ul>${r.appliedActions.map((a) => `<li>${esc(a.label)} <span class="disp-mini">anno ${a.year} — ${esc(a.note || '')}</span></li>`).join('')}</ul>` : ''}
+      ${r.decision && r.status !== 'pending' ? `<p class="howto-note">Decision: ${esc(r.decision.decision)}${r.decision.note ? ` — ${esc(r.decision.note)}` : ''} (anno ${r.decision.year})</p>` : ''}
+      ${r.status === 'pending' ? `<div class="btn-row">
         <button class="gbtn small gov-decide" data-report="${esc(r.id)}" data-decision="acknowledge">Acknowledge</button>
         <button class="gbtn small ghost gov-decide" data-report="${esc(r.id)}" data-decision="defer">Defer</button>
         <button class="gbtn small warn gov-decide" data-report="${esc(r.id)}" data-decision="decline">Decline</button>
-      </div>
+      </div>` : ''}
     </details>`;
   };
 
@@ -932,6 +936,15 @@ export function renderGovernance(app, root) {
       <h4 class="gov-region">${esc(region)}</h4>
       ${reps.map(reportCard).join('')}`).join('') : `<p class="howto-note">No pending reports.</p>`}
 
+    ${deferred.length ? `<h3 class="sect">Deferred reports (${deferred.length})</h3>
+    ${deferred.map((r) => `<details class="gov-report"><summary><span class="badge">${esc(GOV_KIND_LABEL[r.kind] || r.kind)}</span> <strong>${esc(r.title)}</strong>
+      <span class="disp-mini">deferred anno ${r.decision ? r.decision.year : r.year}</span></summary>
+      <p>${esc(r.body)}</p>
+      <div class="btn-row"><button class="gbtn small gov-reopen" data-report="${esc(r.id)}">Reopen for review</button></div>
+    </details>`).join('')}` : ''}
+    ${acted.length ? `<h3 class="sect">Decided reports (${acted.length})</h3>
+    ${acted.map(reportCard).join('')}` : ''}
+
     <h3 class="sect">Staged actions ${staged.length ? `(${staged.length})` : ''}</h3>
     ${staged.length ? `<ul class="news-list">${stagedRows}</ul>
       <div class="btn-row"><button class="gbtn primary" id="gov-apply">Apply all staged actions</button></div>
@@ -954,6 +967,12 @@ export function renderGovernance(app, root) {
     try {
       const note = b.dataset.decision === 'decline' ? prompt('Record a reason for declining (optional):') : null;
       E.decideReport(app.state, b.dataset.report, b.dataset.decision, note || undefined);
+      app.save(); app.sound('page'); app.go('governance');
+    } catch (e) { app.sound('error'); alert(e.message); }
+  }));
+  root.querySelectorAll('.gov-reopen').forEach((b) => b.addEventListener('click', () => {
+    try {
+      E.reopenReport(app.state, b.dataset.report);
       app.save(); app.sound('page'); app.go('governance');
     } catch (e) { app.sound('error'); alert(e.message); }
   }));

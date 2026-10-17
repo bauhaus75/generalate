@@ -1406,10 +1406,11 @@ export function chooseProvincial(state, regionId, candidateId) {
     if (cid === candidateId && rid !== regionId) throw new Error('chooseProvincial: this man already governs another region.');
   }
   draft.picks[regionId] = candidateId;
-  if (PROVINCIAL_REGIONS.every((r) => draft.picks[r.id])) {
+  if (PROVINCIAL_REGIONS.every((r) => draft.picks[r.id]) && PROVINCIAL_REGIONS.every((r) => (state.provinceHQs || {})[r.id])) {
     state.provincials = {};
     for (const r of draft.regions) {
-      state.provincials[r.id] = { ...r.candidates.find((x) => x.id === draft.picks[r.id]) };
+      state.provincials[r.id] = { ...r.candidates.find((x) => x.id === draft.picks[r.id]),
+        appointedYear: state.year, hq: state.provinceHQs[r.id] };
     }
     draft.done = true;
     addLedger(state, {
@@ -1418,6 +1419,187 @@ export function chooseProvincial(state, regionId, candidateId) {
     });
   }
   return draft;
+}
+
+export const PROVINCIAL_TERM_YEARS = 6;
+
+/** Years the current provincial of a region has been in office. */
+export function provincialTermYears(state, regionId) {
+  const p = (state.provincials || {})[regionId];
+  if (!p || typeof p.appointedYear !== 'number') return 0;
+  return Math.max(0, state.year - p.appointedYear);
+}
+
+/** Whether a provincial's term is complete (eligible for replacement). */
+export function provincialTermComplete(state, regionId) {
+  return provincialTermYears(state, regionId) >= PROVINCIAL_TERM_YEARS;
+}
+
+/** A professed priest: ordained and professed, alive, not dismissed. */
+export function isProfessedPriest(state, petitionerId) {
+  const rec = (state.petitioners || {})[petitionerId];
+  if (!rec || rec.status === STATUS.DISMISSED || rec.status === STATUS.DECEASED) return false;
+  if (staffGradeFor(state, petitionerId) !== 'fathers') return false;
+  const gr = gradeFor(state, petitionerId);
+  const grade = gr && gr.grade;
+  return grade === 'professed-of-the-4th-vow' || grade === 'professed';
+}
+
+/** All professed priests in the Society, for the replacement roster. */
+export function professedPriests(state) {
+  const g = getGameData();
+  return Object.keys(state.petitioners || {})
+    .filter((id) => isProfessedPriest(state, id))
+    .map((id) => {
+      const rec = state.petitioners[id];
+      const pet = g ? (g.petitioners || []).find((p) => p.id === id) : null;
+      return { petitionerId: id, name: rec.name || (pet && pet.name) || id,
+        years: yearsInSociety(state, id), location: currentLocation(state, g, id) };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// Nearest provinces, in order, for the short-bench rule.
+const PROVINCE_PROXIMITY = {
+  east: ['europe', 'africa', 'newworld'],
+  newworld: ['europe', 'africa', 'east'],
+  africa: ['europe', 'east', 'newworld'],
+  europe: ['africa', 'east', 'newworld'],
+};
+
+// Game-data destination region -> province.
+const DEST_REGION_TO_PROVINCE = {
+  'Asia': 'east', 'Americas': 'newworld', 'South America': 'newworld',
+  'Africa': 'africa', 'Europe': 'europe',
+};
+
+/** Which province a man belongs to, by his current location. */
+export function provinceOfMan(state, petitionerId) {
+  const g = getGameData();
+  const loc = currentLocation(state, g, petitionerId);
+  if (!loc || loc === 'Europe') return 'europe';
+  const dest = g ? (g.destinations || []).find((d) => d.id === loc) : null;
+  const dr = dest && dest.region;
+  return DEST_REGION_TO_PROVINCE[dr] || 'europe';
+}
+
+/** Open destinations (for HQ and posting pickers). */
+export function openDestinations(state) {
+  const g = getGameData();
+  return (g.destinations || [])
+    .filter((d) => { const st = (state.destState || {})[d.id]; return !st || st.access !== 'closed'; })
+    .map((d) => ({ id: d.id, name: d.name || d.id }));
+}
+
+/** Name the HQ of a province (draft phase, or later). */
+export function chooseProvinceHQ(state, regionId, destId) {
+  const region = PROVINCIAL_REGIONS.find((r) => r.id === regionId);
+  if (!region) throw new Error(`chooseProvinceHQ: unknown region "${regionId}".`);
+  if (!openDestinations(state).some((d) => d.id === destId)) {
+    throw new Error(`chooseProvinceHQ: "${destId}" is not an open destination.`);
+  }
+  if (!state.provinceHQs) state.provinceHQs = {};
+  state.provinceHQs[regionId] = destId;
+  const draft = state.draft;
+  if (draft && !draft.done && PROVINCIAL_REGIONS.every((r) => draft.picks[r.id])
+      && PROVINCIAL_REGIONS.every((r) => state.provinceHQs[r.id])) {
+    state.provincials = {};
+    for (const r of draft.regions) {
+      state.provincials[r.id] = { ...r.candidates.find((x) => x.id === draft.picks[r.id]),
+        appointedYear: state.year, hq: state.provinceHQs[r.id] };
+    }
+    draft.done = true;
+    addLedger(state, {
+      year: state.year, type: 'provincial', decision: 'appointed',
+      text: `Provincials take office: ${PROVINCIAL_REGIONS.map((r) => `${state.provincials[r.id].name} for ${r.name}`).join('; ')}.`,
+    });
+  }
+  return destId;
+}
+
+/**
+ * Draw the replacement terna: three eligible professed priests by seeded lot,
+ * excluding the incumbent. Short bench: men of the province first, then the
+ * nearest provinces in order. Stored so the UI shows a stable list.
+ */
+export function beginProvincialReplacement(state, regionId) {
+  const prov = (state.provincials || {})[regionId];
+  if (!prov) throw new Error(`beginProvincialReplacement: no provincial for "${regionId}".`);
+  const region = PROVINCIAL_REGIONS.find((r) => r.id === regionId);
+  const pool = professedPriests(state).filter((p) => p.petitionerId !== prov.petitionerId);
+  const byProv = {};
+  for (const p of pool) {
+    const pv = provinceOfMan(state, p.petitionerId);
+    (byProv[pv] = byProv[pv] || []).push(p.petitionerId);
+  }
+  const rng = streamFor(state, 'provincial-terna', regionId, String(state.year));
+  const order = [regionId, ...(PROVINCE_PROXIMITY[regionId] || [])];
+  const candidates = [];
+  for (const pv of order) {
+    for (const id of rng.shuffle(byProv[pv] || [])) {
+      if (candidates.length >= 3) break;
+      candidates.push(id);
+    }
+    if (candidates.length >= 3) break;
+  }
+  if (!state.provincialTernas) state.provincialTernas = {};
+  state.provincialTernas[regionId] = { year: state.year, candidates,
+    incumbent: prov.petitionerId || prov.id };
+  return { region, incumbent: prov, candidates };
+}
+
+/**
+ * Resolve a replacement. choiceId is a petitionerId, or 'incumbent' to keep
+ * the current provincial for a fresh term. outgoingTo ('europe' or a
+ * destination id) decides where a replaced real man goes next; a draft
+ * placeholder simply retires. Free.
+ */
+export function resolveProvincialReplacement(state, regionId, choiceId, outgoingTo = 'europe') {
+  const prov = (state.provincials || {})[regionId];
+  if (!prov) throw new Error(`resolveProvincialReplacement: no provincial for "${regionId}".`);
+  const region = PROVINCIAL_REGIONS.find((r) => r.id === regionId);
+  if (choiceId === 'incumbent') {
+    prov.appointedYear = state.year;
+    addLedger(state, { year: state.year, type: 'provincial', decision: 'retained',
+      text: `${prov.name} is confirmed as provincial of ${region.name} for another term.` });
+  } else {
+    if (!isProfessedPriest(state, choiceId)) {
+      throw new Error(`resolveProvincialReplacement: "${choiceId}" is not an eligible professed priest.`);
+    }
+    const g = getGameData();
+    const pet = g ? (g.petitioners || []).find((p) => p.id === choiceId) : null;
+    const rec = state.petitioners[choiceId];
+    const name = (rec && rec.name) || (pet && pet.name) || choiceId;
+    // the outgoing provincial goes where the General sends him
+    let postingText = '';
+    if (prov.petitionerId && state.petitioners[prov.petitionerId]) {
+      const orec = state.petitioners[prov.petitionerId];
+      if (outgoingTo === 'europe') {
+        addEuropeanLabor(state, prov.petitionerId, prov.name, 'recalled');
+        postingText = ` ${prov.name} returns to labor in Europe.`;
+      } else {
+        const dest = (g.destinations || []).find((d) => d.id === outgoingTo);
+        if (!dest) throw new Error(`resolveProvincialReplacement: unknown destination "${outgoingTo}".`);
+        const dst = (state.destState || {})[outgoingTo];
+        if (dst && dst.access === 'closed') throw new Error(`resolveProvincialReplacement: ${dest.name} is closed.`);
+        if (!Array.isArray(state.europeanLabor)) state.europeanLabor = [];
+        if (!state.europeanLabor.some((e) => e.petitionerId === prov.petitionerId)) {
+          addEuropeanLabor(state, prov.petitionerId, prov.name, 'recalled');
+        }
+        state.europeanLabor = state.europeanLabor.filter((e) => e.petitionerId !== prov.petitionerId);
+        orec.status = STATUS.APPROVED;
+        state.queue.push({ petitionerId: prov.petitionerId, approvedYear: state.year,
+          destination: outgoingTo, status: 'awaiting', teamId: null, teamSize: 1, companions: 0 });
+        postingText = ` ${prov.name} sails for ${dest.name || outgoingTo}.`;
+      }
+    }
+    const hq = (state.provinceHQs || {})[regionId];
+    state.provincials[regionId] = { petitionerId: choiceId, name, appointedYear: state.year, hq };
+    addLedger(state, { year: state.year, type: 'provincial', decision: 'replaced',
+      text: `${name} succeeds ${prov.name} as provincial of ${region.name}${hq ? `, residing at ${(g.destinations || []).find((d) => d.id === hq)?.name || hq}` : ''}.${postingText}` });
+  }
+  if (state.provincialTernas) delete state.provincialTernas[regionId];
+  return state.provincials[regionId];
 }
 
 // ---------------------------------------------------------------------------
@@ -2107,6 +2289,8 @@ export function newGame({ mode = 'campaign', seed = 'generalate', data = null } 
     staged: [],       // staged governance actions awaiting batch application
     draft: null,      // pre-game provincial draft (set below)
     provincials: {},  // regionId -> chosen provincial (organizational for now)
+    provinceHQs: {},  // regionId -> destination id where the provincial resides
+    provincialTernas: {}, // active replacement ternas by region
     novices: [], // {id, name, destination, startYear, readyYear} - candidates in formation
     currentYear: null,  // UI-facing mirror: {year, briefing, terna, decided, decisionResult}
     stats: {
@@ -3568,6 +3752,8 @@ export function deserialize(obj) {
   if (!Array.isArray(state.staged)) state.staged = [];
   if (!state.draft) state.draft = { regions: [], picks: {}, done: true, skipped: true };
   if (!state.provincials || typeof state.provincials !== 'object') state.provincials = {};
+  if (!state.provinceHQs || typeof state.provinceHQs !== 'object') state.provinceHQs = {};
+  if (!state.provincialTernas || typeof state.provincialTernas !== 'object') state.provincialTernas = {};
   migrateDeathReports(state);
   if (!('report' in (state.seq || {}))) state.seq.report = 0;
   if (!('staged' in (state.seq || {}))) state.seq.staged = 0;

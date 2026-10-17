@@ -148,6 +148,10 @@ export function renderDraft(app, root) {
   if (!draft || draft.done || draft.skipped) { app.go('briefing'); return; }
   const E = app.Engine;
   const picked = Object.keys(draft.picks).length;
+  const hqs = app.state.provinceHQs || {};
+  const hqPicked = Object.keys(hqs).length;
+  const dests = E.openDestinations(app.state);
+  const destName = (id) => (dests.find((d) => d.id === id) || {}).name || id;
   const tName = (id) => { const t = Dispositions.TRAITS.find((x) => x.id === id); return t ? t.name : id; };
 
   const candCard = (region, c) => {
@@ -174,8 +178,17 @@ export function renderDraft(app, root) {
       <div class="desk draft-terna">
         ${region.candidates.map((c) => candCard(region, c)).join('')}
       </div>`).join('')}
+    <h2 class="px draft-region">PROVINCE HEADQUARTERS</h2>
+    <p class="desk-instr">Name the city where each provincial will reside during his reign.</p>
+    ${E.PROVINCIAL_REGIONS.map((r) => `
+      <p><label class="dest-redirect">${esc(r.name)} HQ:
+        <select data-hq="${esc(r.id)}" aria-label="HQ for ${esc(r.name)}">
+          <option value="">— choose —</option>
+          ${dests.map((d) => `<option value="${esc(d.id)}"${hqs[r.id] === d.id ? ' selected' : ''}>${esc(d.name)}</option>`).join('')}
+        </select>
+      </label></p>`).join('')}
     <div class="btn-row">
-      <button class="gbtn primary" id="take-office" ${picked === 4 ? '' : 'disabled'}>Take office &rarr;</button>
+      <button class="gbtn primary" id="take-office" ${picked === 4 && hqPicked === 4 ? '' : 'disabled'}>Take office &rarr;</button>
     </div>
   </section>`;
 
@@ -188,6 +201,16 @@ export function renderDraft(app, root) {
     };
     el.addEventListener('click', pick);
     el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } });
+  });
+  root.querySelectorAll('select[data-hq]').forEach((sel) => {
+    sel.addEventListener('change', () => {
+      if (!sel.value) return;
+      try { E.chooseProvinceHQ(app.state, sel.dataset.hq, sel.value); app.sound('seal'); }
+      catch (e) { app.sound('error'); return; }
+      app.save();
+      if (app.state.draft.done) { app.go('briefing'); return; }
+      renderDraft(app, root);
+    });
   });
   const take = root.querySelector('#take-office');
   if (take) take.addEventListener('click', () => { app.sound('page'); app.go('briefing'); });
@@ -274,6 +297,17 @@ function generalDeskHTML(app, year) {
       action: '<button class="gbtn small primary desk-terna">Judge the indipetae →</button>' });
   }
   
+  // 1b. Provincials whose term is complete (action available)
+  const termDone = (E.PROVINCIAL_REGIONS || []).filter((r) => {
+    try { return app.state.provincials && app.state.provincials[r.id] && E.provincialTermComplete(app.state, r.id); }
+    catch { return false; }
+  });
+  if (termDone.length) {
+    items.push({ cat: 'available',
+      text: `${termDone.length} provincial term${termDone.length === 1 ? ' is' : 's are'} complete: ${termDone.map((r) => esc(r.name)).join(', ')}.`,
+      action: '<button class="gbtn small ghost desk-governance">Name successors →</button>' });
+  }
+
   // 2. Ordination eligible (action available)
   const eligible = (app.state.europeanLabor || []).filter(e => {
     try { return E.ordinationEligible && E.ordinationEligible(app.state, e.petitionerId); }
@@ -394,6 +428,9 @@ export function renderBriefing(app, root, start) {
   });
   root.querySelectorAll('.desk-missions').forEach(btn => {
     btn.addEventListener('click', () => { app.sound('page'); app.go('missions'); });
+  });
+  root.querySelectorAll('.desk-governance').forEach(btn => {
+    btn.addEventListener('click', () => { app.sound('page'); app.go('governance'); });
   });
   root.querySelectorAll('[data-goto]').forEach(btn => {
     btn.addEventListener('click', () => { app.sound('page'); app.go(btn.dataset.goto); });
@@ -920,6 +957,68 @@ function govReportFactsHTML(facts) {
   return `<dl class="dossier-list">${rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join('')}</dl>`;
 }
 
+function provincialsHTML(app) {
+  const E = app.Engine;
+  const provs = app.state.provincials || {};
+  const hqs = app.state.provinceHQs || {};
+  const regions = E.PROVINCIAL_REGIONS || [];
+  if (!regions.length || !Object.keys(provs).length) return '';
+  const destName = (id) => { const d = (E.openDestinations(app.state) || []).find((x) => x.id === id); return d ? d.name : id; };
+  return `
+    <h3 class="sect">Provincials</h3>
+    ${regions.map((r) => {
+      const p = provs[r.id];
+      if (!p) return '';
+      const yrs = E.provincialTermYears(app.state, r.id);
+      const complete = E.provincialTermComplete(app.state, r.id);
+      const hq = p.hq || hqs[r.id];
+      return `<div class="gov-prov">
+        <strong>${esc(r.name)}</strong> — ${esc(p.name)}
+        ${hq ? `<span class="disp-mini">at ${esc(destName(hq))}</span>` : ''}
+        <span class="disp-mini">${yrs} of ${E.PROVINCIAL_TERM_YEARS} years${complete ? ' · <strong>term complete</strong>' : ''}</span>
+        <div class="btn-row"><button class="gbtn small ${complete ? 'primary' : 'ghost'} gov-replace" data-region="${esc(r.id)}">${complete ? 'Name a successor' : 'Recall'}</button></div>
+      </div>`;
+    }).join('')}`;
+}
+
+function provincialReplacementHTML(app, regionId) {
+  const E = app.Engine;
+  const rep = (app.state.provincialTernas || {})[regionId];
+  const prov = (app.state.provincials || {})[regionId];
+  const region = (E.PROVINCIAL_REGIONS || []).find((r) => r.id === regionId);
+  if (!region || !prov) return '';
+  const roster = E.professedPriests(app.state).filter((p) => p.petitionerId !== (prov.petitionerId || prov.id));
+  const dests = E.openDestinations(app.state);
+  const hasRecord = !!(prov.petitionerId && app.state.petitioners[prov.petitionerId]);
+  const candName = (id) => (roster.find((p) => p.petitionerId === id) || {}).name || id;
+  return `
+    <h3 class="sect">Succession — ${esc(region.name)}</h3>
+    <p class="howto-note">${esc(prov.name)} has governed ${esc(region.name)} for ${E.provincialTermYears(app.state, regionId)} years. Name his successor — or confirm him for another term.</p>
+    ${rep ? `
+    <p><strong>The terna:</strong> three professed priests drawn by lot${roster.length > rep.candidates.length ? ' (the province first, then the nearest)' : ''}.</p>
+    <div class="desk">
+      ${rep.candidates.map((id) => `
+        <article class="pcard draft-cand" data-pick="${esc(id)}" tabindex="0" role="button">
+          <h3 class="pcard-name">${esc(candName(id))}</h3>
+          <p class="pcard-meta">${esc((roster.find((p) => p.petitionerId === id) || {}).location || '')}</p>
+        </article>`).join('')}
+    </div>
+    <p><label>Or name another professed priest:
+      <select id="rep-roster"><option value="">— choose —</option>
+      ${roster.filter((p) => !rep.candidates.includes(p.petitionerId)).map((p) => `<option value="${esc(p.petitionerId)}">${esc(p.name)} (${esc(p.location || '')})</option>`).join('')}
+      </select></label></p>
+    ${hasRecord ? `<p><label>Where does ${esc(prov.name)} go?
+      <select id="rep-outgoing">
+        <option value="europe">Labor in Europe</option>
+        ${dests.map((d) => `<option value="${esc(d.id)}">${esc(d.name)}</option>`).join('')}
+      </select></label></p>` : `<p class="howto-note">${esc(prov.name)} will retire from the game.</p>`}
+    <div class="btn-row">
+      <button class="gbtn primary" id="rep-confirm" disabled>Confirm the succession</button>
+      <button class="gbtn ghost" id="rep-keep">Keep ${esc(prov.name)} in office</button>
+      <button class="gbtn ghost" id="rep-cancel">Cancel</button>
+    </div>` : `<p class="howto-note">Drawing the terna…</p>`}`;
+}
+
 export function renderGovernance(app, root) {
   const E = app.Engine;
   const pending = E.pendingReports ? E.pendingReports(app.state) : [];
@@ -988,6 +1087,9 @@ export function renderGovernance(app, root) {
     <h3 class="sect">Awaiting judgment</h3>
     ${awaiting.length ? `<ul class="news-list">${awaiting.join('')}</ul>` : `<p class="howto-note">Nothing awaits judgment. The desk is clear.</p>`}
 
+    ${provincialsHTML(app)}
+    ${app.ui.provReplacement ? provincialReplacementHTML(app, app.ui.provReplacement) : ''}
+
     <h3 class="sect">Provincial reports ${pending.length ? `(${pending.length} pending)` : ''}</h3>
     ${pending.length ? Object.entries(byRegion).map(([region, reps]) => `
       <h4 class="gov-region">${esc(region)}</h4>
@@ -1014,6 +1116,51 @@ export function renderGovernance(app, root) {
   </section>`;
 
   root.querySelectorAll('[data-goto]').forEach((b) => b.addEventListener('click', () => { app.sound('page'); app.go(b.dataset.goto); }));
+  // provincial replacement wiring
+  const E2 = app.Engine;
+  root.querySelectorAll('.gov-replace').forEach((b) => b.addEventListener('click', () => {
+    try { E2.beginProvincialReplacement(app.state, b.dataset.region); }
+    catch (e) { app.sound('error'); alert(e.message); return; }
+    app.ui.provReplacement = b.dataset.region;
+    app.ui.provChoice = null;
+    app.save(); app.sound('page');
+    renderGovernance(app, root);
+  }));
+  const repCancel = root.querySelector('#rep-cancel');
+  if (repCancel) repCancel.addEventListener('click', () => {
+    if (app.state.provincialTernas) delete app.state.provincialTernas[app.ui.provReplacement];
+    app.ui.provReplacement = null; app.ui.provChoice = null;
+    app.sound('page'); renderGovernance(app, root);
+  });
+  const repKeep = root.querySelector('#rep-keep');
+  if (repKeep) repKeep.addEventListener('click', () => {
+    try { E2.resolveProvincialReplacement(app.state, app.ui.provReplacement, 'incumbent'); app.sound('seal'); }
+    catch (e) { app.sound('error'); alert(e.message); return; }
+    app.ui.provReplacement = null; app.ui.provChoice = null;
+    app.save(); renderGovernance(app, root);
+  });
+  const repConfirm = root.querySelector('#rep-confirm');
+  const pickCard = (id) => {
+    app.ui.provChoice = id;
+    root.querySelectorAll('.draft-cand[data-pick]').forEach((el) => el.classList.toggle('approved-pick', el.dataset.pick === id));
+    const rs = root.querySelector('#rep-roster'); if (rs && rs.value !== id) rs.value = '';
+    if (repConfirm) repConfirm.disabled = !id;
+  };
+  root.querySelectorAll('.draft-cand[data-pick]').forEach((el) => {
+    el.addEventListener('click', () => pickCard(el.dataset.pick));
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pickCard(el.dataset.pick); } });
+  });
+  const repRoster = root.querySelector('#rep-roster');
+  if (repRoster) repRoster.addEventListener('change', () => pickCard(repRoster.value || null));
+  if (repConfirm) repConfirm.addEventListener('click', () => {
+    const outgoing = root.querySelector('#rep-outgoing');
+    try {
+      E2.resolveProvincialReplacement(app.state, app.ui.provReplacement, app.ui.provChoice, outgoing ? outgoing.value : 'europe');
+      app.sound('seal');
+    } catch (e) { app.sound('error'); alert(e.message); return; }
+    app.ui.provReplacement = null; app.ui.provChoice = null;
+    app.save(); renderGovernance(app, root);
+  });
   root.querySelectorAll('.gov-stage').forEach((b) => b.addEventListener('click', () => {
     try {
       E.stageRecommendation(app.state, b.dataset.report, b.dataset.rec);

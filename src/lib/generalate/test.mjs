@@ -22,7 +22,10 @@ import {
   CAMPAIGN_START,
   ageInReligion, yearsInSociety, initAgeInReligion, FORMATION_THRESHOLDS,
   cardYearsInSociety, personHistory, recordHistory, HISTORY_VERSION,
-  chooseProvincial, PROVINCIAL_REGIONS,
+  chooseProvincial, PROVINCIAL_REGIONS, ensureRecord,
+  beginProvincialReplacement, resolveProvincialReplacement,
+  provincialTermYears, provincialTermComplete, isProfessedPriest, professedPriests,
+  PROVINCIAL_TERM_YEARS, chooseProvinceHQ, openDestinations, provinceOfMan,
 } from './engine.js';
 import * as EngineNS from './engine.js';
 import { yearsInSociety as vowsYearsInSociety } from './vows.js';
@@ -2824,14 +2827,17 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
       Object.keys(c.traits).length === 7 && Object.values(c.traits).every((v) => v >= 1 && v <= 5))));
     ok('draft: not done', !s.draft.done && Object.keys(s.provincials).length === 0);
   }
-  // picking completes at 4/4; provincials stored; ledger entry
+  // picking completes at 4/4 + 4 HQs; provincials stored; ledger entry
   {
     const s = newGame({ mode: 'campaign', seed: 'draft2' });
     const ids = s.draft.regions.map((r) => [r.id, r.candidates[0].id]);
     for (const [rid, cid] of ids.slice(0, 3)) chooseProvincial(s, rid, cid);
     ok('draft: incomplete at 3/4', !s.draft.done);
     chooseProvincial(s, ids[3][0], ids[3][1]);
-    ok('draft: done at 4/4', s.draft.done === true);
+    ok('draft: incomplete without HQs', !s.draft.done);
+    const dests = openDestinations(s).map((d) => d.id);
+    s.draft.regions.forEach((r, i) => chooseProvinceHQ(s, r.id, dests[i % dests.length]));
+    ok('draft: done at 4/4 + HQs', s.draft.done === true);
     ok('draft: provincials stored', Object.keys(s.provincials).length === 4
       && s.provincials.east.name === s.draft.regions[0].candidates[0].name);
     ok('draft: ledger records appointments',
@@ -2858,12 +2864,124 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     const s2 = deserialize(raw);
     ok('draft: old saves skip', s2.draft.done === true && s2.draft.skipped === true);
   }
+  // HQs are required to take office; provincials reside there
+  {
+    const s = newGame({ mode: 'campaign', seed: 'draft6' });
+    for (const r of s.draft.regions) chooseProvincial(s, r.id, r.candidates[0].id);
+    ok('draft: HQs required', !s.draft.done);
+    const dests = openDestinations(s).map((d) => d.id);
+    s.draft.regions.forEach((r, i) => chooseProvinceHQ(s, r.id, dests[i % dests.length]));
+    ok('draft: done with HQs', s.draft.done === true);
+    ok('draft: provincials carry HQ', s.provincials.east.hq === dests[0]);
+    let threw = 0;
+    try { chooseProvinceHQ(s, 'east', 'nowhere'); } catch (e) { threw++; }
+    ok('draft: bad HQ throws', threw === 1);
+  }
   // deterministic: same seed, same candidates
   {
     const a = newGame({ mode: 'campaign', seed: 'draft5' });
     const b = newGame({ mode: 'campaign', seed: 'draft5' });
     ok('draft: deterministic',
       JSON.stringify(a.draft.regions) === JSON.stringify(b.draft.regions));
+  }
+}
+
+// --- 47. Provincial replacement ------------------------------------------------
+{
+  const mkDrafted = (seed) => {
+    const s = newGame({ mode: 'campaign', seed });
+    for (const r of s.draft.regions) chooseProvincial(s, r.id, r.candidates[0].id);
+    const dests = openDestinations(s).map((d) => d.id);
+    s.draft.regions.forEach((r, i) => chooseProvinceHQ(s, r.id, dests[i % dests.length]));
+    return s;
+  };
+  const mkProfessed = (s, id) => {
+    const rec = ensureRecord(s, id, true);
+    rec.status = 'active';
+    rec.savedGrade = { grade: 'professed-of-the-4th-vow', ordained: true };
+    return rec;
+  };
+  // term tracking
+  {
+    const s = mkDrafted('rep1');
+    ok('replacement: term starts at 0', provincialTermYears(s, 'east') === 0);
+    ok('replacement: term not complete', !provincialTermComplete(s, 'east'));
+    s.year += PROVINCIAL_TERM_YEARS;
+    ok('replacement: term complete at 6', provincialTermComplete(s, 'east'));
+  }
+  // professed-priest eligibility: need a real professed priest in the pool
+  {
+    const s = mkDrafted('rep2');
+    const rec = ensureRecord(s, 'hist-1');
+    rec.status = 'active';
+    ok('replacement: hist-1 is a professed priest', isProfessedPriest(s, 'hist-1'));
+    const roster = professedPriests(s);
+    ok('replacement: roster lists him', roster.some((p) => p.petitionerId === 'hist-1'));
+    const drawn = beginProvincialReplacement(s, 'east');
+    ok('replacement: terna drawn (<=3)', drawn.candidates.length <= 3 && drawn.candidates.length >= 1);
+    ok('replacement: incumbent excluded', !drawn.candidates.includes(drawn.incumbent));
+    ok('replacement: terna stored', s.provincialTernas.east.candidates.length === drawn.candidates.length);
+  }
+  // resolve: name a successor from the terna
+  {
+    const s = mkDrafted('rep3');
+    ensureRecord(s, 'hist-1').status = 'active';
+    mkProfessed(s, 'fic-priest-1');
+    const drawn = beginProvincialReplacement(s, 'europe');
+    const pick = drawn.candidates[0];
+    const before = s.provincials.europe.name;
+    resolveProvincialReplacement(s, 'europe', pick);
+    ok('replacement: successor takes office', s.provincials.europe.petitionerId === pick);
+    ok('replacement: fresh term', provincialTermYears(s, 'europe') === 0);
+    ok('replacement: ledger records it',
+      (s.ledger || []).some((e) => e.type === 'provincial' && new RegExp(`succeeds ${before}`).test(e.text)));
+    ok('replacement: terna cleared', !s.provincialTernas.europe);
+  }
+  // resolve: keep the incumbent for another term
+  {
+    const s = mkDrafted('rep4');
+    s.year += PROVINCIAL_TERM_YEARS;
+    const name = s.provincials.africa.name;
+    resolveProvincialReplacement(s, 'africa', 'incumbent');
+    ok('replacement: incumbent stays', s.provincials.africa.name === name);
+    ok('replacement: term renewed', provincialTermYears(s, 'africa') === 0);
+  }
+  // resolve: ineligible choice throws; unknown region throws
+  {
+    const s = mkDrafted('rep5');
+    let threw = 0;
+    try { resolveProvincialReplacement(s, 'east', 'hist-3'); } catch (e) { threw++; } // brother, not a priest
+    try { resolveProvincialReplacement(s, 'nowhere', 'incumbent'); } catch (e) { threw++; }
+    try { beginProvincialReplacement(s, 'nowhere'); } catch (e) { threw++; }
+    ok('replacement: invalid choices throw', threw === 3);
+  }
+
+  // short bench: own province first, then nearest
+  {
+    const s = mkDrafted('rep6');
+    // put a professed priest at a New World mission and one in Europe
+    const a = ensureRecord(s, 'hist-1'); a.status = 'active';
+    mkProfessed(s, 'fic-priest-2');
+    // hist-1/hist-5 default location: Europe (no voyage) -> europe province
+    const drawn = beginProvincialReplacement(s, 'newworld');
+    ok('replacement: short bench fills from nearest',
+      drawn.candidates.length >= 1 && drawn.candidates.length <= 3);
+  }
+  // outgoing posting: Europe vs a destination
+  {
+    const s = mkDrafted('rep7');
+    const a = ensureRecord(s, 'hist-1'); a.status = 'active';
+    mkProfessed(s, 'fic-priest-3');
+    // make hist-5 the incumbent of europe by replacing the placeholder
+    const drawn = beginProvincialReplacement(s, 'europe');
+    resolveProvincialReplacement(s, 'europe', drawn.candidates[0], 'europe');
+    const inc = s.provincials.europe.petitionerId;
+    // now replace him, sending him to a destination
+    const d2 = beginProvincialReplacement(s, 'europe');
+    const dest = openDestinations(s)[0].id;
+    resolveProvincialReplacement(s, 'europe', d2.candidates.find((c) => c !== inc) || d2.candidates[0], dest);
+    const queued = (s.queue || []).find((q) => q.petitionerId === inc);
+    ok('replacement: outgoing queued for chosen destination', !!queued && queued.destination === dest);
   }
 }
 

@@ -1424,6 +1424,47 @@ function reportFacts(state, g, destId) {
 }
 
 /**
+ * Recover death reports lost by the pre-73a8300 implementation, which marked a
+ * voyage deathReported before confirming a distinct report was queued and which
+ * deduplicated death reports per destination. For every deceased voyage flagged
+ * as reported, if no report represents that death — matched by voyage id for
+ * new-format reports, or by petitioner+destination for legacy reports — a
+ * report is reconstructed from the voyage record alone. Idempotent: recovered
+ * reports carry the voyage dedupeKey, so re-running creates nothing. Never
+ * invents: every field comes from the voyage; a voyage with no destination
+ * cannot be filed as a provincial report and is left untouched.
+ * @returns {number} reports recovered
+ */
+function migrateDeathReports(state) {
+  if (!Array.isArray(state.reports)) state.reports = [];
+  const g = ensureData();
+  let recovered = 0;
+  for (const v of state.voyages || []) {
+    if (v.outcome !== 'deceased' || !v.deathReported) continue;
+    const key = `voyage:${v.id}`;
+    const represented = state.reports.some((r) =>
+      r.dedupeKey === key ||
+      (r.kind === 'voyage' && r.facts && r.facts.petitionerId === v.petitionerId && r.destId === v.destination));
+    if (represented || !v.destination) continue;
+    const d = (g.destinations || []).find((x) => x.id === v.destination);
+    const dName = d ? (d.name || v.destination) : v.destination;
+    queueReport(state, {
+      kind: 'voyage', destId: v.destination, year: v.resolvedYear ?? state.year, dedupeKey: key,
+      title: `Death reported: ${v.petitionerName || v.petitionerId}`,
+      body: `Recovered from the voyage record: ${v.petitionerName || v.petitionerId} died ` +
+        `in the service of the mission to ${dName}. An earlier version marked this death reported ` +
+        `without filing a distinct report; it is restored here so the General may review it.`,
+      facts: { petitionerId: v.petitionerId, voyageId: v.id, destination: v.destination, departYear: v.departYear, recovered: true },
+      recommendations: [
+        { id: 'encourage', text: 'Send instruction: Encourage the brethren', action: { type: 'instruct', destId: v.destination, instructionType: 'encourage' } },
+      ],
+    });
+    recovered += 1;
+  }
+  return recovered;
+}
+
+/**
  * Generate autonomous provincial reports from actual mission conditions.
  * Called once per resolved year. Deterministic: text derives from facts;
  * any randomness uses a seeded stream. Never invents people or events.
@@ -3407,6 +3448,7 @@ export function deserialize(obj) {
     if (!Array.isArray(r.appliedActions)) r.appliedActions = [];
   }
   if (!Array.isArray(state.staged)) state.staged = [];
+  migrateDeathReports(state);
   if (!('report' in (state.seq || {}))) state.seq.report = 0;
   if (!('staged' in (state.seq || {}))) state.seq.staged = 0;
   if (!('novices' in state) || !Array.isArray(state.novices)) state.novices = [];

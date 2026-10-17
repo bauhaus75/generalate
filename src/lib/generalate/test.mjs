@@ -2574,6 +2574,91 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
 }
 
+
+// --- 43. Governance: legacy death-report recovery migration -------------------
+{
+  const G = EngineNS;
+  // Fixture reproducing the b9cc098 bug: two deaths at Goa, only the first
+  // got a (legacy-format, no dedupeKey/voyageId) report; both voyages flagged.
+  const buildLegacySave = () => {
+    const s = newGame({ mode: 'campaign', seed: 'gov-leg' });
+    for (const d of ['japan', 'china', 'peru', 'philippines']) {
+      const m = missionStaff(s, d); m.fathers = 2; m.coadjutors = 2; m.brothers = 1;
+    }
+    s.voyages.push(
+      { id: 'voy-1', petitionerId: 'hist-1', petitionerName: 'Man One', destination: 'goa',
+        departYear: s.year, travelYears: 2, arriveYear: s.year, stage: 'resolved',
+        outcome: 'deceased', resolvedYear: s.year, newsDelivered: true, deathReported: true },
+      { id: 'voy-2', petitionerId: 'hist-2', petitionerName: 'Man Two', destination: 'goa',
+        departYear: s.year, travelYears: 2, arriveYear: s.year, stage: 'resolved',
+        outcome: 'deceased', resolvedYear: s.year, newsDelivered: true, deathReported: true });
+    // What b9cc098 actually persisted for the first death: no dedupeKey, no voyageId.
+    s.reports.push({
+      id: 'rep-1615-1', kind: 'voyage', destId: 'goa', destName: 'Goa, the Indies', region: 'Asia',
+      year: s.year, title: 'Death reported: Man One', body: 'legacy body',
+      facts: { petitionerId: 'hist-1', destination: 'goa', departYear: s.year },
+      recommendations: [], status: 'pending', decision: null,
+    });
+    const raw = serialize(s);
+    // strip the new-format fields to match the b9cc098 shape exactly
+    for (const r of raw.reports) { delete r.dedupeKey; delete r.appliedActions; }
+    return raw;
+  };
+  {
+    const s2 = deserialize(buildLegacySave());
+    const voyages = s2.reports.filter((r) => r.kind === 'voyage');
+    ok('gov-leg: existing report preserved, not duplicated',
+      voyages.filter((r) => r.facts.petitionerId === 'hist-1').length === 1);
+    const rec = voyages.find((r) => r.facts.voyageId === 'voy-2');
+    ok('gov-leg: missing death recovered', !!rec && rec.facts.petitionerId === 'hist-2');
+    ok('gov-leg: recovered report is pending and traceable',
+      rec.status === 'pending' && rec.facts.recovered === true && rec.dedupeKey === 'voyage:voy-2');
+    ok('gov-leg: recovered report has reviewable recommendation',
+      rec.recommendations.length === 1 && rec.recommendations[0].action.type === 'instruct');
+    ok('gov-leg: voyage flags untouched',
+      s2.voyages.every((v) => v.deathReported === true));
+    ok('gov-leg: existing history not altered',
+      s2.reports.find((r) => r.facts.petitionerId === 'hist-1').title === 'Death reported: Man One');
+    // idempotency across save/load cycles
+    const s3 = deserialize(serialize(s2));
+    ok('gov-leg: no duplicates on reload',
+      s3.reports.filter((r) => r.kind === 'voyage').length === 2);
+    const s4 = deserialize(serialize(s3));
+    ok('gov-leg: stable across further cycles',
+      s4.reports.filter((r) => r.kind === 'voyage').length === 2);
+  }
+  // Already-decided legacy report counts as represented: no recovery, no duplicate
+  {
+    const raw = buildLegacySave();
+    raw.reports[0].status = 'acknowledged';
+    raw.reports[0].decision = { decision: 'acknowledge', year: raw.year, note: null };
+    const s2 = deserialize(raw);
+    ok('gov-leg: decided report not duplicated',
+      s2.reports.filter((r) => r.kind === 'voyage' && r.facts.petitionerId === 'hist-1').length === 1);
+    ok('gov-leg: second death still recovered',
+      s2.reports.some((r) => r.facts.voyageId === 'voy-2'));
+  }
+  // Unrecoverable case: deceased voyage with no destination is left alone, no crash
+  {
+    const s = newGame({ mode: 'campaign', seed: 'gov-leg2' });
+    s.voyages.push({ id: 'voy-x', petitionerId: 'hist-9', petitionerName: 'Man X', destination: null,
+      departYear: s.year, travelYears: 2, arriveYear: s.year, stage: 'resolved',
+      outcome: 'deceased', resolvedYear: s.year, newsDelivered: true, deathReported: true });
+    const s2 = deserialize(serialize(s));
+    ok('gov-leg: destination-less death skipped safely',
+      s2.reports.filter((r) => r.kind === 'voyage').length === 0);
+  }
+  // Non-deceased and unflagged voyages are ignored
+  {
+    const s = newGame({ mode: 'campaign', seed: 'gov-leg3' });
+    s.voyages.push({ id: 'voy-y', petitionerId: 'hist-9', petitionerName: 'Man Y', destination: 'goa',
+      departYear: s.year, travelYears: 2, arriveYear: s.year, stage: 'resolved',
+      outcome: 'thriving', resolvedYear: s.year, newsDelivered: true, deathReported: false });
+    const s2 = deserialize(serialize(s));
+    ok('gov-leg: non-deceased ignored', s2.reports.filter((r) => r.kind === 'voyage').length === 0);
+  }
+}
+
 console.log(`\n${failures === 0 ? 'ALL TESTS PASSED' : failures + ' FAILURES'}`);
 process.exit(failures === 0 ? 0 : 1);
 

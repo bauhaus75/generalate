@@ -20,7 +20,13 @@ import {
   DEPLOYMENT_PURPOSES, DEPLOYMENT_MIN_SIZE,
   generalateReport,
   CAMPAIGN_START,
+  ageInReligion, yearsInSociety, initAgeInReligion, FORMATION_THRESHOLDS,
+  cardYearsInSociety, personHistory, recordHistory, HISTORY_VERSION,
 } from './engine.js';
+import * as EngineNS from './engine.js';
+import { yearsInSociety as vowsYearsInSociety } from './vows.js';
+import { buildDiagnosticReport } from './ui/playtest.js';
+import { GRADES as MEM_GRADES } from './dispositions.js';
 import { RESOURCES } from './rules.js';
 import { d20check, degreeFor, exposition, probAtLeast, DEGREES } from './dice.js';
 import { makeRng } from './rng.js';
@@ -1610,7 +1616,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
       },
     });
     ok('vows: 10-year scholastic NOT ordination-eligible', ordinationEligible(s, pid) === false);
-    s.petitioners[pid].yearsInSociety = 12;
+    s.petitioners[pid].ageInReligion = 12;
     ok('vows: 12-year scholastic IS ordination-eligible', ordinationEligible(s, pid) === true);
   }
 
@@ -1624,7 +1630,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     let entry = s.europeanLabor.find((e) => e.petitionerId === id);
     ok('vows: stage scholastic after firstVows', entry.vows.stage === 'scholastic');
     // Fast-forward: bump years to 5, check philosophy queues.
-    s.petitioners[id].yearsInSociety = 5;
+    s.petitioners[id].ageInReligion = 5;
     resolveYear(s);
     ok('vows: philosophy queued at 5 years',
       (s.pendingVows || []).some((x) => x.petitionerId === id && x.type === 'philosophy'));
@@ -1634,7 +1640,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     ok('vows: philosophy +prudence',
       ensureDisposition(s, id).current.prudence === Math.min(5, p0 + 1));
     // 8 years: regency.
-    s.petitioners[id].yearsInSociety = 8;
+    s.petitioners[id].ageInReligion = 8;
     resolveYear(s);
     ok('vows: regency queued at 8 years',
       (s.pendingVows || []).some((x) => x.petitionerId === id && x.type === 'regency'));
@@ -1642,7 +1648,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     entry = s.europeanLabor.find((e) => e.petitionerId === id);
     ok('vows: regency recorded', entry.vows.regency === s.year);
     // 12 years: theology then ordination.
-    s.petitioners[id].yearsInSociety = 12;
+    s.petitioners[id].ageInReligion = 12;
     resolveYear(s);
     ok('vows: theology queued at 12 years',
       (s.pendingVows || []).some((x) => x.petitionerId === id && x.type === 'theology'));
@@ -1833,6 +1839,9 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     ok('entry-year: 5 years elapsed', s.year === y0 + 5);
     ok('entry-year: baseline preserved', rec.entryYear === y0);
     ok('entry-year: derived years grew', (s.year - rec.entryYear + 6) === 11);
+    ok('age-in-religion: counter grew 6 -> 11 over 5 years', rec.ageInReligion === 11 && ageInReligion(s, pick.petitionerId) === 11,
+      String(rec.ageInReligion));
+    ok('total-years: grew 6 -> 11 over 5 years', rec.totalYearsInSociety === 11 && yearsInSociety(s, pick.petitionerId) === 11);
   }
 
   // 40e. Overseas milestone: detection -> transit -> Desk (Stage 2 + overseas flow).
@@ -1926,6 +1935,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     for (let i = 0; i < 3; i++) { const { terna: t } = startYear(s); decide(s, []); resolveYear(s); }
     // yearsInSociety = s.year - entryYear + 4 = 7 after 3 years.
     ok('dispatch-years: years advance', (s.year - rec.entryYear + 4) === 7 && s.year === y0 + 3);
+    ok('age-in-religion: dispatch-years counter is 7', rec.ageInReligion === 7, String(rec.ageInReligion));
   }
 
   // 40i. Multi-man isolation: decisions on one man don't touch another (Stage 5).
@@ -1943,6 +1953,315 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     ok('isolation: decided man advanced', ea.vows.stage === 'scholastic' && ea.vows.firstVows === s.year);
     ok('isolation: other man untouched', eb.vows.stage === 'novice' && eb.vows.firstVows == null);
     ok('isolation: other pending intact', (s.pendingVows || []).some((x) => x.petitionerId === b));
+  }
+
+  // 40j. Age in religion: a stored counter drives formation progression.
+  {
+    ok('age-in-religion: thresholds', JSON.stringify(FORMATION_THRESHOLDS) ===
+      JSON.stringify({ firstVows: 2, philosophy: 5, regency: 8, theology: 12, ordination: 12 }));
+    // Seeded from historical years + elapsed, then advanced once per resolveYear.
+    const s = newGame({ mode: 'campaign', seed: 'air-1' });
+    const id = vowsMan(s, 'air', 0, 'novice', 'scholastic');
+    ok('age-in-religion: unseeded reads legacy derivation', ageInReligion(s, id) === 0
+      && s.petitioners[id].ageInReligion === undefined);
+    initAgeInReligion(s, id);
+    ok('age-in-religion: seeded at 0', s.petitioners[id].ageInReligion === 0);
+    ok('age-in-religion: both counters seeded equal', yearsInSociety(s, id) === 0 && vowsYearsInSociety(s, id) === 0
+      && s.petitioners[id].totalYearsInSociety === 0);
+    // Ignore entryYear once seeded: changing it must not move the counter.
+    s.petitioners[id].entryYear = s.year - 30;
+    ok('age-in-religion: entryYear no longer read after seeding', ageInReligion(s, id) === 0);
+    resolveYear(s);
+    ok('age-in-religion: +1 after one year', ageInReligion(s, id) === 1);
+    ok('age-in-religion: no firstVows at 1', !(s.pendingVows || []).some((x) => x.petitionerId === id));
+    resolveYear(s);
+    resolveYear(s);
+    ok('age-in-religion: firstVows queued from counter alone at 2',
+      (s.pendingVows || []).some((x) => x.petitionerId === id && x.type === 'firstVows'));
+    ok('age-in-religion: 3 after three years', ageInReligion(s, id) === 3);
+    ok('total-years: equals ageInReligion before any deferral', yearsInSociety(s, id) === 3
+      && s.petitioners[id].totalYearsInSociety === 3);
+    // Deferral PAUSES ageInReligion (background) but not the visible total.
+    const yDef = s.year;
+    decideVows(s, id, 'firstVows', 'defer');
+    const dU = s.petitioners[id].vows.deferredUntil;
+    ok('deferral: deferredUntil = year + 2', dU === yDef + 2);
+    resolveYear(s);
+    ok('deferral: ageInReligion paused (year 1)', ageInReligion(s, id) === 3, String(ageInReligion(s, id)));
+    ok('deferral: total still counting (year 1)', yearsInSociety(s, id) === 4);
+    resolveYear(s);
+    ok('deferral: ageInReligion paused (year 2)', ageInReligion(s, id) === 3, String(ageInReligion(s, id)));
+    ok('deferral: total still counting (year 2)', yearsInSociety(s, id) === 5);
+    ok('deferral: no re-queue while deferred', !(s.pendingVows || []).some((x) => x.petitionerId === id));
+    ok('deferral: vows helper reports visible total', vowsYearsInSociety(s, id) === 5);
+    // Deferral expires (s.year === deferredUntil): decision re-queued, counter resumes.
+    ok('deferral: now at deferredUntil', s.year === dU);
+    resolveYear(s);
+    ok('deferral: firstVows re-queued after deferral', (s.pendingVows || []).some((x) => x.petitionerId === id && x.type === 'firstVows'));
+    ok('deferral: ageInReligion resumes', ageInReligion(s, id) === 4, String(ageInReligion(s, id)));
+    ok('deferral: total keeps counting', yearsInSociety(s, id) === 6);
+    resolveYear(s);
+    ok('deferral: resumes +1 per year', ageInReligion(s, id) === 5 && yearsInSociety(s, id) === 7);
+    // The dead stop counting.
+    s.petitioners[id].status = 'deceased';
+    resolveYear(s);
+    ok('age-in-religion: deceased frozen', ageInReligion(s, id) === 5 && yearsInSociety(s, id) === 7);
+    // Men not yet in the Society (no entryYear) are not advanced.
+    const s2 = newGame({ mode: 'campaign', seed: 'air-2' });
+    s2.petitioners['air-out'] = { id: 'air-out', fictional: true, status: 'new', history: [], yearsInSociety: 3 };
+    resolveYear(s2);
+    ok('age-in-religion: outsiders not advanced', s2.petitioners['air-out'].ageInReligion === undefined
+      && ageInReligion(s2, 'air-out') === 3);
+  }
+
+  // 40k. Old saves lacking ageInReligion migrate from entryYear on load.
+  {
+    const s = newGame({ mode: 'campaign', seed: 'air-migrate' });
+    const id = vowsMan(s, 'mig', 3, 'scholastic', 'scholastic');
+    s.petitioners[id].entryYear = s.year - 4; // entered 4 years ago with 3 historical years
+    const raw = JSON.parse(JSON.stringify(serialize(s)));
+    delete raw.petitioners[id].ageInReligion;
+    delete raw.petitioners[id].totalYearsInSociety;
+    const back = deserialize(raw);
+    ok('age-in-religion: migrated 3 + 4 = 7', back.petitioners[id].ageInReligion === 7,
+      String(back.petitioners[id].ageInReligion));
+    ok('total-years: migrated 3 + 4 = 7', back.petitioners[id].totalYearsInSociety === 7);
+    const rt = deserialize(serialize(back));
+    ok('age-in-religion: survives round-trip', rt.petitioners[id].ageInReligion === 7 && rt.petitioners[id].totalYearsInSociety === 7);
+  }
+
+  // 40l. Diagnostics export carries ageInReligion.
+  {
+    const s = newGame({ mode: 'campaign', seed: 'air-diag' });
+    const id = vowsMan(s, 'dg', 1, 'novice', 'brother');
+    resolveYear(s);
+    const before = JSON.stringify(s);
+    const rep = buildDiagnosticReport(EngineNS, s);
+    const m = rep.men.find((x) => x.petitionerId === id);
+    ok('age-in-religion: diagnostics fields', m && m.ageInReligion === 2 && m.ageInReligionStored === true
+      && m.yearsInSociety === 2 && m.totalYearsInSociety === 2 && m.ageInReligionPaused === false, JSON.stringify(m));
+    ok('age-in-religion: diagnostics read-only', JSON.stringify(s) === before);
+    // Deferred man: visible total diverges from paused background counter.
+    s.petitioners[id].ageInReligion = 1;
+    s.petitioners[id].vows.deferredUntil = s.year + 1;
+    const m2 = buildDiagnosticReport(EngineNS, s).men.find((x) => x.petitionerId === id);
+    ok('age-in-religion: diagnostics exports visible + background', m2.totalYearsInSociety === 2
+      && m2.ageInReligion === 1 && m2.ageInReligionPaused === true, JSON.stringify(m2));
+  }
+
+  // 40m. Desk-card years seed both counters at entry (incl. null records -> seeded card value).
+  {
+    let checked = 0, mismatches = [];
+    for (const seed of ['card-seed-1', 'card-seed-2', 'card-seed-3', 'card-seed-4']) {
+      const s = newGame({ mode: 'campaign', seed });
+      for (let yr = 0; yr < 3; yr++) {
+        const { terna } = startYear(s);
+        const g = getGameData();
+        for (const c of terna) {
+          if (cardYearsInSociety(s, c.petitionerId) !== c.yearsInSociety
+            && typeof s.petitioners[c.petitionerId].totalYearsInSociety !== 'number') mismatches.push(['card', c.petitionerId]);
+        }
+        const fresh = terna.filter((c) => typeof s.petitioners[c.petitionerId].ageInReligion !== 'number');
+        decide(s, terna.length ? [{ id: terna[0].petitionerId }] : []);
+        for (const c of fresh) {
+          const r = s.petitioners[c.petitionerId];
+          checked++;
+          if (r.ageInReligion !== c.yearsInSociety || r.totalYearsInSociety !== c.yearsInSociety) {
+            mismatches.push([c.petitionerId, c.yearsInSociety, r.ageInReligion, r.totalYearsInSociety]);
+          }
+        }
+        resolveYear(s);
+      }
+    }
+    ok('card-seed: card value == engine seed for every entering man', checked > 0 && mismatches.length === 0,
+      `checked=${checked} ${JSON.stringify(mismatches.slice(0, 3))}`);
+  }
+  // Null yearsInSociety on a historical record: card-seeded value is used, deterministically.
+  {
+    const s = newGame({ mode: 'campaign', seed: 'card-null' });
+    const g = getGameData();
+    const pet = g.petitioners.find((p) => !p.fictional);
+    const saved = pet.yearsInSociety;
+    pet.yearsInSociety = null;
+    try {
+      const v1 = cardYearsInSociety(s, pet.id), v2 = cardYearsInSociety(s, pet.id);
+      ok('card-seed: null record gets seeded card value', Number.isInteger(v1) && v1 >= 1 && v1 <= 28 && v1 === v2, String(v1));
+      s.petitioners[pet.id] = { id: pet.id, fictional: false, status: 'denied', history: [], deniedCount: 1,
+        usedLetters: [], voyages: [], archived: false, entryYear: s.year };
+      initAgeInReligion(s, pet.id);
+      ok('card-seed: null record seeds both counters from card value (not 0)',
+        s.petitioners[pet.id].ageInReligion === v1 && s.petitioners[pet.id].totalYearsInSociety === v1);
+      const s2 = newGame({ mode: 'campaign', seed: 'card-null' });
+      ok('card-seed: same seed -> same value', cardYearsInSociety(s2, pet.id) === v1);
+    } finally { pet.yearsInSociety = saved; }
+  }
+
+  // 40n. Formation & Mission history: recorded live, in year order.
+  {
+    const s = newGame({ mode: 'campaign', seed: 'hist-live' });
+    const id = vowsMan(s, 'hl', 1, 'novice', 'scholastic');
+    initAgeInReligion(s, id);
+    resolveYear(s); // 1 -> 2
+    resolveYear(s); // queues firstVows at 2
+    decideVows(s, id, 'firstVows', 'defer');
+    const defY = s.year;
+    resolveYear(s); resolveYear(s); // paused 2 years
+    resolveYear(s); // deferral over: resumes, re-queued
+    decideVows(s, id, 'firstVows', 'proceed');
+    const h = personHistory(s, id);
+    const evs = h.events.map((e) => e.event);
+    ok('history: deferral recorded', evs.includes('deferred'));
+    const end = h.events.find((e) => e.event === 'deferral-ended');
+    ok('history: deferral-ended with 2 years paused', end && end.pausedYears === 2 && end.year === defY + 2, JSON.stringify(end));
+    ok('history: first vows recorded after deferral', evs.indexOf('first-vows') > evs.indexOf('deferral-ended'));
+    ok('history: summary pausedYears 2', h.summary.pausedYears === 2 && h.summary.totalYearsInSociety === h.summary.ageInReligion + 2,
+      JSON.stringify(h.summary));
+    ok('history: all formation kind', h.events.every((e) => e.kind === 'formation'));
+    ok('history: rec flagged', s.petitioners[id].historyV === HISTORY_VERSION);
+
+    // Desk + voyage path: entry, petition approved, departure, arrival.
+    const s2 = newGame({ mode: 'campaign', seed: 'hist-voyage' });
+    const { terna } = startYear(s2);
+    const pid = terna[0].petitionerId;
+    decide(s2, [{ id: pid }]);
+    for (let i = 0; i < 12 && !(s2.voyages || []).some((v) => v.petitionerId === pid && v.stage === 'arrived'); i++) {
+      resolveYear(s2); const st = startYear(s2); decide(s2, []);
+    }
+    const h2 = personHistory(s2, pid);
+    const e2 = h2.events.map((e) => e.event);
+    ok('history: entry event on approval', e2[0] === 'entry' || e2.includes('entry'), JSON.stringify(e2));
+    ok('history: Indies petition outcome shown', h2.events.some((e) => e.event === 'approved' && e.kind === 'mission'));
+    ok('history: departure recorded', e2.includes('departure'), JSON.stringify(e2));
+    ok('history: arrival recorded with location', h2.events.some((e) => e.event === 'arrival' && e.destinationName), JSON.stringify(e2));
+    const yrs = h2.events.map((e) => e.year);
+    ok('history: chronological', yrs.every((y, k) => k === 0 || y >= yrs[k - 1]));
+    ok('history: card history lines unchanged (legacy only)',
+      s2.petitioners[pid].history.filter((x) => !x.kind).every((x) => x.decision));
+    const den = terna.slice(1).map((c) => c.petitionerId);
+    ok('history: denied men get entry + denied petition', den.every((d) => {
+      const ev = personHistory(s2, d).events; return ev.some((e) => e.event === 'entry') && ev.some((e) => e.event === 'denied');
+    }));
+
+    // Backfill: strip life events from an "old save" and reload.
+    const raw = JSON.parse(JSON.stringify(serialize(s2)));
+    for (const r of Object.values(raw.petitioners)) { r.history = (r.history || []).filter((x) => !x.kind); delete r.historyV; }
+    const back = deserialize(raw);
+    const hb = personHistory(back, pid);
+    const eb = hb.events.map((e) => e.event);
+    ok('history backfill: entry + departure + arrival restored', ['entry', 'departure', 'arrival'].every((k) => eb.includes(k)), JSON.stringify(eb));
+    ok('history backfill: marked backfilled', hb.events.filter((e) => !e.legacy).every((e) => e.backfilled));
+    ok('history backfill: entry first', eb[0] === 'entry', JSON.stringify(eb));
+    ok('history backfill: chronological', hb.events.every((e, k, a) => k === 0 || e.year >= a[k - 1].year));
+    ok('history backfill: idempotent round-trip', JSON.stringify(serialize(deserialize(serialize(back)))) === JSON.stringify(serialize(back)));
+  }
+
+  // 40o. Mission-novitiate men: novitiate years count toward both counters, logged in history.
+  {
+    const mk = (seed, novYears) => {
+      const s = newGame({ mode: 'campaign', seed });
+      const dest = getGameData().destinations[0].id;
+      const y0 = s.year;
+      const id = `nov-${dest}-${y0 - (novYears - 2)}-0`;
+      s.novices = [{ id, name: 'Test (novice)', destination: dest, startYear: y0 - (novYears - 2), readyYear: y0 + 2 }];
+      resolveYear(s); startYear(s); decide(s, []);
+      resolveYear(s); startYear(s); decide(s, []);
+      ok(`novitiate(${novYears}): not yet entered before readyYear`, !s.petitioners[id]);
+      resolveYear(s); // readyYear: enters the rolls, then the year advances
+      return { s, id, dest, y0 };
+    };
+    {
+      const { s, id, dest, y0 } = mk('nov-2', 2);
+      const r = s.petitioners[id];
+      ok('novitiate: entered European labor', (s.europeanLabor || []).some((e) => e.petitionerId === id));
+      ok('novitiate: 2 years credited at entry (then +1 year-advance)', r.ageInReligion === 3 && r.totalYearsInSociety === 3,
+        `${r.ageInReligion}/${r.totalYearsInSociety}`);
+      ok('novitiate: record kept', r.novitiate && r.novitiate.years === 2 && r.novitiate.destination === dest && r.novitiateCounted === true);
+      ok('novitiate: first vows queued at 2 (same rule as everyone: >= 2 queues, > 2 auto-completes)',
+        (s.pendingVows || []).some((x) => x.petitionerId === id && x.type === 'firstVows') && !r.vows.firstVows);
+      const ev = personHistory(s, id).events;
+      const ne = ev.find((e) => e.event === 'novitiate-entry'), nc = ev.find((e) => e.event === 'novitiate-completed');
+      ok('novitiate history: entry at mission, at start year', ne && ne.year === y0 && ne.destination === dest && ne.destinationName);
+      ok('novitiate history: completion with years', nc && nc.year === y0 + 2 && nc.years === 2);
+      const order = ev.map((e) => e.event);
+      ok('novitiate history: novitiate before rolls entry', order.indexOf('novitiate-entry') < order.indexOf('novitiate-completed')
+        && order.indexOf('novitiate-completed') < order.indexOf('entry'), JSON.stringify(order));
+      ok('novitiate history: entry text shows 2 years', /with 2 years in the Society/.test(ev.find((e) => e.event === 'entry').text));
+
+      // Old-save migration: strip everything the new code adds.
+      const raw = JSON.parse(JSON.stringify(serialize(s)));
+      const rr = raw.petitioners[id];
+      delete rr.ageInReligion; delete rr.totalYearsInSociety; delete rr.novitiate; delete rr.novitiateCounted;
+      delete rr.yearsInSociety; delete rr.historyV; rr.history = rr.history.filter((h) => !h.kind);
+      const back = deserialize(raw);
+      const br = back.petitioners[id];
+      ok('novitiate migration (pre-counter save): 2 + elapsed', br.ageInReligion === 3 && br.totalYearsInSociety === 3,
+        `${br.ageInReligion}/${br.totalYearsInSociety}`);
+      const bev = personHistory(back, id).events.map((e) => e.event);
+      ok('novitiate migration: history backfilled', ['novitiate-entry', 'novitiate-completed', 'entry'].every((k) => bev.includes(k)), JSON.stringify(bev));
+      // Save from a build that seeded counters without the novitiate (0 + elapsed = 1).
+      const raw2 = JSON.parse(JSON.stringify(serialize(s)));
+      const r2 = raw2.petitioners[id];
+      r2.ageInReligion = 1; r2.totalYearsInSociety = 1; delete r2.novitiate; delete r2.novitiateCounted; delete r2.yearsInSociety;
+      r2.history = r2.history.filter((h) => !/^novitiate/.test(h.event || ''));
+      const b2 = deserialize(raw2).petitioners[id];
+      ok('novitiate migration (counter save): credited once', b2.ageInReligion === 3 && b2.totalYearsInSociety === 3, `${b2.ageInReligion}/${b2.totalYearsInSociety}`);
+      const again = deserialize(serialize(deserialize(raw2))).petitioners[id];
+      ok('novitiate migration: idempotent', again.ageInReligion === 3 && again.history.filter((h) => h.event === 'novitiate-completed').length === 1);
+    }
+    {
+      const { s, id } = mk('nov-3', 3); // actual time spent: 3 years
+      const r = s.petitioners[id];
+      ok('novitiate(3): actual years credited', r.novitiate.years === 3 && r.ageInReligion === 4 && r.totalYearsInSociety === 4,
+        `${r.novitiate.years} ${r.ageInReligion}/${r.totalYearsInSociety}`);
+      ok('novitiate(3): first vows auto-completed at entry (> 2, consistent rule)', r.vows.firstVows === true
+        && personHistory(s, id).events.some((e) => e.event === 'first-vows' && e.auto));
+    }
+  }
+
+  // 40p. Novitiate men: grade/track persisted on the record, stable across reloads.
+  {
+    const s = newGame({ mode: 'campaign', seed: 'nov-grade' });
+    const dest = getGameData().destinations[0].id;
+    const id = `nov-${dest}-${s.year}-7`;
+    s.novices = [{ id, name: 'Grade (novice)', destination: dest, startYear: s.year, readyYear: s.year + 2 }];
+    for (let i = 0; i < 3; i++) { resolveYear(s); if (i < 2) { startYear(s); decide(s, []); } }
+    const r = s.petitioners[id];
+    const snap = (st) => JSON.stringify([gradeFor(st, id), EngineNS.vowsTrackFor(st, id), staffGradeFor(st, id), careerStage(st, id)]);
+    ok('nov-grade: grade + track saved on record', r.savedGrade && r.savedGrade.grade === 'scholastic' && r.vowsTrack === 'scholastic');
+    ok('nov-grade: in-memory table not written', MEM_GRADES[id] === undefined);
+    const before = snap(s);
+    // Reload as a fresh process would (no in-memory entry) ...
+    const a = deserialize(JSON.parse(JSON.stringify(serialize(s))));
+    ok('nov-grade: identical after reload', snap(a) === before, `${before} vs ${snap(a)}`);
+    // ... and with the in-memory setting changed to something else.
+    MEM_GRADES[id] = { grade: 'brother', ordained: false };
+    try {
+      const b = deserialize(JSON.parse(JSON.stringify(serialize(s))));
+      ok('nov-grade: identical with in-memory setting changed', snap(b) === before, `${before} vs ${snap(b)}`);
+      const c = deserialize(serialize(deserialize(serialize(b))));
+      ok('nov-grade: stable over repeated reloads', snap(c) === before);
+    } finally { delete MEM_GRADES[id]; }
+
+    // Old save (no saved grade/track): computed once on load, then stable.
+    const raw = JSON.parse(JSON.stringify(serialize(s)));
+    delete raw.petitioners[id].savedGrade; delete raw.petitioners[id].vowsTrack;
+    const m1 = deserialize(raw);
+    ok('nov-grade migration: computed and saved', m1.petitioners[id].savedGrade && m1.petitioners[id].savedGrade.grade === 'scholastic'
+      && m1.petitioners[id].vowsTrack === 'scholastic');
+    ok('nov-grade migration: matches pre-save behaviour', snap(m1) === before, `${before} vs ${snap(m1)}`);
+    MEM_GRADES[id] = { grade: 'father', ordained: true };
+    try {
+      const m2 = deserialize(JSON.parse(JSON.stringify(serialize(m1))));
+      ok('nov-grade migration: later reloads ignore in-memory setting', snap(m2) === before, snap(m2));
+    } finally { delete MEM_GRADES[id]; }
+    // Old save whose man is already on the brother track keeps it.
+    const raw2 = JSON.parse(JSON.stringify(serialize(s)));
+    const r2 = raw2.petitioners[id];
+    delete r2.savedGrade; delete r2.vowsTrack; r2.vows.stage = 'brother';
+    const e2 = raw2.europeanLabor.find((e) => e.petitionerId === id); if (e2) e2.vows = r2.vows;
+    const m3 = deserialize(raw2);
+    ok('nov-grade migration: brother stage respected', m3.petitioners[id].savedGrade.grade === 'brother'
+      && m3.petitioners[id].vowsTrack === 'brother' && staffGradeFor(m3, id) === 'brothers');
   }
 }
 

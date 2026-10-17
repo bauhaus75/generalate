@@ -8,28 +8,32 @@ function esc(s) {
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-/** Mirror of the milestone eligibility in checkVowsMilestones (vows.js). */
-function nextEligibleMilestone(vw, yrs) {
+const DEFAULT_THRESHOLDS = { firstVows: 2, philosophy: 5, regency: 8, theology: 12, ordination: 12 };
+
+/** Mirror of the milestone eligibility in checkVowsMilestones (vows.js), on age in religion. */
+function nextEligibleMilestone(vw, air, T) {
   if (['ordained', 'coadjutor', 'professed'].includes(vw.stage)) return null;
   const br = vw.stage === 'brother';
-  if (yrs >= 2 && !vw.firstVows) return 'firstVows';
-  if (!br && yrs >= 5 && !vw.philosophy) return 'philosophy';
-  if (!br && yrs >= 8 && !vw.regency) return 'regency';
-  if (!br && yrs >= 12 && !vw.theology) return 'theology';
-  if (!br && yrs >= 12 && vw.theology && !vw.ordination) return 'ordination';
+  if (air >= T.firstVows && !vw.firstVows) return 'firstVows';
+  if (!br && air >= T.philosophy && !vw.philosophy) return 'philosophy';
+  if (!br && air >= T.regency && !vw.regency) return 'regency';
+  if (!br && air >= T.theology && !vw.theology) return 'theology';
+  if (!br && air >= T.ordination && vw.theology && !vw.ordination) return 'ordination';
   return null;
 }
 
-const MILESTONE_LABEL = {
-  firstVows: 'first vows (2y)', philosophy: 'philosophy (5y)', regency: 'regency (8y)',
-  theology: 'theology (12y)', ordination: 'ordination (12y)',
-};
+function milestoneLabel(k, T) {
+  const names = { firstVows: 'first vows', philosophy: 'philosophy', regency: 'regency', theology: 'theology', ordination: 'ordination' };
+  return `${names[k] || k} (${T[k]}y)`;
+}
 
 /**
  * Read-only formation diagnostics. Returns { men: [...], warnings: [...] }.
- * E is the Engine namespace (needs yearsInSociety, vowsTrackFor).
+ * E is the Engine namespace (needs ageInReligion or yearsInSociety, vowsTrackFor).
  */
 export function buildDiagnostics(E, state) {
+  const T = E.FORMATION_THRESHOLDS || DEFAULT_THRESHOLDS;
+  const airOf = E.ageInReligion || E.yearsInSociety;
   const men = [];
   const warnings = [];
   const pending = Array.isArray(state.pendingVows) ? state.pendingVows : [];
@@ -46,7 +50,10 @@ export function buildDiagnostics(E, state) {
       continue;
     }
     const track = E.vowsTrackFor ? E.vowsTrackFor(state, pid) : '?';
-    const yrs = E.yearsInSociety(state, pid);
+    const yrs = airOf(state, pid); // BACKGROUND age in religion (progression)
+    const total = E.yearsInSociety ? E.yearsInSociety(state, pid) : yrs; // VISIBLE total
+    const stored = typeof rec.ageInReligion === 'number' && typeof rec.totalYearsInSociety === 'number';
+    const paused = !!(vw.deferredUntil && vw.deferredUntil > state.year);
     const entryYear = (rec.entryYear != null ? rec.entryYear : e.year);
     const histYrs = rec.yearsInSociety;
     const flags = {
@@ -56,24 +63,30 @@ export function buildDiagnostics(E, state) {
     const mine = pending.filter((p) => p.petitionerId === pid).map((p) => p.type);
     men.push({
       petitionerId: pid, name: e.name, stage: vw.stage, track, entryYear,
-      yearsInSociety: yrs, histYears: histYrs, flags,
+      yearsInSociety: total, totalYearsInSociety: total,
+      ageInReligion: yrs, ageInReligionPaused: paused, ageInReligionStored: stored,
+      histYears: histYrs, flags,
       deferredUntil: vw.deferredUntil || null, tertianshipUntil: vw.tertianshipUntil || null,
       pending: mine,
     });
 
-    const elig = nextEligibleMilestone(vw, yrs);
+    const elig = nextEligibleMilestone(vw, yrs, T);
     if (elig && !mine.includes(elig)) {
       if (vw.deferredUntil && vw.deferredUntil <= state.year) {
         warnings.push({ level: 'warning', petitionerId: pid, name: e.name,
-          text: `deferral overdue: ${MILESTONE_LABEL[elig]} was deferred until ${vw.deferredUntil}, no decision re-queued` });
+          text: `deferral overdue: ${milestoneLabel(elig, T)} was deferred until ${vw.deferredUntil}, no decision re-queued` });
       } else if (!vw.deferredUntil || vw.deferredUntil <= state.year) {
         warnings.push({ level: 'warning', petitionerId: pid, name: e.name,
-          text: `eligible milestone with no decision queued: ${MILESTONE_LABEL[elig]} (${yrs}y in Society)` });
+          text: `eligible milestone with no decision queued: ${milestoneLabel(elig, T)} (age in religion ${yrs}y)` });
       }
     }
-    if (vw.stage === 'novice' && yrs > 2 && !vw.firstVows && !mine.includes('firstVows')) {
+    if (vw.stage === 'novice' && yrs > T.firstVows && !vw.firstVows && !mine.includes('firstVows')) {
       warnings.push({ level: 'warning', petitionerId: pid, name: e.name,
-        text: `past novice threshold: stage=novice at ${yrs}y in Society` });
+        text: `past novice threshold: stage=novice at age in religion ${yrs}y` });
+    }
+    if (!stored && rec.entryYear != null) {
+      warnings.push({ level: 'warning', petitionerId: pid, name: e.name,
+        text: 'year counters not stored yet (derived from entryYear); it will be seeded on load or next year-advance' });
     }
   }
 
@@ -143,13 +156,13 @@ function diagTableHTML(d) {
       .map((k) => `${k === 'firstVows' ? 'FV' : k.slice(0, 2).toUpperCase()}:${m.flags[k] == null ? '—' : esc(String(m.flags[k]))}`).join(' ');
     return `<tr><td>${esc(m.name)}<br><span style="opacity:.6">${esc(String(m.petitionerId).slice(0, 8))}</span></td>` +
       `<td>${esc(m.stage)}<br><span style="opacity:.6">${esc(m.track)} track</span></td>` +
-      `<td>${m.entryYear == null ? '—' : esc(String(m.entryYear))} / ${esc(String(m.yearsInSociety))}${m.histYears != null ? ` (hist ${esc(String(m.histYears))})` : ''}</td>` +
+      `<td>${esc(String(m.totalYearsInSociety))}y<br><span style="opacity:.6">rel. ${esc(String(m.ageInReligion))}${m.ageInReligionPaused ? ' (paused)' : ''} · entered ${m.entryYear == null ? '—' : esc(String(m.entryYear))}${m.histYears != null ? ` · hist ${esc(String(m.histYears))}` : ''}</span></td>` +
       `<td style="font-size:.85em">${esc(fl)}</td>` +
       `<td>${m.deferredUntil == null ? '—' : 'def→' + esc(String(m.deferredUntil))}${m.tertianshipUntil == null ? '' : '<br>tert→' + esc(String(m.tertianshipUntil))}</td>` +
       `<td>${m.pending.length ? esc(m.pending.join(', ')) : '—'}</td></tr>`;
   }).join('');
   return `<div style="overflow-x:auto"><table class="diag-table" style="font-size:.8em;border-collapse:collapse;width:100%">` +
-    `<thead><tr><th style="text-align:left">Man</th><th style="text-align:left">Grade</th><th style="text-align:left">Entry / Yrs</th><th style="text-align:left">Milestones</th><th style="text-align:left">Defer/Tert</th><th style="text-align:left">Pending</th></tr></thead>` +
+    `<thead><tr><th style="text-align:left">Man</th><th style="text-align:left">Grade</th><th style="text-align:left">Yrs in Society</th><th style="text-align:left">Milestones</th><th style="text-align:left">Defer/Tert</th><th style="text-align:left">Pending</th></tr></thead>` +
     `<tbody>${rows}</tbody></table></div>`;
 }
 
@@ -162,15 +175,7 @@ function warningsHTML(d) {
 
 /** HTML for the collapsible Playtest Tools section. Read-only. */
 export function playtestSectionHTML(app) {
-  // Defensive: ensure diagnostics failures don't abort the main UI render.
-  let d;
-  try {
-    d = buildDiagnostics(app.Engine, app.state);
-  } catch (e) {
-    // Transparent failure: log to console and render an empty diagnostics panel.
-    console.error('Playtest.buildDiagnostics failed:', e);
-    d = { men: [], warnings: [] };
-  }
+  const d = buildDiagnostics(app.Engine, app.state);
   return `
   <details class="playtest-tools" style="margin-top:1.2em;border-top:1px solid #6b5a3e;padding-top:.8em">
     <summary class="px" style="cursor:pointer">🔧 PLAYTEST TOOLS</summary>

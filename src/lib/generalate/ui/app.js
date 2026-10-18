@@ -201,6 +201,7 @@ function renderHeader() {
         <span class="gh-energy-label px">⚡</span><span class="gh-num" id="gh-energy">5</span>
       </div>
       <button class="gbtn small ghost" id="gh-music" title="Allegri's Miserere (harp)">🎵</button>
+      <button class="gbtn small ghost" id="gh-export" title="Export game state">📥</button>
       <audio id="gh-audio" loop preload="auto">
         <source src="miserere-harp.mp3" type="audio/mpeg">
       </audio>
@@ -226,6 +227,16 @@ function renderHeader() {
     h.querySelector('#gh-map').addEventListener('click', () => { app.sound('page'); app.go('map', { from: app.ui.screen }); });
     h.querySelector('#gh-ledger').addEventListener('click', () => Screens.showLedgerOverlay(app));
     h.querySelector('#gh-treasury').addEventListener('click', () => { app.sound('page'); app.go('treasury'); });
+    const exportBtn = h.querySelector('#gh-export');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', () => {
+        const blob = new Blob([JSON.stringify({ state: app.state }, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'generalate-state.json';
+        a.click();
+      });
+    }
     const musicBtn = h.querySelector('#gh-music');
     const audio = h.querySelector('#gh-audio');
     if (musicBtn && audio) {

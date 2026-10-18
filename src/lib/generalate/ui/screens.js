@@ -2015,15 +2015,25 @@ export function renderDesk(app, root, terna) {
     const tiers = app.Engine.RESOURCES?.SHIP_TIERS || {};
     const decisions = app.ui.decisions || {};
     
-    // Count assigned per ship (from decisions with shipId)
+    // Count assigned per ship (from decisions with shipId), including companions
     const assignedCount = {};
     const assignedNames = {};
+    const partySize = (d) => {
+      let n = 1;
+      const comp = d.companions;
+      if (typeof comp === 'number') n += comp;
+      else if (comp && typeof comp === 'object') {
+        n += Object.values(comp).reduce((a, b) => a + (b || 0), 0);
+      }
+      return n;
+    };
     for (const [pid, d] of Object.entries(decisions)) {
       if (d.verdict === 'approve' && d.shipId) {
-        assignedCount[d.shipId] = (assignedCount[d.shipId] || 0) + 1;
+        const size = partySize(d);
+        assignedCount[d.shipId] = (assignedCount[d.shipId] || 0) + size;
         const card = terna.find((c) => c.id === pid);
         if (!assignedNames[d.shipId]) assignedNames[d.shipId] = [];
-        assignedNames[d.shipId].push(card?.name || pid);
+        assignedNames[d.shipId].push({ pid, name: card?.name || pid, size });
       }
     }
     
@@ -2031,33 +2041,50 @@ export function renderDesk(app, root, terna) {
       const ti = tiers[s.tier || 'carrack'] || { label: 'Carrack', range: 2, capacity: 8 };
       const used = assignedCount[s.id] || 0;
       const pct = Math.round((used / ti.capacity) * 100);
-      const names = (assignedNames[s.id] || []).map(esc).join(', ');
-      return `<button class="terna-ship" data-ship-id="${s.id}">
+      const assigned = assignedNames[s.id] || [];
+      const namesHtml = assigned.map((a) => 
+        `<span class="assigned-man" data-pid="${esc(a.pid)}">${esc(a.name)} (${a.size}) <span class="unassign-x" data-pid="${esc(a.pid)}">✕</span></span>`
+      ).join(' ');
+      return `<div class="terna-ship" data-ship-id="${s.id}">
         <div class="terna-ship-name">${esc(s.name)} <span class="logi-tier">${esc(ti.label)}</span></div>
         <div class="logi-cap-bar"><div class="logi-cap-fill" style="width:${pct}%"></div></div>
-        <div class="logi-cap-text">${used}/${ti.capacity} men${names ? ` — ${names}` : ''}</div>
-      </button>`;
+        <div class="logi-cap-text">${used}/${ti.capacity} men</div>
+        ${namesHtml ? `<div class="assigned-list">${namesHtml}</div>` : ''}
+        <button class="assign-btn" data-ship-id="${s.id}">Assign here</button>
+      </div>`;
     }).join('');
     
-    // Tap to assign: finds the most recently approved unassigned man
-    listEl.querySelectorAll('.terna-ship').forEach((btn) => {
-      btn.addEventListener('click', () => {
+    // Assign button: assigns the first unassigned approved man to this ship
+    listEl.querySelectorAll('.assign-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
         const shipId = btn.dataset.shipId;
-        // Find approved men without a ship, most recent first
         const unassigned = terna.filter((c) => {
           const d = decisions[c.id];
           return d && d.verdict === 'approve' && !d.shipId;
         });
         if (!unassigned.length) {
-          app.toast('No unassigned men — approve someone first, or tap an assigned ship to clear it.');
+          app.toast('No unassigned men — approve someone first.');
           return;
         }
-        // Assign the first unassigned (or cycle if tapping same ship)
         const target = unassigned[0];
         decisions[target.id].shipId = shipId;
         app.sound('tick');
         renderTernaShips();
         refresh();
+      });
+    });
+    // X button: unassign a specific man
+    listEl.querySelectorAll('.unassign-x').forEach((x) => {
+      x.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const pid = x.dataset.pid;
+        if (decisions[pid]) {
+          decisions[pid].shipId = null;
+          app.sound('tick');
+          renderTernaShips();
+          refresh();
+        }
       });
     });
   };

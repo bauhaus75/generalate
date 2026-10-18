@@ -520,6 +520,71 @@ export function dispatchMission(state, destId, counts = {}) {
 }
 
 /**
+ * Found a frontier mission. Costs 1000 scudi + 3 energy + at least 1 man.
+ * The mission opens with the dispatched men stationed.
+ */
+export function foundMission(state, destId, counts = {}) {
+  const g = ensureData();
+  const dest = g.destinations.find((d) => d.id === destId);
+  if (!dest) throw new Error(`foundMission: unknown destination "${destId}"`);
+  if (!dest.frontier) throw new Error(`foundMission: ${dest.name || destId} is not a frontier mission`);
+  const dst = state.destState[destId] || {};
+  if (dst.access === 'open') throw new Error(`foundMission: ${dest.name || destId} is already founded`);
+  const FOUND_COST = 1000;
+  const FOUND_ENERGY = 3;
+  if (state.resources.funds < FOUND_COST) {
+    throw new Error(`foundMission: ${FOUND_COST} scudi needed, the chest holds ${state.resources.funds}`);
+  }
+  const n = {};
+  let total = 0;
+  for (const gid of rules.MISSION_GRADE_IDS) {
+    const v = counts[gid] ?? 0;
+    if (!Number.isInteger(v) || v < 0) throw new Error(`foundMission: "${gid}" must be a whole number ≥ 0`);
+    n[gid] = v;
+    total += v;
+  }
+  if (total <= 0) throw new Error('foundMission: send at least one man to found the mission');
+  if ((state.available || 0) < total) {
+    throw new Error(`foundMission: only ${state.available || 0} men can be spared`);
+  }
+  spendFunds(state, FOUND_COST, 'foundations');
+  spendEnergy(state, FOUND_ENERGY, 'founding a mission');
+  state.available -= total;
+  if (!state.destState[destId]) state.destState[destId] = {};
+  state.destState[destId].access = 'open';
+  const st = missionStaff(state, destId);
+  for (const gid of rules.MISSION_GRADE_IDS) st[gid] += n[gid];
+  const parts = rules.MISSION_GRADE_IDS.filter((gid) => n[gid] > 0)
+    .map((gid) => `${n[gid]} ${rules.MISSION_GRADES[gid].short.toLowerCase()}`);
+  addLedger(state, { year: state.year, type: 'foundation',
+    text: `Founded the ${dest.name || destId} mission with ${parts.join(', ')} — ${FOUND_COST} scudi from the chest.` });
+  return { destId, ...n, total, cost: FOUND_COST };
+}
+
+/**
+ * Disband a mission. Stationed men return to Europe (available pool).
+ * Costs 1 energy. The mission closes and can be re-founded later.
+ */
+export function disbandMission(state, destId) {
+  const g = ensureData();
+  const dest = g.destinations.find((d) => d.id === destId);
+  if (!dest) throw new Error(`disbandMission: unknown destination "${destId}"`);
+  const dst = state.destState[destId] || {};
+  if (dst.access === 'closed') throw new Error(`disbandMission: ${dest.name || destId} is already closed`);
+  if (dest.frontier && dst.access !== 'open') throw new Error(`disbandMission: ${dest.name || destId} was never founded`);
+  const st = missionStaff(state, destId);
+  const total = (st.fathers || 0) + (st.coadjutors || 0) + (st.brothers || 0);
+  spendEnergy(state, 1, 'disbanding a mission');
+  state.available = (state.available || 0) + total;
+  st.fathers = 0; st.coadjutors = 0; st.brothers = 0;
+  if (!state.destState[destId]) state.destState[destId] = {};
+  state.destState[destId].access = 'closed';
+  addLedger(state, { year: state.year, type: 'disband',
+    text: `Disbanded the ${dest.name || destId} mission; ${total} men return to Europe.` });
+  return { destId, returned: total };
+}
+
+/**
  * Map a petitioner's grade/ordination to a mission-staffing grade bucket.
  * Fictional and unattested grades land with the brothers (honest default).
  */

@@ -223,37 +223,45 @@ export function renderDraft(app, root) {
  * Tap to skip.
  */
 export function playSealAnimation(app, done) {
-  const ov = document.createElement('div');
-  ov.className = 'seal-overlay';
-  ov.innerHTML = `
-    <div class="seal-stage">
-      <div class="seal-ihs">
-        <div class="seal-cross">†</div>
-        <div class="seal-letters">IHS</div>
-        <div class="seal-nails"><span></span><span></span><span></span></div>
-      </div>
-      <div class="seal-globe">🌍</div>
-      <div class="seal-caption px">AD MAJOREM DEI GLORIAM</div>
-    </div>`;
-  document.getElementById('generalate-app').appendChild(ov);
-  // force reflow so the fade-in transition runs
-  void ov.offsetWidth;
-  ov.classList.add('on');
+  try {
+    const ov = document.createElement('div');
+    ov.className = 'seal-overlay';
+    ov.innerHTML = `
+      <div class="seal-stage">
+        <div class="seal-ihs">
+          <div class="seal-cross">†</div>
+          <div class="seal-letters">IHS</div>
+          <div class="seal-nails"><span></span><span></span><span></span></div>
+        </div>
+        <div class="seal-globe">🌍</div>
+        <div class="seal-caption px">AD MAJOREM DEI GLORIAM</div>
+      </div>`;
+    const host = document.getElementById('generalate-app') || document.body;
+    host.appendChild(ov);
+    // force reflow so the fade-in transition runs
+    void ov.offsetWidth;
+    // next frame: start the fade
+    requestAnimationFrame(() => ov.classList.add('on'));
 
-  let finished = false;
-  const finish = () => {
-    if (finished) return;
-    finished = true;
-    ov.classList.add('out');
-    setTimeout(() => { ov.remove(); done(); }, 900);
-  };
-  ov.addEventListener('click', finish);
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      try { ov.classList.add('out'); } catch (e) {}
+      setTimeout(() => { try { ov.remove(); } catch (e) {} done(); }, 900);
+    };
+    ov.addEventListener('click', finish);
 
-  // staged reveals
-  setTimeout(() => ov.classList.add('show-ihs'), 900);
-  setTimeout(() => ov.classList.add('show-globe'), 2600);
-  setTimeout(() => ov.classList.add('show-caption'), 3400);
-  setTimeout(finish, 5200);
+    // staged reveals
+    setTimeout(() => { try { ov.classList.add('show-ihs'); } catch (e) {} }, 900);
+    setTimeout(() => { try { ov.classList.add('show-globe'); } catch (e) {} }, 2600);
+    setTimeout(() => { try { ov.classList.add('show-caption'); } catch (e) {} }, 3400);
+    setTimeout(finish, 5200);
+    // absolute fallback: never trap the player
+    setTimeout(finish, 8000);
+  } catch (e) {
+    done();
+  }
 }
 
 /* ---------------- title ---------------- */
@@ -772,6 +780,7 @@ function missionCardHTML(app, d, year) {
         </select></label>
         <button class="gbtn small ghost instr-send" data-id="${esc(d.id)}">Send</button></div>`;
     })()}
+    ${!closed ? `<div class="btn-row"><button class="gbtn small warn mission-disband" data-id="${esc(d.id)}" data-energy="1">Disband mission</button></div>` : ''}
   </article>`;
 }
 
@@ -1368,9 +1377,26 @@ export function renderMissions(app, root) {
       <p class="howto-note">Professed fathers are ordained men of the fourth vow — costly, and the strongest pillars of a mission. Spiritual coadjutors are ordained priests of simple vows. Brothers sustain the mission by labor.</p>
     </div>
     ${deploymentPanelHTML(app)}
+    ${(() => {
+      const g = app.data;
+      const frontier = (g.destinations || []).filter((d) =>
+        d.frontier && (app.state.destState[d.id] || {}).access !== 'open');
+      if (!frontier.length) return '';
+      return `<h3 class="sect">Found a mission</h3>
+      <p class="howto-note">Frontier fields await the Society — 1000 scudi, 3 energy, and men to send.</p>
+      <div class="frontier-list">
+        ${frontier.map((d) => `
+        <div class="frontier-item">
+          <strong>${esc(d.name)}</strong>
+          <span class="disp-mini">${esc(d.blurb || '')}</span>
+          <button class="gbtn small primary frontier-found" data-id="${esc(d.id)}" data-energy="1">Found — 1000 scudi</button>
+        </div>`).join('')}
+      </div>`;
+    })()}
     <h3 class="sect">The stations</h3>
     <div class="mission-list">
-      ${dests.map(d => missionCardHTML(app, d, year)).join('')}
+      ${dests.filter((d) => !d.frontier || (app.state.destState[d.id] || {}).access === 'open')
+        .map(d => missionCardHTML(app, d, year)).join('')}
     </div>
     ${deploymentListHTML(app)}
     <div class="btn-row">
@@ -1410,6 +1436,38 @@ export function renderMissions(app, root) {
       alert(e.message);
     }
   });
+  // ---- frontier founding ----
+  root.querySelectorAll('.frontier-found').forEach((btn) => btn.addEventListener('click', () => {
+    const destId = btn.dataset.id;
+    // For now: found with a single brother. A fuller founding-party picker can come later.
+    try {
+      const res = E.foundMission(app.state, destId, { fathers: 0, coadjutors: 0, brothers: 1 });
+      E.refreshBriefing(app.state);
+      app.save();
+      app.sound('coin');
+      app.ui.notice = `The ${res.destId} mission is founded — ${res.total} man sent with 1000 scudi.`;
+      app.go('missions');
+    } catch (e) {
+      app.sound('error');
+      alert(e.message);
+    }
+  }));
+  // ---- disband ----
+  root.querySelectorAll('.mission-disband').forEach((btn) => btn.addEventListener('click', () => {
+    const destId = btn.dataset.id;
+    if (!confirm('Disband this mission? Its men return to Europe.')) return;
+    try {
+      const res = E.disbandMission(app.state, destId);
+      E.refreshBriefing(app.state);
+      app.save();
+      app.sound('page');
+      app.ui.notice = `Mission disbanded — ${res.returned} men return to Europe.`;
+      app.go('missions');
+    } catch (e) {
+      app.sound('error');
+      alert(e.message);
+    }
+  }));
   // ---- collective deployment wiring ----
   wireDeploymentPanel(app, root);
   root.querySelectorAll('.instr-send').forEach(btn => {

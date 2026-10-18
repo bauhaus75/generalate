@@ -178,5 +178,85 @@
   ],
   "travelYears": 2,
   "blurb": "The far southern frontier: missions among the Mapuche on the edge of the Spanish empire."
+ },
+ "vietnam": {
+  "name": "Vietnam (Cochinchina)",
+  "region": "Asia",
+  "ports": [
+   [
+    "Lisbon",
+    "Goa"
+   ],
+   [
+    "Goa",
+    "Macao"
+   ],
+   [
+    "Macao",
+    "Hoi An"
+   ]
+  ],
+  "travelYears": 3,
+  "blurb": "Cochinchina: the southern Vietnamese kingdom. Jesuits arrived in the 1610s; Alexandre de Rhodes will come in 1624.",
+  "frontier": true
+ },
+ "tonkin": {
+  "name": "Tonkin",
+  "region": "Asia",
+  "ports": [
+   [
+    "Lisbon",
+    "Goa"
+   ],
+   [
+    "Goa",
+    "Macao"
+   ],
+   [
+    "Macao",
+    "Hanoi"
+   ]
+  ],
+  "travelYears": 3,
+  "blurb": "Tonkin: the northern Vietnamese kingdom. A harder field than Cochinchina, opened later.",
+  "frontier": true
+ },
+ "siam": {
+  "name": "Siam",
+  "region": "Asia",
+  "ports": [
+   [
+    "Lisbon",
+    "Goa"
+   ],
+   [
+    "Goa",
+    "Ayutthaya"
+   ]
+  ],
+  "travelYears": 3,
+  "blurb": "Siam: the kingdom of Ayutthaya. Portuguese traders know it; no Jesuit mission yet.",
+  "frontier": true
+ },
+ "cambodia": {
+  "name": "Cambodia",
+  "region": "Asia",
+  "ports": [
+   [
+    "Lisbon",
+    "Goa"
+   ],
+   [
+    "Goa",
+    "Macao"
+   ],
+   [
+    "Macao",
+    "Phnom Penh"
+   ]
+  ],
+  "travelYears": 3,
+  "blurb": "Cambodia: the Khmer kingdom at Lovek. A brief Jesuit presence; a frontier for the bold.",
+  "frontier": true
  }
 }

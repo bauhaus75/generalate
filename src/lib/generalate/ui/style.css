@@ -68,15 +68,30 @@
 /* Footer bar: year commitments + close year, always visible. */
 #gfooter {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
-  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
-  padding: 0.6rem 1rem;
+  display: flex; align-items: center; justify-content: space-between; gap: 0.8rem;
+  padding: 0.45rem 0.8rem;
   background: rgba(24, 14, 8, 0.96); border-top: 2px solid var(--parch-deep);
-  font-size: 0.85rem; color: var(--parch);
+  font-size: 0.8rem; color: var(--parch);
 }
-#gfooter .gf-commit { flex: 1; min-width: 0; }
-#gfooter .gf-commit .px { color: var(--gold); font-size: 0.6rem; margin-right: 0.4rem; }
-#gfooter #gf-close { flex-shrink: 0; }
-#generalate-app { padding-bottom: 4.5rem; }
+#gfooter .gf-cost {
+  background: none; border: none; color: var(--parch); cursor: pointer;
+  font-size: 0.8rem; padding: 0.3rem 0.2rem; text-align: left;
+}
+#gfooter .gf-cost .px { color: var(--gold); font-size: 0.58rem; margin-right: 0.35rem; }
+#gfooter #gf-close { flex-shrink: 0; font-size: 0.55rem; padding: 0.55rem 0.8rem; }
+#gfooter .gf-detail {
+  position: absolute; left: 0.5rem; right: 0.5rem; bottom: 100%; margin-bottom: 0.4rem;
+  background: rgba(24, 14, 8, 0.98); border: 1px solid var(--parch-deep); border-radius: 6px;
+  padding: 0.7rem 0.9rem; max-height: 40vh; overflow-y: auto;
+}
+#gfooter .gf-detail ul { list-style: none; margin: 0; padding: 0; }
+#gfooter .gf-detail li {
+  display: flex; justify-content: space-between; gap: 1rem;
+  padding: 0.3rem 0; border-bottom: 1px solid rgba(232,217,176,0.12);
+  font-size: 0.8rem;
+}
+#gfooter .gf-detail li:last-child { border-bottom: none; }
+#generalate-app { padding-bottom: 3.5rem; }
 #generalate-app .btn-row { display: flex; gap: 0.8rem; margin: 1.4rem 0 0.5rem; flex-wrap: wrap; }
 
 /* ---------- screens ---------- */

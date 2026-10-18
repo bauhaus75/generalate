@@ -121,13 +121,43 @@ function renderFooter() {
     f = document.createElement('footer');
     f.id = 'gfooter';
     f.innerHTML = `
-      <div class="gf-commit" id="gf-commit" title="Decisions staged for year close"></div>
-      <button class="gbtn primary" id="gf-close">Close the year &rarr;</button>`;
+      <button class="gf-cost" id="gf-cost" title="Year cost — tap for details"></button>
+      <button class="gbtn primary" id="gf-close">Close the year &rarr;</button>
+      <div class="gf-detail" id="gf-detail" hidden></div>`;
     document.getElementById('generalate-app').appendChild(f);
     f.querySelector('#gf-close').addEventListener('click', () => {
       app.sound('page'); app.closeYear();
     });
+    f.querySelector('#gf-cost').addEventListener('click', () => {
+      const d = f.querySelector('#gf-detail');
+      d.hidden = !d.hidden;
+      if (!d.hidden) renderCostDetail();
+    });
   }
+}
+
+/** Line-by-line cost breakdown for the details popup. */
+function renderCostDetail() {
+  const f = document.getElementById('gfooter');
+  const d = f && f.querySelector('#gf-detail');
+  if (!d || !app.state) return;
+  const y = app.state.year;
+  const fy = (app.state.financeYears || {})[y] || { income: {}, expenses: {} };
+  const lines = [];
+  // Staged (not yet spent)
+  for (const [rid, sa] of Object.entries(app.state.stagedAnswers || {})) {
+    const region = (app.Engine.PROVINCIAL_REGIONS || []).find((r) => r.id === rid);
+    const parts = (app.Engine.REQUEST_GRADES || []).filter((c) => sa.mix[c] > 0)
+      .map((c) => `${sa.mix[c]} ${c}`).join(', ');
+    lines.push(`<li><span>${region ? region.name : rid}: ${parts || 'no men'} (staged)</span><span>${(sa.cost || 0).toLocaleString('en-US')}</span></li>`);
+  }
+  // Spent this year
+  for (const [cat, amt] of Object.entries(fy.expenses || {})) {
+    if (amt > 0) lines.push(`<li><span>${cat}</span><span>${amt.toLocaleString('en-US')}</span></li>`);
+  }
+  d.innerHTML = lines.length
+    ? `<ul>${lines.join('')}</ul>`
+    : `<p class="disp-mini">Nothing spent or staged yet this year.</p>`;
 }
 
 function syncFooter() {
@@ -135,17 +165,20 @@ function syncFooter() {
   if (!f) return;
   if (!app.state || !app.state.year) { f.style.display = 'none'; return; }
   f.style.display = 'flex';
-  const c = app.Engine.stagedCommitments(app.state);
-  const commitEl = f.querySelector('#gf-commit');
-  if (c.count > 0) {
-    commitEl.innerHTML = `<span class="px">COMMITTED</span> ${c.scudi.toLocaleString('en-US')} scudi · ${c.men} men · ${c.count} request${c.count === 1 ? '' : 's'}`;
-  } else {
-    commitEl.innerHTML = `<span class="px">COMMITTED</span> nothing staged`;
-  }
+  const y = app.state.year;
+  const fy = (app.state.financeYears || {})[y] || { expenses: {} };
+  const spent = Object.values(fy.expenses || {}).reduce((a, b) => a + b, 0);
+  const staged = app.Engine.stagedCommitments(app.state).scudi;
+  const total = spent + staged;
+  f.querySelector('#gf-cost').innerHTML =
+    `<span class="px">YEAR COST</span> 🪙 ${total.toLocaleString('en-US')}`;
   const closeBtn = f.querySelector('#gf-close');
   const canClose = app.state.currentYear && app.state.currentYear.decided;
   closeBtn.disabled = !canClose;
   closeBtn.title = canClose ? 'Turn the year' : 'Seal the indipetae first';
+  // refresh details if open
+  const d = f.querySelector('#gf-detail');
+  if (d && !d.hidden) renderCostDetail();
 }
 
 function renderHeader() {

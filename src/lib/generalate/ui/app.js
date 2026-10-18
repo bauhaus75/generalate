@@ -155,6 +155,21 @@ function renderCostDetail() {
   for (const [cat, amt] of Object.entries(fy.expenses || {})) {
     if (amt > 0) lines.push(`<li><span>${cat}</span><span>${amt.toLocaleString('en-US')}</span></li>`);
   }
+  // Pending indipetae decisions (not yet sealed)
+  const decisions = (app.ui && app.ui.decisions) || {};
+  let pendingSeal = 0, pendingComps = 0;
+  for (const d of Object.values(decisions)) {
+    if (d.verdict === 'approve') {
+      pendingSeal += 30;
+      const comps = d.companions;
+      if (typeof comps === 'number') pendingComps += comps * 40;
+      else if (comps && typeof comps === 'object') {
+        pendingComps += Object.values(comps).reduce((a, b) => a + (b || 0), 0) * 40;
+      }
+    }
+  }
+  if (pendingSeal > 0) lines.push(`<li><span>seals (pending)</span><span>${pendingSeal.toLocaleString('en-US')}</span></li>`);
+  if (pendingComps > 0) lines.push(`<li><span>companions (pending)</span><span>${pendingComps.toLocaleString('en-US')}</span></li>`);
   d.innerHTML = lines.length
     ? `<ul>${lines.join('')}</ul>`
     : `<p class="disp-mini">Nothing spent or staged yet this year.</p>`;
@@ -170,7 +185,19 @@ function syncFooter() {
   console.log('[syncFooter] year=', y, 'financeYears keys=', Object.keys(app.state.financeYears || {}), 'expenses=', fy.expenses);
   const spent = Object.values(fy.expenses || {}).reduce((a, b) => a + b, 0);
   const staged = app.Engine.stagedCommitments(app.state).scudi;
-  const total = spent + staged;
+  let pending = 0;
+  const decisions = (app.ui && app.ui.decisions) || {};
+  for (const d of Object.values(decisions)) {
+    if (d.verdict === 'approve') {
+      pending += 30;
+      const comps = d.companions;
+      if (typeof comps === 'number') pending += comps * 40;
+      else if (comps && typeof comps === 'object') {
+        pending += Object.values(comps).reduce((a, b) => a + (b || 0), 0) * 40;
+      }
+    }
+  }
+  const total = spent + staged + pending;
   f.querySelector('#gf-cost').innerHTML =
     `<span class="px">YEAR COST</span> 🪙 ${total.toLocaleString('en-US')}`;
   const closeBtn = f.querySelector('#gf-close');
@@ -194,9 +221,9 @@ function renderHeader() {
         <div class="gh-bar"><div class="gh-fill" id="gh-fill"></div></div>
         <span class="gh-num" id="gh-num">50</span>
       </div>
-      <div class="gh-coins" title="The mission chest">
+      <button class="gh-coins" id="gh-coins-btn" title="The mission chest — tap for details" style="background:none;border:none;cursor:pointer;padding:0;">
         <span class="gh-coins-label px">🪙</span><span class="gh-num" id="gh-funds">0</span>
-      </div>
+      </button>
       <div class="gh-energy" title="The General's energy this year">
         <span class="gh-energy-label px">⚡</span><span class="gh-num" id="gh-energy">5</span>
       </div>
@@ -227,6 +254,14 @@ function renderHeader() {
     h.querySelector('#gh-map').addEventListener('click', () => { app.sound('page'); app.go('map', { from: app.ui.screen }); });
     h.querySelector('#gh-ledger').addEventListener('click', () => Screens.showLedgerOverlay(app));
     h.querySelector('#gh-treasury').addEventListener('click', () => { app.sound('page'); app.go('treasury'); });
+    const coinsBtn = h.querySelector('#gh-coins-btn');
+    if (coinsBtn) {
+      coinsBtn.addEventListener('click', () => {
+        const f = document.getElementById('gfooter');
+        const costBtn = f && f.querySelector('#gf-cost');
+        if (costBtn) costBtn.click();
+      });
+    }
     const exportBtn = h.querySelector('#gh-export');
     if (exportBtn) {
       exportBtn.addEventListener('click', () => {

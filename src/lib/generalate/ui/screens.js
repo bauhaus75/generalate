@@ -1750,21 +1750,11 @@ export function renderDesk(app, root, terna) {
         const comps = compTotal(ds[id].companions);
         return `${c.name} → ${dn}${comps ? ` (+${comps} companion${comps === 1 ? '' : 's'}${compBreakdown(ds[id].companions)})` : ''}`;
       });
-      text = `Approving ${approved.length}: ${parts.join('; ')}.`;
       const totalComps = approved.reduce((n, id) => n + compTotal(ds[id].companions), 0);
-      if (totalComps) {
-        text += ` Companions embark at 40 scudi each (+${totalComps * 40} scudi).`;
-      }
-      if (teams.length) {
-        text += ' ' + teams.map(([did, ns]) => {
-          const dn = (openDests.find(d => d.id === did) || {}).name || did;
-          return `⛪ ${ns.join(' & ')} sail as a team for ${dn}.`;
-        }).join(' ');
-      }
-    }
-    if (done) {
       const sealTotal = approved.length * 30;
-      text += sealTotal ? ` The seal: ${sealTotal} scudi (${approved.length} approval${approved.length === 1 ? '' : 's'}).` : ` The seal costs nothing.`;
+      const compTotal_ = totalComps * 40;
+      const grandTotal = sealTotal + compTotal_;
+      text = grandTotal > 0 ? `${grandTotal} scudi` : `No cost`;
     }
     summary.innerHTML = esc(text);
     confirmBtn.disabled = !done;

@@ -1190,6 +1190,12 @@ function renderProvincialPage(app, root, regionId) {
     <p class="howto-note">In Europe: ${E.REQUEST_GRADES.map((c) => `${avail[c]} ${c}`).join(', ')}. Cost to agree: ${E.requestAnswerCost({ professed: req.professed, fathers: req.fathers, brothers: req.brothers })} scudi.</p>
     ${staged ? `
     <p class="howto-note"><strong>Staged:</strong> ${staged.mix && Object.values(staged.mix).every((v) => v === 0) ? 'send no men' : `send ${E.REQUEST_GRADES.filter((c) => staged.mix[c] > 0).map((c) => plural(staged.mix[c], c === 'brothers' ? 'brother' : c.slice(0, -1), c)).join(', ')}`} — ${staged.cost} scudi. Takes effect at year close.</p>
+    ${staged.men && Object.values(staged.men).some((a) => a.length) ? `
+    <ul class="news-list">${E.REQUEST_GRADES.flatMap((c) => (staged.men[c] || []).map((pid) => {
+      const e = (app.state.europeanLabor || []).find((x) => x.petitionerId === pid);
+      const nm = (e && e.name) || pid;
+      return `<li><button class="linklike staged-man" data-pid="${esc(pid)}"><strong>${esc(nm)}</strong></button> <span class="disp-mini">${esc(c)}</span></li>`;
+    })).join('')}</ul>` : ''}
     <div class="btn-row">
       <button class="gbtn ghost" id="req-unstage">Withdraw</button>
       <button class="gbtn ghost" id="req-mix">Change the mix</button>
@@ -1240,6 +1246,11 @@ function renderProvincialPage(app, root, regionId) {
   if (ru) ru.addEventListener('click', () => {
     E.unstageProvincialAnswer(app.state, regionId); done();
   });
+  root.querySelectorAll('.staged-man').forEach((b) => b.addEventListener('click', () => {
+    const pid = b.dataset.pid;
+    const e = (app.state.europeanLabor || []).find((x) => x.petitionerId === pid);
+    showInspector(app, pid, (e && e.name) || pid);
+  }));
   const rm = root.querySelector('#req-mix');
   if (rm) rm.addEventListener('click', () => {
     const box = root.querySelector('#req-mixbox');

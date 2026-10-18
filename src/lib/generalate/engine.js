@@ -288,8 +288,14 @@ function validateRequestMix(state, regionId, mix) {
  */
 export function stageProvincialAnswer(state, regionId, mix) {
   const n = validateRequestMix(state, regionId, mix);
+  // Earmark the actual men: first N free from each grade pool. These are real
+  // people, not numbers — the UI shows exactly who is committed.
+  const men = {};
+  for (const cat of REQUEST_GRADES) {
+    men[cat] = requestGradePool(state, cat).slice(0, n[cat]).map((e) => e.petitionerId);
+  }
   if (!state.stagedAnswers) state.stagedAnswers = {};
-  state.stagedAnswers[regionId] = { regionId, mix: n, year: state.year, cost: requestAnswerCost(n) };
+  state.stagedAnswers[regionId] = { regionId, mix: n, men, year: state.year, cost: requestAnswerCost(n) };
   return state.stagedAnswers[regionId];
 }
 
@@ -313,7 +319,7 @@ export function stagedCommitments(state) {
  * Execute a staged (or immediate) provincial request answer: men leave Europe,
  * the chest pays, the mission is staffed. Called at year close for staged answers.
  */
-export function answerProvincialRequest(state, regionId, mix) {
+export function answerProvincialRequest(state, regionId, mix, earmarked = null) {
   const req = (state.provincialRequests || {})[regionId];
   if (!req) throw new Error(`answerProvincialRequest: no pending request for "${regionId}".`);
   const prov = (state.provincials || {})[regionId];
@@ -334,10 +340,22 @@ export function answerProvincialRequest(state, regionId, mix) {
 
   let cost = 0;
   for (const cat of REQUEST_GRADES) {
-    const pool = requestGradePool(state, cat).slice(0, n[cat]);
+    const pool = requestGradePool(state, cat);
+    let chosen;
+    if (earmarked && earmarked[cat]) {
+      // The staged men, by name — verify each is still free in Europe.
+      chosen = [];
+      for (const pid of earmarked[cat]) {
+        const e = pool.find((x) => x.petitionerId === pid);
+        if (!e) throw new Error(`answerProvincialRequest: ${pid} is no longer free in Europe.`);
+        chosen.push(e);
+      }
+    } else {
+      chosen = pool.slice(0, n[cat]);
+    }
     const staffGrade = requestGradeToStaffGrade(cat);
     cost += n[cat] * rules.MISSION_GRADES[staffGrade].cost;
-    for (const entry of pool) {
+    for (const entry of chosen) {
       state.europeanLabor = state.europeanLabor.filter((e) => e !== entry);
     }
     if (hqDest) {
@@ -368,7 +386,7 @@ export function applyStagedAnswers(state) {
   for (const regionId of Object.keys(staged)) {
     const sa = staged[regionId];
     try {
-      answerProvincialRequest(state, regionId, sa.mix);
+      answerProvincialRequest(state, regionId, sa.mix, sa.men);
     } catch (e) {
       const prov = (state.provincials || {})[regionId];
       const name = prov ? prov.name : regionId;

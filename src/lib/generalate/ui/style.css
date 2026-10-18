@@ -270,7 +270,7 @@ html, body {
 /* review bar — pinned to the viewport bottom; sticky cannot work here because the
    bar is the last child of its section (nothing below it to stick against). */
 #generalate-app .review-bar {
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 30;
+  position: fixed; bottom: 3.4rem; left: 0; right: 0; z-index: 30;
   display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
   background: var(--wood-deep); border-top: 3px solid var(--wax);
   padding: 0.9rem 1.25rem; margin: 0;
@@ -672,4 +672,4 @@ body > .overlay .hist-loc, body > .overlay .hist-text { opacity: .75; }
   padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;
   overflow-y: auto;
 }
-#gh-drawer-panel .gbtn { text-align: left; font-size: 1rem; padding: 0.7rem 1rem; }
+#gh-drawer-panel .gbtn { text-align: left; font-size: 1rem; padding: 0.7rem 1rem; position: relative; }

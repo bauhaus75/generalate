@@ -1461,7 +1461,8 @@ export function renderMissions(app, root) {
     ${deploymentPanelHTML(app)}
     ${(() => {
       const g = app.data;
-      const frontier = (g.destinations || []).filter((d) =>
+      const destList = Array.isArray(g.destinations) ? g.destinations : Object.values(g.destinations || {});
+      const frontier = destList.filter((d) =>
         d.frontier && (app.state.destState[d.id] || {}).access !== 'open');
       if (!frontier.length) return '';
       return `<h3 class="sect">Found a mission</h3>
@@ -2131,7 +2132,7 @@ export function renderLogistics(app, root) {
     <div class="logi-section">
       <h3 class="px">HULLS (${ships.length})</h3>
       <div class="logi-ships">${shipCards || '<p class="disp-mini">No ships.</p>'}</div>
-      <p class="disp-mini">Each ship carries up to ${capacity} men. Charter another for 300 scudi and 1 energy (Governance).</p>
+      <p class="disp-mini">Caravel: 4 men · Carrack: 8 men · Galleon: 12 men. Charter in Governance (1 energy).</p>
     </div>
   </section>`;
 }

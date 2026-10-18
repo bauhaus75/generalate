@@ -173,7 +173,7 @@ export function renderDraft(app, root) {
   root.innerHTML = `
   <section class="gscreen">
     <p class="kicker px">THE GENERAL TAKES OFFICE &middot; ANNO ${app.state.year}</p>
-    <p class="desk-instr">Before the first indipetae are read, name your provincials &mdash; one for each of the Generalate&apos;s four strategic jurisdictions <span class="disp-mini">(a game convention, not the historical provincial map)</span>. Four ternas of candidates await your choice (${picked} of 4 named).</p>
+    <p class="desk-instr">Before the first indipetae are read, name your provincials &mdash; one for each of the Generalate&apos;s four strategic jurisdictions. Four ternas of candidates await your choice (${picked} of 4 named).</p>
     ${draft.regions.map((region) => `
       <h2 class="px draft-region">${esc(region.name)}</h2>
       <div class="desk draft-terna">
@@ -274,7 +274,7 @@ export function showHowTo(app) {
       <p><strong>3. The decision.</strong> Select one petitioner, review your choice, and confirm. The seal falls: <em>APPROVED</em> on one, <em>DENIED</em> on two.</p>
       <p><strong>4. The year turns.</strong> Your chosen man sails. Storms, war, plague, and politics decide what your seal began. The ledger records everything.</p>
       <p><strong>5. The account.</strong> Your SCORE starts at 50: the indipetae give +3 for each man you approve and −2 for each man you deny. Campaign ends in 1645; in Endless mode, you lay down the office when you choose.</p>
-      <p class="howto-note">Letters marked <strong>fictional</strong> were written for this game. Outcomes marked <strong>counterfactual</strong> are the game's imagining, not history. The map is drawn as a 1615 cartographer might draw it — roughly, and with sea monsters.</p>
+
     </div>
   </div>`;
   ov.querySelector('.overlay-close').addEventListener('click', () => { app.sound('page'); ov.remove(); });
@@ -1032,7 +1032,7 @@ function provincialReplacementHTML(app, regionId) {
       <button class="gbtn primary" id="rep-confirm" disabled>Confirm the succession</button>
       ${prov.vacant ? '' : `<button class="gbtn ghost" id="rep-keep">Keep ${esc(prov.name)} in office</button>`}
       <button class="gbtn ghost" id="rep-cancel">Cancel</button>
-    </div>` : `<p class="howto-note">Drawing the terna… <span class="disp-mini">A game abstraction of consultation, not a historical procedure.</span></p>`}`;
+    </div>` : `<p class="howto-note">Drawing the terna…</p>`}`;
 }
 
 /** Treasury: where the scudi come from and where they go. */
@@ -1076,7 +1076,7 @@ export function renderGovernance(app, root) {
   <section class="gscreen">
     <p class="kicker px">GOVERNANCE</p>
     <h2 class="year-head px">The provinces — anno ${app.state.year}</h2>
-    <p class="howto-note">The General governs through his provincials. Choose one to see his men, his requests, and to ask about a man. <span class="disp-mini">Four strategic jurisdictions — a game convention, not the historical provincial map.</span></p>
+    <p class="howto-note">The General governs through his provincials. Choose one to see his men, his requests, and to ask about a man.</p>
     ${provincialsHTML(app)}
     ${app.ui.provReplacement ? provincialReplacementHTML(app, app.ui.provReplacement) : ''}
   </section>`;
@@ -1152,9 +1152,13 @@ function renderProvincialPage(app, root, regionId) {
   });
   const manName = (id) => {
     const e = (app.state.europeanLabor || []).find((x) => x.petitionerId === id);
-    if (e) return e.name;
+    if (e && e.name) return e.name;
     const rec = app.state.petitioners[id];
-    return (rec && rec.name) || id;
+    if (rec && rec.name) return rec.name;
+    try {
+      if (app.data) return E.cardName(app.state, app.data, id);
+    } catch { /* fall through */ }
+    return id;
   };
   const manGrade = (id) => {
     try { return E.staffGradeFor(app.state, id); } catch { return ''; }
@@ -1164,8 +1168,9 @@ function renderProvincialPage(app, root, regionId) {
   const questionsLeft = E.QUESTIONS_PER_YEAR - (app.state.questionsAsked || 0);
   const energy = app.state.energy ?? E.ENERGY_PER_YEAR;
 
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
   const reqLine = req
-    ? E.REQUEST_GRADES.filter((c) => req[c] > 0).map((c) => `${req[c]} ${c}`).join(', ')
+    ? E.REQUEST_GRADES.filter((c) => req[c] > 0).map((c) => plural(req[c], c === 'brothers' ? 'brother' : c.slice(0, -1), c)).join(', ')
     : '';
   const avail = {};
   for (const c of E.REQUEST_GRADES) { try { avail[c] = E.requestGradeAvailable(app.state, c); } catch { avail[c] = 0; } }
@@ -1176,7 +1181,7 @@ function renderProvincialPage(app, root, regionId) {
     <p><button class="gbtn small ghost" id="prov-back">&larr; The provinces</button></p>
     <p class="kicker px">${esc(region.name.toUpperCase())}</p>
     <h2 class="year-head px">${esc(prov.name)}</h2>
-    <p class="howto-note">${hq ? `Resides at ${esc(destName(hq))}. ` : ''}${prov.vacant ? 'The see is vacant.' : `${E.provincialTermYears(app.state, regionId)} of ${E.PROVINCIAL_TERM_YEARS} years.`} <span class="disp-mini">Six-year terms are a game convention.</span></p>
+    <p class="howto-note">${hq ? `Resides at ${esc(destName(hq))}. ` : ''}${prov.vacant ? 'The see is vacant.' : `${E.provincialTermYears(app.state, regionId)} of ${E.PROVINCIAL_TERM_YEARS} years.`}</p>
 
     ${req ? `
     <h3 class="sect">His request <span class="disp-mini">anno ${req.year}</span></h3>
@@ -1187,7 +1192,7 @@ function renderProvincialPage(app, root, regionId) {
       <button class="gbtn primary" id="req-agree" ${canAgree ? '' : 'disabled'}>Agree — send ${esc(reqLine)}</button>
       <button class="gbtn ghost" id="req-mix">Send my own mix</button>
     </div>
-    ${canAgree ? '' : '<p class="howto-note">Europe cannot spare what he asks. Send your own mix, or nothing.</p>'}
+
     <div id="req-mixbox" hidden>
       ${E.REQUEST_GRADES.map((c) => `
         <label class="dest-redirect">${esc(c)} <span class="disp-mini">(have ${avail[c]})</span>

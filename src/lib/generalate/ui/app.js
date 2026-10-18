@@ -378,6 +378,7 @@ app.go = function (screen, params = {}) {
       });
     }
   } catch (e) { /* garnish */ }
+  syncFooter();
 };
 
 app.newGame = function (mode, seed) {

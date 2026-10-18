@@ -720,33 +720,35 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   ok('old save migrates society=13112', deserialize(old).society === 13112);
 }
 
-// --- 24. The seal is free; berths bind ----------------------------------------
+// --- 24. The seal costs 30 per approval; berths bind -------------------------
 {
-  // Approve 1 + deny 2 → the seal costs nothing.
+  // Approve 1 + deny 2 → 30 scudi.
   const s = newGame({ mode: 'campaign', seed: 'sealcost' });
   const { terna } = startYear(s);
   const r = decide(s, [{ id: terna[0].petitionerId }]);
-  ok('seal is free', s.resources.funds === 1000, `${s.resources.funds}`);
-  ok('report carries sealCost 0', r.report.sealCost === 0, `${r.report.sealCost}`);
+  ok('seal costs 30 per approval', s.resources.funds === 970, `${s.resources.funds}`);
+  ok('report carries sealCost 30', r.report.sealCost === 30, `${r.report.sealCost}`);
 
-  // Approve-all → still free. Deny-all → free.
+  // Approve-all → 90. Deny-all → free.
   const s2 = newGame({ mode: 'campaign', seed: 'sealcost2' });
   const { terna: t2 } = startYear(s2);
   decide(s2, t2.map((c) => ({ id: c.petitionerId })));
-  ok('approve-all seal is free', s2.resources.funds === 1000, `${s2.resources.funds}`);
+  ok('approve-all seal costs 90', s2.resources.funds === 910, `${s2.resources.funds}`);
   const s3 = newGame({ mode: 'campaign', seed: 'sealcost3' });
   startYear(s3);
   decide(s3, []);
   ok('deny-all seal is free', s3.resources.funds === 1000, `${s3.resources.funds}`);
 
-  // A broke General can still seal (only sailing draws on the chest).
+  // A broke General cannot seal approvals (30 each) but can still deny for free.
   const s4 = newGame({ mode: 'campaign', seed: 'sealcost4' });
   s4.resources.funds = 10;
   const { terna: t4 } = startYear(s4);
   let threw = false;
-  try { decide(s4, [{ id: t4[0].petitionerId }]); } catch (e) { threw = true; }
-  ok('broke General can seal', !threw);
-  ok('funds untouched by seal', s4.resources.funds === 10);
+  try { decide(s4, [{ id: t4[0].petitionerId }]); } catch (e) { threw = /seal needs/.test(e.message); }
+  ok('broke General cannot seal approvals', threw);
+  ok('funds untouched by failed seal', s4.resources.funds === 10);
+  decide(s4, []);
+  ok('broke General can deny for free', s4.resources.funds === 10);
 
   // Berths bind at 3/year: 6 waiting, hulls free → only 3 sail.
   const s5 = newGame({ mode: 'campaign', seed: 'sealcost5' });

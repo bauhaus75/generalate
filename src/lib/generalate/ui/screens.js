@@ -1467,9 +1467,12 @@ function cardHTML(app, c) {
     </label>
     <div class="companion-row" data-id="${esc(c.id)}" hidden>
       <span class="companion-label">Companions <span class="companion-cost">(40 scudi each · ${(app.state.available || 0).toLocaleString('en-US')} to spare · +1 voyage each up to +3 · hull-limited)</span>:</span>
-      <button class="gbtn small ghost comp-dec" data-id="${esc(c.id)}" aria-label="Fewer companions">−</button>
-      <span class="companion-count" data-id="${esc(c.id)}">0</span>
-      <button class="gbtn small ghost comp-inc" data-id="${esc(c.id)}" aria-label="More companions">+</button>
+      ${['professed', 'father', 'scholastic', 'brother'].map((g) => `
+      <span class="comp-grade"><span class="comp-grade-name">${g}</span>
+        <button class="gbtn small ghost comp-dec" data-id="${esc(c.id)}" data-grade="${g}" aria-label="Fewer ${g} companions">−</button>
+        <span class="companion-count" data-id="${esc(c.id)}" data-grade="${g}">0</span>
+        <button class="gbtn small ghost comp-inc" data-id="${esc(c.id)}" data-grade="${g}" aria-label="More ${g} companions">+</button>
+      </span>`).join('')}
     </div>
     <div class="stamp" aria-hidden="true"></div>
   </article>`;
@@ -1660,14 +1663,23 @@ export function renderDesk(app, root, terna) {
     } else if (!approved.length) {
       text = 'All three denied. They may petition again.';
     } else {
+      const compTotal = (co) => typeof co === 'object' && co
+        ? Object.values(co).reduce((a, b) => a + b, 0)
+        : (co || 0);
+      const compBreakdown = (co) => {
+        if (typeof co !== 'object' || !co) return '';
+        const parts = ['professed', 'father', 'scholastic', 'brother']
+          .filter((g) => co[g] > 0).map((g) => `${co[g]} ${g}`);
+        return parts.length ? ` (${parts.join(', ')})` : '';
+      };
       const parts = approved.map(id => {
         const c = terna.find(x => x.id === id);
         const dn = (openDests.find(d => d.id === ds[id].destination) || {}).name || ds[id].destination;
-        const comps = ds[id].companions || 0;
-        return `${c.name} → ${dn}${comps ? ` (+${comps} companion${comps === 1 ? '' : 's'})` : ''}`;
+        const comps = compTotal(ds[id].companions);
+        return `${c.name} → ${dn}${comps ? ` (+${comps} companion${comps === 1 ? '' : 's'}${compBreakdown(ds[id].companions)})` : ''}`;
       });
       text = `Approving ${approved.length}: ${parts.join('; ')}.`;
-      const totalComps = approved.reduce((n, id) => n + (ds[id].companions || 0), 0);
+      const totalComps = approved.reduce((n, id) => n + compTotal(ds[id].companions), 0);
       if (totalComps) {
         text += ` Companions embark at 40 scudi each (+${totalComps * 40} scudi).`;
       }
@@ -1679,7 +1691,8 @@ export function renderDesk(app, root, terna) {
       }
     }
     if (done) {
-      text += ` The seal costs nothing.`;
+      const sealTotal = approved.length * 30;
+      text += sealTotal ? ` The seal: ${sealTotal} scudi (${approved.length} approval${approved.length === 1 ? '' : 's'}).` : ` The seal costs nothing.`;
     }
     summary.innerHTML = esc(text);
     confirmBtn.disabled = !done;
@@ -1708,7 +1721,11 @@ export function renderDesk(app, root, terna) {
       compRow.hidden = false;
       if (!destSelect.options.length) destSelect.innerHTML = destOptions(c.destination);
       destSelect.value = d.destination;
-      card.querySelector('.companion-count').textContent = d.companions || 0;
+      const co = (d.companions && typeof d.companions === 'object') ? d.companions : {};
+      for (const g of ['professed', 'father', 'scholastic', 'brother']) {
+        const el = card.querySelector(`.companion-count[data-grade="${g}"]`);
+        if (el) el.textContent = co[g] || 0;
+      }
     } else {
       destLabel.hidden = true;
       compRow.hidden = true;
@@ -1748,12 +1765,22 @@ export function renderDesk(app, root, terna) {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const id = btn.dataset.id;
+      const grade = btn.dataset.grade;
       const d = app.ui.decisions[id];
-      if (!d || d.verdict !== 'approve') return;
+      if (!d || d.verdict !== 'approve' || !grade) return;
+      if (!d.companions || typeof d.companions !== 'object') {
+        d.companions = { professed: 0, father: 0, scholastic: 0, brother: 0 };
+      }
       const max = app.Engine.RESOURCES.COMPANION_MAX;
-      d.companions = Math.max(0, Math.min(max, (d.companions || 0) + (btn.classList.contains('comp-inc') ? 1 : -1)));
+      const total = Object.values(d.companions).reduce((a, b) => a + b, 0);
+      const delta = btn.classList.contains('comp-inc') ? 1 : -1;
+      const nv = (d.companions[grade] || 0) + delta;
+      if (nv < 0) return;
+      if (delta > 0 && total >= max) return;
+      d.companions[grade] = nv;
       const card = root.querySelector(`.pcard[data-id="${CSS.escape(id)}"]`);
-      card.querySelector('.companion-count').textContent = d.companions;
+      const countEl = card.querySelector(`.companion-count[data-grade="${grade}"]`);
+      if (countEl) countEl.textContent = nv;
       app.sound('tick');
       refresh();
     });

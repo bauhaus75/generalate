@@ -3029,8 +3029,12 @@ export function startYear(state) {
 // Decision
 // ---------------------------------------------------------------------------
 
+/** Grades for companion retinues: professed, father, scholastic, brother. */
+export const COMPANION_GRADES = ['professed', 'father', 'scholastic', 'brother'];
+
 /** Seal the current terna: approve any subset (0-3), redirect destinations.
  * @param {object} state @param {Array} approvals ({id, destination?, companions?}).
+ * companions may be a number (legacy, counted as brothers) or {professed, father, scholastic, brother}.
  * @returns {{approved, denied, teams, report, scoreDelta}} */
 export function decide(state, approvals) {
   const t = state.currentTerna;
@@ -3051,16 +3055,42 @@ export function decide(state, approvals) {
     seen.add(id);
     const card = byId.get(id);
     const destination = (a.destination && isDestOpen(state, a.destination)) ? a.destination : card.destination;
-    const companions = a.companions == null ? 0 : a.companions;
-    if (!Number.isInteger(companions) || companions < 0 || companions > rules.RESOURCES.COMPANION_MAX) {
-      throw new Error(`decide: companions for "${id}" must be 0–${rules.RESOURCES.COMPANION_MAX}.`);
+    const companions = { professed: 0, father: 0, scholastic: 0, brother: 0 };
+    let companionTotal = 0;
+    if (a.companions != null) {
+      if (typeof a.companions !== 'number' && typeof a.companions !== 'object') {
+        throw new Error(`decide: companions for "${id}" must be a number or a grade breakdown.`);
+      }
+      if (typeof a.companions === 'number') {
+        if (!Number.isInteger(a.companions) || a.companions < 0 || a.companions > rules.RESOURCES.COMPANION_MAX) {
+          throw new Error(`decide: companions for "${id}" must be 0–${rules.RESOURCES.COMPANION_MAX}.`);
+        }
+        companions.brother = a.companions;
+        companionTotal = a.companions;
+      } else {
+        for (const g of COMPANION_GRADES) {
+          const v = a.companions[g] ?? 0;
+          if (!Number.isInteger(v) || v < 0) throw new Error(`decide: companions.${g} for "${id}" must be a whole number ≥ 0.`);
+          companions[g] = v;
+          companionTotal += v;
+        }
+        if (companionTotal > rules.RESOURCES.COMPANION_MAX) {
+          throw new Error(`decide: companions for "${id}" must total 0–${rules.RESOURCES.COMPANION_MAX}.`);
+        }
+      }
     }
-    return { card, destination, companions };
+    return { card, destination, companions, companionTotal };
   });
 
-  // The seal is free: responding to the indipetae costs the General nothing.
-  // (Sailing men still draws on the mission chest at departure.)
-  const sealCost = 0;
+  // The seal: 30 scudi per approval. A missioning event draws on the chest.
+  const SEAL_PER_APPROVAL = 30;
+  const sealCost = normalized.length * SEAL_PER_APPROVAL;
+  if (sealCost > 0) {
+    if (state.resources.funds < sealCost) {
+      throw new Error(`decide: the seal needs ${sealCost} scudi; the chest holds ${state.resources.funds}.`);
+    }
+    spendFunds(state, sealCost, 'seals');
+  }
 
   // Mark featured letters as used (denied petitioners will bring a new letter next time).
   // A letter dated after the current year is shown early and does not consume the "unused" slot.
@@ -3117,17 +3147,18 @@ export function decide(state, approvals) {
       status: 'awaiting',
       teamId: n.teamId || null,
       teamSize,
-      companions: n.companions || 0,
+      companions: n.companionTotal || 0,
+      companionGrades: n.companions,
     });
     addLedger(state, {
       year: state.year, type: 'decision',
       petitionerId: card.petitionerId, destination,
       decision: 'approved', status: STATUS.APPROVED,
       note: redirected
-        ? `${card.name} is approved and redirected to ${finalDestName} (petitioned for ${card.destinationName})${n.companions ? `, taking ${n.companions} ${n.companions === 1 ? 'companion' : 'companions'}` : ''}.`
+        ? `${card.name} is approved and redirected to ${finalDestName} (petitioned for ${card.destinationName})${n.companionTotal ? `, taking ${n.companionTotal} ${n.companionTotal === 1 ? 'companion' : 'companions'}` : ''}.`
         : n.teamId
-          ? `${card.name} is approved for ${finalDestName}, sailing in company with ${teamSize - 1} ${teamSize - 1 === 1 ? 'other' : 'others'}${n.companions ? ` and ${n.companions} ${n.companions === 1 ? 'companion' : 'companions'}` : ''}.`
-          : `${card.name} is approved for ${finalDestName} and enters the departure queue${n.companions ? ` with ${n.companions} ${n.companions === 1 ? 'companion' : 'companions'}` : ''}.`,
+          ? `${card.name} is approved for ${finalDestName}, sailing in company with ${teamSize - 1} ${teamSize - 1 === 1 ? 'other' : 'others'}${n.companionTotal ? ` and ${n.companionTotal} ${n.companionTotal === 1 ? 'companion' : 'companions'}` : ''}.`
+          : `${card.name} is approved for ${finalDestName} and enters the departure queue${n.companionTotal ? ` with ${n.companionTotal} ${n.companionTotal === 1 ? 'companion' : 'companions'}` : ''}.`,
     });
     approved.push({
       ...card,
@@ -3197,7 +3228,7 @@ export function decide(state, approvals) {
     detail:
       `${denied.length ? denied.map((d) => d.name).join(' and ') + (denied.length > 1 ? ' are' : ' is') + ' denied and may petition again. ' : ''}` +
       `The approved enter the departure queue; sailing depends on free hulls, berths, and the mission chest. ` +
-      `The seal costs nothing.`,
+      sealCost > 0 ? `The seal: ${sealCost} scudi.` : `The seal costs nothing.`,
   };
   const result = { approved, denied, teams: report.teams, report, scoreDelta: state.score - scoreBefore };
   if (state.currentYear) {

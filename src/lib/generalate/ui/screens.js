@@ -748,6 +748,13 @@ function missionCardHTML(app, d, year) {
         html += `<p class="mission-roster incoming"><strong>Incoming:</strong> ${incoming.map(v =>
           esc(v.petitionerName || v.petitionerId)).join(', ')} (arriving ${incoming[0].arriveYear})</p>`;
       }
+      // The community's character: top 3 traits among stationed men.
+      const traits = E.communityTraits(app.state, d.id);
+      if (traits.length) {
+        const dots = (v) => '●'.repeat(Math.round(v)) + '○'.repeat(5 - Math.round(v));
+        html += `<p class="mission-traits"><strong>The community:</strong> ${traits.map((t) =>
+          `${esc(t.name)} ${dots(t.avg)}`).join(' · ')}</p>`;
+      }
       return html;
     })()}
     ${(() => {

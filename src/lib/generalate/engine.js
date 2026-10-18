@@ -1861,6 +1861,46 @@ export function provinceOfMan(state, petitionerId) {
   return DEST_REGION_TO_PROVINCE[dr] || 'europe';
 }
 
+/**
+ * Men currently stationed at a mission (arrived, not returned, living).
+ * @returns {string[]} petitionerIds
+ */
+export function missionCommunity(state, destId) {
+  const g = getGameData();
+  const out = [];
+  for (const id of Object.keys(state.petitioners || {})) {
+    const rec = state.petitioners[id];
+    if (!rec || rec.status === STATUS.DECEASED || rec.status === STATUS.DISMISSED) continue;
+    const vs = (state.voyages || []).filter((v) => v.petitionerId === id);
+    const last = vs[vs.length - 1];
+    if (last && last.stage === 'arrived' && !last.veteranReturned && last.destination === destId) {
+      out.push(id);
+    }
+  }
+  return out;
+}
+
+/**
+ * The collective character of a mission community: average current dispositions
+ * across stationed men, top 3 traits by average. Empty array if no community.
+ * @returns {{trait: string, name: string, avg: number}[]}
+ */
+export function communityTraits(state, destId) {
+  const men = missionCommunity(state, destId);
+  if (!men.length) return [];
+  const sums = {};
+  for (const t of dispositions.TRAITS) sums[t.id] = 0;
+  for (const id of men) {
+    const d = ensureDisposition(state, id);
+    for (const t of dispositions.TRAITS) sums[t.id] += d.current[t.id] || 3;
+  }
+  return dispositions.TRAITS.map((t) => ({
+      trait: t.id, name: t.name, avg: sums[t.id] / men.length,
+    }))
+    .sort((a, b) => b.avg - a.avg)
+    .slice(0, 3);
+}
+
 /** Open destinations in a province's region — the real HQ options for that province.
  * Excludes catch-alls like "asia" (a valid mission field, not a place to reside). */
 const NOT_HQ = new Set(['asia']);

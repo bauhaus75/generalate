@@ -27,6 +27,7 @@ import {
   provincialTermYears, provincialTermComplete, isProfessedPriest, professedPriests,
   PROVINCIAL_TERM_YEARS, chooseProvinceHQ, openDestinations, provinceOfMan, hqOptionsForRegion,
   stageProvincialAnswer, unstageProvincialAnswer, stagedCommitments, applyStagedAnswers, requestAnswerCost,
+  missionCommunity, communityTraits,
   generateProvincialRequests, answerProvincialRequest, provincesWithRequests,
   requestGradeAvailable, REQUEST_GRADES,
   askProvincial, QUESTIONS_PER_YEAR,
@@ -2917,6 +2918,23 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     unstageProvincialAnswer(s, 'east');
     ok('stage: unstage removes', !s.stagedAnswers.east);
     ok('stage: commitments zero', stagedCommitments(s).count === 0);
+  }
+  // Community traits: top 3 dispositions among stationed men.
+  {
+    const s = newGame({ mode: 'campaign', seed: 'community1' });
+    // No voyages yet → empty.
+    ok('community: empty when no one stationed', communityTraits(s, 'goa').length === 0);
+    // Fake an arrived voyage.
+    s.petitioners['c1'] = { id: 'c1', name: 'Community One', status: 'active' };
+    s.petitioners['c2'] = { id: 'c2', name: 'Community Two', status: 'active' };
+    s.voyages.push({ petitionerId: 'c1', destination: 'goa', stage: 'arrived', outcome: 'thriving' });
+    s.voyages.push({ petitionerId: 'c2', destination: 'goa', stage: 'arrived', outcome: 'thriving' });
+    const men = missionCommunity(s, 'goa');
+    ok('community: finds stationed men', men.length === 2 && men.includes('c1'));
+    const traits = communityTraits(s, 'goa');
+    ok('community: top 3 traits', traits.length === 3);
+    ok('community: sorted by avg', traits[0].avg >= traits[1].avg && traits[1].avg >= traits[2].avg);
+    ok('community: avgs in range', traits.every((t) => t.avg >= 1 && t.avg <= 5));
   }
   // deterministic: same seed, same candidates
   {

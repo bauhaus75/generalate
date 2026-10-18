@@ -1105,18 +1105,65 @@ export function renderTreasury(app, root) {
     .map(([c, v]) => `<li><strong>${esc(catName[c] || c)}</strong> — ${v.toLocaleString('en-US')} scudi</li>`).join('');
   const sum = (o) => Object.values(o || {}).reduce((a, b) => a + b, 0);
 
+  // Last year P&L
+  const lastYear = app.state.year - 1;
+  const ly = (app.state.financeYears || {})[lastYear] || { income: {}, expenses: {} };
+  const lyIncome = sum(ly.income);
+  const lyExpenses = sum(ly.expenses);
+  const lyNet = lyIncome - lyExpenses;
+
+  // Pro forma P&L (current year projection)
+  const subsidy = app.Engine.RESOURCES?.YEARLY_INCOME || 240;
+  let projUpkeep = 0;
+  try {
+    if (app.Engine.missionUpkeep && app.state.missions) {
+      for (const mid of Object.keys(app.state.missions)) {
+        const st = app.state.missions[mid];
+        if (st) projUpkeep += app.Engine.missionUpkeep(st);
+      }
+    }
+  } catch (e) {}
+  const pendingSeal = app._pendingSeal || 0;
+  const pendingComp = app._pendingComp || 0;
+  let stagedScudi = 0;
+  try { stagedScudi = app.Engine.stagedCommitments(app.state).scudi || 0; } catch (e) {}
+  const spentSoFar = sum(fy.expenses);
+  // Projected total out = spent + pending + staged + upkeep (if not already spent)
+  const upkeepAlready = (fy.expenses || {}).upkeep || 0;
+  const projOut = spentSoFar + pendingSeal + pendingComp + stagedScudi + Math.max(0, projUpkeep - upkeepAlready);
+  const projIn = subsidy; // + domestic (unknown until year close)
+  const projNet = projIn - projOut;
+
+  const plRow = (label, val, bold) => `<li${bold ? ' style="font-weight:bold;border-top:1px solid var(--parch-deep);padding-top:0.4rem;margin-top:0.4rem;"' : ''}><span>${label}</span><span>${val.toLocaleString('en-US')}</span></li>`;
+
   root.innerHTML = `
   <section class="gscreen">
     <p class="kicker px">TREASURY</p>
     <h2 class="year-head px">🪙 ${funds.toLocaleString('en-US')} <span class="disp-mini">scudi in the chest</span></h2>
-    <h3 class="sect">Anno ${app.state.year} — in (${sum(fy.income).toLocaleString('en-US')})</h3>
+
+    <h3 class="sect">P&L — Anno ${lastYear} (actual)</h3>
+    <ul class="news-list" style="list-style:none;padding:0;">
+      ${rows(ly.income) ? `<li><strong>Income</strong></li>${rows(ly.income)}` : ''}
+      ${rows(ly.expenses) ? `<li><strong>Expenses</strong></li>${rows(ly.expenses)}` : ''}
+      ${plRow('Net', lyNet, true)}
+    </ul>
+    ${!lyIncome && !lyExpenses ? '<p class="howto-note">No records for last year.</p>' : ''}
+
+    <h3 class="sect">P&L — Anno ${app.state.year} (pro forma)</h3>
+    <ul class="news-list" style="list-style:none;padding:0;">
+      <li><span>Projected income (subsidy)</span><span>${projIn.toLocaleString('en-US')}</span></li>
+      <li><span>Spent so far</span><span>${spentSoFar.toLocaleString('en-US')}</span></li>
+      ${pendingSeal ? `<li><span>Pending seals</span><span>${pendingSeal.toLocaleString('en-US')}</span></li>` : ''}
+      ${pendingComp ? `<li><span>Pending companions</span><span>${pendingComp.toLocaleString('en-US')}</span></li>` : ''}
+      ${stagedScudi ? `<li><span>Staged commitments</span><span>${stagedScudi.toLocaleString('en-US')}</span></li>` : ''}
+      ${projUpkeep > upkeepAlready ? `<li><span>Projected upkeep</span><span>${Math.max(0, projUpkeep - upkeepAlready).toLocaleString('en-US')}</span></li>` : ''}
+      ${plRow('Projected net', projNet, true)}
+    </ul>
+
+    <h3 class="sect">Anno ${app.state.year} — detail in (${sum(fy.income).toLocaleString('en-US')})</h3>
     ${sum(fy.income) ? `<ul class="news-list">${rows(fy.income)}</ul>` : '<p class="howto-note">Nothing yet this year.</p>'}
-    <h3 class="sect">Anno ${app.state.year} — out (${sum(fy.expenses).toLocaleString('en-US')})</h3>
+    <h3 class="sect">Anno ${app.state.year} — detail out (${sum(fy.expenses).toLocaleString('en-US')})</h3>
     ${sum(fy.expenses) ? `<ul class="news-list">${rows(fy.expenses)}</ul>` : '<p class="howto-note">Nothing yet this year.</p>'}
-    <h3 class="sect">Lifetime — in (${sum(fin.income).toLocaleString('en-US')})</h3>
-    <ul class="news-list">${rows(fin.income) || '<li class="howto-note">—</li>'}</ul>
-    <h3 class="sect">Lifetime — out (${sum(fin.expenses).toLocaleString('en-US')})</h3>
-    <ul class="news-list">${rows(fin.expenses) || '<li class="howto-note">—</li>'}</ul>
   </section>`;
 }
 

@@ -97,6 +97,8 @@ export const RESOURCES = Object.freeze({
   /** Cost to fit out one companion sailing with an approved man — by grade.
    *  A professed priest costs as a father; a scholastic as a coadjutor. */
   COMPANION_COST: 40,
+  /** The seal is not free: every approval costs the mission chest. */
+  SEAL_COST: 30,
   COMPANION_GRADE_COST: Object.freeze({
     professed: 120,
     father: 120,

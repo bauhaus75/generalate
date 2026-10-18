@@ -155,19 +155,9 @@ function renderCostDetail() {
   for (const [cat, amt] of Object.entries(fy.expenses || {})) {
     if (amt > 0) lines.push(`<li><span>${cat}</span><span>${amt.toLocaleString('en-US')}</span></li>`);
   }
-  // Pending indipetae decisions (not yet sealed)
-  const decisions = (app.ui && app.ui.decisions) || {};
-  let pendingSeal = 0, pendingComps = 0;
-  for (const d of Object.values(decisions)) {
-    if (d.verdict === 'approve') {
-      pendingSeal += 30;
-      const comps = d.companions;
-      if (typeof comps === 'number') pendingComps += comps * 40;
-      else if (comps && typeof comps === 'object') {
-        pendingComps += Object.values(comps).reduce((a, b) => a + (b || 0), 0) * 40;
-      }
-    }
-  }
+  // Pending (shared with syncFooter — single source of truth)
+  const pendingSeal = app._pendingSeal || 0;
+  const pendingComps = app._pendingComp || 0;
   if (pendingSeal > 0) lines.push(`<li><span>seals (pending)</span><span>${pendingSeal.toLocaleString('en-US')}</span></li>`);
   if (pendingComps > 0) lines.push(`<li><span>companions (pending)</span><span>${pendingComps.toLocaleString('en-US')}</span></li>`);
   if (app._projUpkeep > 0) lines.push(`<li><span>upkeep (projected)</span><span>${app._projUpkeep.toLocaleString('en-US')}</span></li>`);
@@ -193,7 +183,7 @@ function syncFooter() {
     const flatCost = (app.Engine.RESOURCES && app.Engine.RESOURCES.COMPANION_COST) || 40;
     for (const d of Object.values(decisions)) {
       if (d && d.verdict === 'approve') {
-        pendingSeal += 30;
+        pendingSeal += (app.Engine.RESOURCES && app.Engine.RESOURCES.SEAL_COST) || 30;
         const comps = d.companions;
         if (typeof comps === 'number' && comps > 0) {
           pendingComp += comps * flatCost;

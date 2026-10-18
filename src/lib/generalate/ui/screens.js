@@ -1749,9 +1749,20 @@ export function renderDesk(app, root, terna) {
         const comps = compTotal(ds[id].companions);
         return `${c.name} → ${dn}${comps ? ` (+${comps} companion${comps === 1 ? '' : 's'}${compBreakdown(ds[id].companions)})` : ''}`;
       });
-      const totalComps = approved.reduce((n, id) => n + compTotal(ds[id].companions), 0);
-      const sealTotal = approved.length * 30;
-      const compTotal_ = totalComps * 40;
+      const sealTotal = approved.length * ((app.Engine.RESOURCES && app.Engine.RESOURCES.SEAL_COST) || 30);
+      // Grade-based companion cost (shared pricing)
+      const gradeCost = (app.Engine.RESOURCES && app.Engine.RESOURCES.COMPANION_GRADE_COST) || {};
+      const flatCost = (app.Engine.RESOURCES && app.Engine.RESOURCES.COMPANION_COST) || 40;
+      let compTotal_ = 0;
+      for (const id of approved) {
+        const comps = ds[id].companions;
+        if (typeof comps === 'number') compTotal_ += comps * flatCost;
+        else if (comps && typeof comps === 'object') {
+          for (const [g, v] of Object.entries(comps)) {
+            if (typeof v === 'number' && v > 0) compTotal_ += v * (gradeCost[g] || flatCost);
+          }
+        }
+      }
       const grandTotal = sealTotal + compTotal_;
       text = grandTotal > 0 ? `${grandTotal} scudi` : `No cost`;
     }

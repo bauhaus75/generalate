@@ -3288,8 +3288,7 @@ export function decide(state, approvals) {
   });
 
   // The seal: 30 scudi per approval. A missioning event draws on the chest.
-  const SEAL_PER_APPROVAL = 30;
-  const sealCost = normalized.length * SEAL_PER_APPROVAL;
+  const sealCost = normalized.length * rules.RESOURCES.SEAL_COST;
   if (sealCost > 0) {
     if (state.resources.funds < sealCost) {
       throw new Error(`decide: the seal needs ${sealCost} scudi; the chest holds ${state.resources.funds}.`);

@@ -2235,7 +2235,7 @@ export function renderReportCard(report) {
   if (!report) return '';
   const o = report.outcomes, p = report.personnel, t = report.treasury, ins = report.institutions;
   const li = (k, v) => `<li><span class="rep-k">${esc(k)}</span><span class="rep-v">${v}</span></li>`;
-  const soulsNote = p.souls > p.dispatched ? ` <span class="rep-sub">(${p.souls} souls with companions)</span>` : '';
+  const soulsNote = p.souls > p.dispatched ? ` <span class="rep-sub">(${p.souls} men with companions)</span>` : '';
   const availNote = p.available === null ? 'not recorded' : p.available;
   const chestEnd = t.end === null ? 'not recorded' : `${t.end.toLocaleString('en-US')} scudi`;
   const chestNet = t.net === null ? '' : ` <span class="rep-sub">(${t.net >= 0 ? '+' : ''}${t.net.toLocaleString('en-US')})</span>`;

@@ -167,6 +167,7 @@ function syncFooter() {
   f.style.display = 'flex';
   const y = app.state.year;
   const fy = (app.state.financeYears || {})[y] || { expenses: {} };
+  console.log('[syncFooter] year=', y, 'financeYears keys=', Object.keys(app.state.financeYears || {}), 'expenses=', fy.expenses);
   const spent = Object.values(fy.expenses || {}).reduce((a, b) => a + b, 0);
   const staged = app.Engine.stagedCommitments(app.state).scudi;
   const total = spent + staged;

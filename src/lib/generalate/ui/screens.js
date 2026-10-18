@@ -1611,11 +1611,7 @@ function cardHTML(app, c) {
     <label class="dest-redirect card-dest" data-id="${esc(c.id)}" hidden>Send to:
       <select class="card-dest-select" data-id="${esc(c.id)}" aria-label="Destination for ${esc(c.name)}"></select>
     </label>
-    <label class="dest-redirect card-ship" data-id="${esc(c.id)}" hidden>Sail on:
-      <select class="card-ship-select" data-id="${esc(c.id)}" aria-label="Ship for ${esc(c.name)}">
-        <option value="">Auto (first available)</option>
-      </select>
-    </label>
+
     <div class="companion-row" data-id="${esc(c.id)}" hidden>
       <span class="companion-label">Companions <span class="companion-cost">(professed/father 120 · scholastic 80 · brother 50 · ${(app.state.available || 0).toLocaleString('en-US')} to spare · +1 voyage each up to +3 · ship-limited)</span>:</span>
       ${['professed', 'father', 'scholastic', 'brother'].map((g) => `
@@ -1803,6 +1799,11 @@ export function renderDesk(app, root, terna) {
     <div class="desk">
       ${terna.map(c => cardHTML(app, c)).join('')}
     </div>
+    <div class="ships-section" id="terna-ships">
+      <h3 class="px">SHIPS</h3>
+      <div id="terna-ship-list"></div>
+      <p class="disp-mini">Tap a ship to assign the selected man. Tap again to unassign.</p>
+    </div>
     <div class="review-bar" id="review-bar">
       <span class="review-text" id="review-summary">Mark each man approved or denied.</span>
       <span class="review-actions">
@@ -1892,17 +1893,13 @@ export function renderDesk(app, root, terna) {
     card.classList.toggle('denied-pick', d.verdict === 'deny');
     const destLabel = card.querySelector('.card-dest');
     const destSelect = card.querySelector('.card-dest-select');
-    const shipLabel = card.querySelector('.card-ship');
-    const shipSelect = card.querySelector('.card-ship-select');
     const compRow = card.querySelector('.companion-row');
     if (d.verdict === 'approve') {
       destLabel.hidden = false;
-      shipLabel.hidden = false;
       compRow.hidden = false;
       if (!destSelect.options.length) destSelect.innerHTML = destOptions(c.destination);
       destSelect.value = d.destination;
-      // Populate ships (filter by range for the selected destination)
-      refreshShipOptions(app, shipSelect, d.destination, d.shipId);
+
       const co = (d.companions && typeof d.companions === 'object') ? d.companions : {};
       for (const g of ['professed', 'father', 'scholastic', 'brother']) {
         const el = card.querySelector(`.companion-count[data-grade="${g}"]`);
@@ -1910,7 +1907,6 @@ export function renderDesk(app, root, terna) {
       }
     } else {
       destLabel.hidden = true;
-      shipLabel.hidden = true;
       compRow.hidden = true;
     }
   };
@@ -1950,16 +1946,7 @@ export function renderDesk(app, root, terna) {
     sel.addEventListener('click', (e) => e.stopPropagation());
   });
 
-  root.querySelectorAll('.card-ship-select').forEach(sel => {
-    sel.addEventListener('change', (e) => {
-      e.stopPropagation();
-      const id = sel.dataset.id;
-      if (app.ui.decisions[id]) app.ui.decisions[id].shipId = sel.value || null;
-      app.sound('tick');
-      if (app.syncFooter) app.syncFooter();
-    });
-    sel.addEventListener('click', (e) => e.stopPropagation());
-  });
+
 
   root.querySelectorAll('.comp-inc, .comp-dec').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -2020,9 +2007,65 @@ export function renderDesk(app, root, terna) {
     }
   });
 
+  // Ships section: tap a ship to assign the currently selected approved man
+  const renderTernaShips = () => {
+    const listEl = root.querySelector('#terna-ship-list');
+    if (!listEl) return;
+    const ships = (app.state.resources?.ships || []).filter((s) => (s.freeYear || 0) <= app.state.year);
+    const tiers = app.Engine.RESOURCES?.SHIP_TIERS || {};
+    const decisions = app.ui.decisions || {};
+    
+    // Count assigned per ship (from decisions with shipId)
+    const assignedCount = {};
+    const assignedNames = {};
+    for (const [pid, d] of Object.entries(decisions)) {
+      if (d.verdict === 'approve' && d.shipId) {
+        assignedCount[d.shipId] = (assignedCount[d.shipId] || 0) + 1;
+        const card = terna.find((c) => c.id === pid);
+        if (!assignedNames[d.shipId]) assignedNames[d.shipId] = [];
+        assignedNames[d.shipId].push(card?.name || pid);
+      }
+    }
+    
+    listEl.innerHTML = ships.map((s) => {
+      const ti = tiers[s.tier || 'carrack'] || { label: 'Carrack', range: 2, capacity: 8 };
+      const used = assignedCount[s.id] || 0;
+      const pct = Math.round((used / ti.capacity) * 100);
+      const names = (assignedNames[s.id] || []).map(esc).join(', ');
+      return `<button class="terna-ship" data-ship-id="${s.id}">
+        <div class="terna-ship-name">${esc(s.name)} <span class="logi-tier">${esc(ti.label)}</span></div>
+        <div class="logi-cap-bar"><div class="logi-cap-fill" style="width:${pct}%"></div></div>
+        <div class="logi-cap-text">${used}/${ti.capacity} men${names ? ` — ${names}` : ''}</div>
+      </button>`;
+    }).join('');
+    
+    // Tap to assign: finds the most recently approved unassigned man
+    listEl.querySelectorAll('.terna-ship').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const shipId = btn.dataset.shipId;
+        // Find approved men without a ship, most recent first
+        const unassigned = terna.filter((c) => {
+          const d = decisions[c.id];
+          return d && d.verdict === 'approve' && !d.shipId;
+        });
+        if (!unassigned.length) {
+          app.toast('No unassigned men — approve someone first, or tap an assigned ship to clear it.');
+          return;
+        }
+        // Assign the first unassigned (or cycle if tapping same ship)
+        const target = unassigned[0];
+        decisions[target.id].shipId = shipId;
+        app.sound('tick');
+        renderTernaShips();
+        refresh();
+      });
+    });
+  };
+  
   // Restore any decisions made before stepping away to the House/Missions tabs.
   for (const c of terna) applyVerdictToCard(c.id);
   refresh();
+  renderTernaShips();
 
   // Formation vows decisions
   attachVowsHandlers(app, root);

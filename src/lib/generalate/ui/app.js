@@ -250,6 +250,7 @@ function renderHeader() {
       <button class="gbtn small ghost" id="gh-music" title="Allegri's Miserere (harp)">🎵</button>
       <button class="gbtn small ghost" id="gh-export" title="Export game state">📥</button>
       <button class="gbtn small ghost" id="gh-inbox" title="Notifications">🔔<span class="gh-badge" id="gh-badge-inbox" hidden></span></button>
+      <button class="gbtn small ghost" id="gh-fullscreen" title="Fullscreen">⛶</button>
       <audio id="gh-audio" loop preload="auto">
         <source src="miserere-harp.mp3" type="audio/mpeg">
       </audio>
@@ -358,6 +359,11 @@ function renderHeader() {
       if (badge) { badge.hidden = !items.length; badge.textContent = items.length > 9 ? '9+' : String(items.length); }
     };
     const closeInbox = () => { if (inboxPanel) inboxPanel.hidden = true; };
+    const fsBtn = h.querySelector('#gh-fullscreen');
+    if (fsBtn) fsBtn.addEventListener('click', () => {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen().catch(() => {});
+    });
     if (inboxBtn) inboxBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       if (inboxPanel.hidden) renderInbox();
@@ -535,7 +541,6 @@ app.go = function (screen, params = {}) {
   const r = root();
   const h = document.getElementById('gheader');
   if (h) h.style.display = screen === 'title' ? 'none' : '';
-  window.scrollTo(0, 0);
   switch (screen) {
     case 'title': Screens.renderTitle(app, r); break;
     case 'draft': app.syncHeader(); Screens.renderDraft(app, r); break;
@@ -546,7 +551,8 @@ app.go = function (screen, params = {}) {
       Screens.renderBriefing(app, r, app.ui.brief);
       break;
     }
-    case 'desk': {
+    case 'desk':
+    case 'indipetae': {
       const terna = app.state.currentYear ? app.state.currentYear.terna : [];
       app.syncHeader();
       Screens.renderDesk(app, r, terna);

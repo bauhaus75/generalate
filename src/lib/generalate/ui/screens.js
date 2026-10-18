@@ -461,8 +461,9 @@ export function renderBriefing(app, root, start) {
     <h3 class="sect">Rumors of what is coming</h3>
     <ul class="news-list rumors">${b.eventsUpcoming.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
     <div class="btn-row">
-      <button class="gbtn" id="expand-berths" data-energy="1">Commission +2 berths (400 scudi)</button>
+      <button class="gbtn" id="expand-berths" data-energy="1">Commission +1 berth (400 scudi)</button>
       <button class="gbtn" id="charter-ship" data-energy="1">Charter a hull (300 scudi)</button>
+      <button class="gbtn" id="exhort-missions" data-energy="1">Exhort the missions (+1 voyage rolls this year)</button>
       <label class="dest-redirect">Novitiate at:
         <select id="novitiate-dest" aria-label="Novitiate destination">
           ${openDests.map(d => `<option value="${d.id}">${esc(d.name)}</option>`).join('')}
@@ -502,6 +503,18 @@ export function renderBriefing(app, root, start) {
       app.save();
       showInspector(app, btn.dataset.id, btn.dataset.name || 'The petitioner');
     });
+  });
+  root.querySelector('#exhort-missions').addEventListener('click', () => {
+    try {
+      app.Engine.exhortMissions(app.state);
+      app.Engine.refreshBriefing(app.state);
+      app.save();
+      app.sound('coin');
+      app.go('briefing');
+    } catch (e) {
+      app.sound('error');
+      app.toast(e.message);
+    }
   });
   root.querySelector('#expand-berths').addEventListener('click', () => {
     try {

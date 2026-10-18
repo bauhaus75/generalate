@@ -2822,7 +2822,7 @@ function completeFormations(state, g, y, outcomes) {
     const d = ensureDisposition(state, entry.petitionerId);
     const gains = [];
     if (d.current[focus.primary] < 5) {
-      d.current[focus.primary] += 1;
+      d.current[focus.primary] = Math.min(5, d.current[focus.primary] + 2);
       gains.push(focus.primary);
     }
     if (d.current[focus.secondary] < 5
@@ -2892,6 +2892,7 @@ export function newGame({ mode = 'campaign', seed = 'generalate', data = null } 
     vowsNewsInTransit: [],
     deployments: [], // collective deployment orders (Stage 1): {id, year, destId, destName, purpose, memberIds, voyageIds}
     zealUntil: 0,     // year through which veteran zeal aids voyage checks
+    exhortUntil: 0,    // year through which the General's exhortation aids voyages
     currentTerna: null, // {year, cards:[...]} while awaiting decide()
     instructions: {}, // destId -> {type, issuedYear, arriveYear, status, outcome}
     reports: [],      // provincial reports: {id, year, kind, destId, title, body, facts, recommendations[], status, decision}
@@ -3476,6 +3477,24 @@ export function decide(state, approvals) {
  * @param {object} state
  * @returns {{berths:number, funds:number, cost:number}}
  */
+/**
+ * Exhort the missions: the General's letter stirs zeal across the Society.
+ * Costs 1 energy. All voyages departing this year get +1 to their d20 roll.
+ * The bonus applies to the current year's departures only.
+ */
+export function exhortMissions(state) {
+  spendEnergy(state, 1, 'exhorting the missions');
+  if (state.currentTerna) {
+    throw new Error('Finish deciding on the current terna first.');
+  }
+  state.exhortUntil = state.year;
+  addLedger(state, {
+    year: state.year, type: 'exhortation',
+    note: 'The General writes to all missions, exhorting them to zeal (+1 to voyage rolls this year).',
+  });
+  return { exhortUntil: state.exhortUntil };
+}
+
 export function expandBerths(state) {
   spendEnergy(state, 1, 'expanding berths');
   if (state.currentTerna) {
@@ -4093,6 +4112,7 @@ export function resolveYear(state) {
         ...(danger > 0 ? [{ label: `peril of ${destName(g, v.destination)} (${danger})`, value: danger * rules.VOYAGE_DANGER_MOD }] : []),
         ...(inCompany ? [{ label: 'sailing in company', value: rules.VOYAGE_TEAM_MOD }] : []),
         ...((state.zealUntil || 0) >= y ? [{ label: 'zeal of the missions', value: rules.VETERAN.ZEAL_MOD }] : []),
+        ...((state.exhortUntil || 0) >= y ? [{ label: "the General's exhortation", value: 1 }] : []),
         ...(compMod > 0 ? [{ label: `${compMod} ${compMod === 1 ? 'companion' : 'companions'}`, value: compMod }] : []),
         ...(staffBonus > 0 ? [{ label: `a strengthened mission (${staffStrength} strength)`, value: staffBonus }] : []),
         ...dispositionVoyageMods(state, v.petitionerId),

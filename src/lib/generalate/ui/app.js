@@ -215,6 +215,7 @@ function renderHeader() {
     h = document.createElement('header');
     h.id = 'gheader';
     h.innerHTML = `
+      <button class="gbtn small ghost" id="gh-menu" title="Menu" style="font-size:1.2rem;padding:0.3rem 0.6rem;">☰</button>
       <div class="gh-left"><span class="gh-title px">GENERALATE</span><span class="gh-year" id="gh-year"></span></div>
       <div class="gh-score" title="Your standing as General">
         <span class="gh-score-label px">SCORE</span>
@@ -244,9 +245,41 @@ function renderHeader() {
         <button class="gbtn small ghost" id="gh-sound" aria-label="Toggle sound">🔊</button>
         <button class="gbtn small ghost" id="gh-end" hidden>End office</button>
         <button class="gbtn small ghost" id="gh-debug" hidden>Debug</button>
-      </nav>`;
+      </nav>
+      <div id="gh-drawer" hidden>
+        <div id="gh-drawer-panel">
+          <button class="gbtn small ghost" id="gh-d-briefing">Briefing<span class="gh-badge" id="gh-d-badge-briefing" hidden></span></button>
+          <button class="gbtn small ghost" id="gh-d-indipetae">Indipetae<span class="gh-badge" id="gh-d-badge-indipetae" hidden></span></button>
+          <button class="gbtn small ghost" id="gh-d-house">House</button>
+          <button class="gbtn small ghost" id="gh-d-missions">Missions</button>
+          <button class="gbtn small ghost" id="gh-d-governance">Governance<span class="gh-badge" id="gh-d-badge-governance" hidden></span></button>
+          <button class="gbtn small ghost" id="gh-d-map">Map</button>
+          <button class="gbtn small ghost" id="gh-d-ledger">Ledger</button>
+          <button class="gbtn small ghost" id="gh-d-treasury">Treasury</button>
+        </div>
+      </div>`;
     document.getElementById('generalate-app').prepend(h);
     h.querySelector('#gh-briefing').addEventListener('click', () => { app.sound('page'); app.go('briefing'); });
+    // Hamburger drawer
+    const drawer = h.querySelector('#gh-drawer');
+    const closeDrawer = () => { if (drawer) drawer.hidden = true; };
+    h.querySelector('#gh-menu').addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (drawer) drawer.hidden = !drawer.hidden;
+    });
+    if (drawer) drawer.addEventListener('click', (e) => { if (e.target === drawer) closeDrawer(); });
+    const drawerGo = (id, fn) => {
+      const b = h.querySelector(id);
+      if (b) b.addEventListener('click', () => { app.sound('page'); closeDrawer(); fn(); });
+    };
+    drawerGo('#gh-d-briefing', () => app.go('briefing'));
+    drawerGo('#gh-d-indipetae', () => app.go('indipetae'));
+    drawerGo('#gh-d-house', () => { app.ui.houseFrom = app.ui.screen; app.go('house'); });
+    drawerGo('#gh-d-missions', () => { app.ui.missionsFrom = app.ui.screen; app.go('missions'); });
+    drawerGo('#gh-d-governance', () => app.go('governance'));
+    drawerGo('#gh-d-map', () => app.go('map', { from: app.ui.screen }));
+    drawerGo('#gh-d-ledger', () => Screens.showLedgerOverlay(app));
+    drawerGo('#gh-d-treasury', () => app.go('treasury'));
     h.querySelector('#gh-house').addEventListener('click', () => { app.sound('page'); app.ui.houseFrom = app.ui.screen; app.go('house'); });
     h.querySelector('#gh-missions').addEventListener('click', () => { app.sound('page'); app.ui.missionsFrom = app.ui.screen; app.go('missions'); });
     h.querySelector('#gh-indipetae').addEventListener('click', () => { app.sound('page'); app.go('desk'); });
@@ -317,17 +350,17 @@ app.syncHeader = function () {
   // notification badges: indipetae awaiting seal, pending reports, year ready to close
   try {
     const cy = app.state.currentYear;
-    const indB = h.querySelector('#gh-badge-indipetae');
-    if (indB) indB.hidden = !(cy && !cy.decided && (cy.terna || []).length);
-    const govB = h.querySelector('#gh-badge-governance');
-    if (govB) {
-      let n = 0;
-      try { n = Engine.provincesWithRequests ? Engine.provincesWithRequests(app.state).length : 0; } catch (e) { n = 0; }
-      govB.hidden = !n;
-      govB.textContent = n > 9 ? '9+' : String(n);
-    }
-    const brB = h.querySelector('#gh-badge-briefing');
-    if (brB) brB.hidden = !(cy && cy.decided);
+    const setBadge = (sel, show, text) => {
+      for (const s of [sel, sel.replace('#gh-badge-', '#gh-d-badge-')]) {
+        const b = h.querySelector(s);
+        if (b) { b.hidden = !show; if (text !== undefined) b.textContent = text; }
+      }
+    };
+    setBadge('#gh-badge-indipetae', !!(cy && !cy.decided && (cy.terna || []).length));
+    let n = 0;
+    try { n = Engine.provincesWithRequests ? Engine.provincesWithRequests(app.state).length : 0; } catch (e) { n = 0; }
+    setBadge('#gh-badge-governance', !!n, n > 9 ? '9+' : String(n));
+    setBadge('#gh-badge-briefing', !!(cy && cy.decided));
   } catch (e) { /* badges are garnish; never break the header */ }
 };
 app.bumpScore = function () {

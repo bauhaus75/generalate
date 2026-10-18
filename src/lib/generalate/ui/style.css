@@ -2,7 +2,13 @@
  * Old Jesuit archive: dark wood, parchment, ink, wax-seal red, deep ocean.
  * Scoped under #generalate-app so the rest of the site is untouched.
  */
+html, body {
+  background: #1a120b;
+  margin: 0;
+  padding: 0;
+}
 #generalate-app {
+  padding-bottom: 4.5rem;
   --wood: #3a2a1c;
   --wood-deep: #2a1e13;
   --parch: #e8d9b0;
@@ -652,3 +658,18 @@ body > .overlay .hist-loc, body > .overlay .hist-text { opacity: .75; }
 }
 #generalate-app .badge.ok { color: #1f4d2e; border-color: #4a7a5c; background: rgba(120,180,140,.18); }
 #generalate-app .badge.danger { color: #fff; background: var(--wax); border-color: var(--wax-deep); }
+
+/* Hamburger drawer */
+#gheader .gh-nav { display: none; }
+#gh-drawer {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5); z-index: 100;
+}
+#gh-drawer[hidden] { display: none; }
+#gh-drawer-panel {
+  position: absolute; top: 0; left: 0; bottom: 0; width: 70%; max-width: 280px;
+  background: #2a1e13; border-right: 2px solid var(--gold);
+  padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;
+  overflow-y: auto;
+}
+#gh-drawer-panel .gbtn { text-align: left; font-size: 1rem; padding: 0.7rem 1rem; }

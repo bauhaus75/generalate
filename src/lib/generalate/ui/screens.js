@@ -1809,6 +1809,7 @@ export function renderDesk(app, root, terna) {
       applyVerdictToCard(id);
       app.sound('tick');
       refresh();
+      if (app.syncFooter) app.syncFooter();
     });
   });
 
@@ -1819,6 +1820,7 @@ export function renderDesk(app, root, terna) {
       if (app.ui.decisions[id]) app.ui.decisions[id].destination = sel.value;
       app.sound('tick');
       refresh();
+      if (app.syncFooter) app.syncFooter();
     });
     sel.addEventListener('click', (e) => e.stopPropagation());
   });
@@ -1845,6 +1847,7 @@ export function renderDesk(app, root, terna) {
       if (countEl) countEl.textContent = nv;
       app.sound('tick');
       refresh();
+      if (app.syncFooter) app.syncFooter();
     });
   });
 

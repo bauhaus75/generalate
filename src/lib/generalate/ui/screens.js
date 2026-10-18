@@ -210,7 +210,6 @@ export function renderDraft(app, root) {
       try { E.chooseProvinceHQ(app.state, sel.dataset.hq, sel.value); app.sound('seal'); }
       catch (e) { app.sound('error'); return; }
       app.save();
-      if (app.state.draft.done) { app.go('briefing'); return; }
       renderDraft(app, root);
     });
   });

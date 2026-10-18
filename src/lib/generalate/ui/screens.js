@@ -214,7 +214,19 @@ export function renderDraft(app, root) {
     });
   });
   const take = root.querySelector('#take-office');
-  if (take) take.addEventListener('click', () => { app.sound('seal'); playSealAnimation(app, () => app.go('briefing')); });
+  if (take) {
+    // Enable if draft is done, regardless of count variables
+    if (app.state.draft && app.state.draft.done) take.disabled = false;
+    take.addEventListener('click', () => {
+      if (take.disabled) return;
+      app.sound('seal');
+      try {
+        playSealAnimation(app, () => app.go('briefing'));
+      } catch (e) {
+        app.go('briefing');
+      }
+    });
+  }
 }
 
 /**

@@ -1566,10 +1566,8 @@ function cardHTML(app, c) {
   // Track indicator (Option B): the card header derives formation from years,
   // but the vows track comes from historical grade. When they disagree, say so.
   let formationLabel = c.formation;
-  try {
-    const track = app.Engine.vowsTrackFor ? app.Engine.vowsTrackFor(app.state, c.id) : 'scholastic';
-    if (c.formation === 'scholastic' && track === 'brother') formationLabel = 'scholastic (brother track)';
-  } catch (e) { /* display-only; never break the card */ }
+  // Note: brothers are never 'scholastic' (fixed in enrichPetitioner).
+  // This is a safety net only.
   return `
   <article class="pcard" data-id="${esc(c.id)}" tabindex="0"
       aria-label="Petitioner ${esc(c.name)}, ${esc(destName(app, c.destination))}">

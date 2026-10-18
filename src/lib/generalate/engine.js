@@ -2970,7 +2970,15 @@ function enrichPetitioner(pet, seedBase) {
   }
   if (!enriched.formation) {
     const yis = enriched.yearsInSociety;
-    enriched.formation = yis < 2 ? 'novice' : yis <= 8 ? 'scholastic' : rng.pick(['priest', 'professed', 'priest']);
+    const grade = String(enriched.grade || '').toLowerCase();
+    const isBrother = grade === 'brother';
+    // Brothers never go through scholastic formation (priest track only).
+    // A brother is novice (<2yrs) then brother; never 'scholastic'.
+    if (isBrother) {
+      enriched.formation = yis < 2 ? 'novice' : 'brother';
+    } else {
+      enriched.formation = yis < 2 ? 'novice' : yis <= 8 ? 'scholastic' : rng.pick(['priest', 'professed', 'priest']);
+    }
   }
   if (!enriched.studies) {
     enriched.studies = enriched.formation === 'novice' ? 'Humanities'

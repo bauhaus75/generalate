@@ -1861,10 +1861,13 @@ export function provinceOfMan(state, petitionerId) {
   return DEST_REGION_TO_PROVINCE[dr] || 'europe';
 }
 
-/** Open destinations in a province's region — the real HQ options for that province. */
+/** Open destinations in a province's region — the real HQ options for that province.
+ * Excludes catch-alls like "asia" (a valid mission field, not a place to reside). */
+const NOT_HQ = new Set(['asia']);
 export function hqOptionsForRegion(state, regionId) {
   const g = getGameData();
   return openDestinations(state).filter((d) => {
+    if (NOT_HQ.has(d.id)) return false;
     const dest = g ? (g.destinations || []).find((x) => x.id === d.id) : null;
     const dr = dest && dest.region;
     return (DEST_REGION_TO_PROVINCE[dr] || 'europe') === regionId;

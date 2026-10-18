@@ -170,6 +170,7 @@ function renderCostDetail() {
   }
   if (pendingSeal > 0) lines.push(`<li><span>seals (pending)</span><span>${pendingSeal.toLocaleString('en-US')}</span></li>`);
   if (pendingComps > 0) lines.push(`<li><span>companions (pending)</span><span>${pendingComps.toLocaleString('en-US')}</span></li>`);
+  if (app._projUpkeep > 0) lines.push(`<li><span>upkeep (projected)</span><span>${app._projUpkeep.toLocaleString('en-US')}</span></li>`);
   d.innerHTML = lines.length
     ? `<ul>${lines.join('')}</ul>`
     : `<p class="disp-mini">Nothing spent or staged yet this year.</p>`;
@@ -185,19 +186,37 @@ function syncFooter() {
   console.log('[syncFooter] year=', y, 'financeYears keys=', Object.keys(app.state.financeYears || {}), 'expenses=', fy.expenses);
   const spent = Object.values(fy.expenses || {}).reduce((a, b) => a + b, 0);
   const staged = app.Engine.stagedCommitments(app.state).scudi;
-  let pending = 0;
-  const decisions = (app.ui && app.ui.decisions) || {};
-  for (const d of Object.values(decisions)) {
-    if (d.verdict === 'approve') {
-      pending += 30;
-      const comps = d.companions;
-      if (typeof comps === 'number') pending += comps * 40;
-      else if (comps && typeof comps === 'object') {
-        pending += Object.values(comps).reduce((a, b) => a + (b || 0), 0) * 40;
+  let pendingSeal = 0, pendingComp = 0;
+  try {
+    const decisions = (app.ui && app.ui.decisions) || {};
+    for (const d of Object.values(decisions)) {
+      if (d && d.verdict === 'approve') {
+        pendingSeal += 30;
+        const comps = d.companions;
+        if (typeof comps === 'number' && comps > 0) {
+          pendingComp += comps * 40;
+        } else if (comps && typeof comps === 'object') {
+          for (const v of Object.values(comps)) {
+            if (typeof v === 'number' && v > 0) pendingComp += v * 40;
+          }
+        }
       }
     }
-  }
-  const total = spent + staged + pending;
+  } catch (e) {}
+  let projUpkeep = 0;
+  try {
+    if (app.Engine.missionUpkeep && app.state.missions) {
+      for (const mid of Object.keys(app.state.missions)) {
+        const st = app.state.missions[mid];
+        if (st) projUpkeep += app.Engine.missionUpkeep(st);
+      }
+    }
+  } catch (e) {}
+  const pending = pendingSeal + pendingComp;
+  const total = spent + staged + pending + projUpkeep;
+  app._pendingSeal = pendingSeal;
+  app._pendingComp = pendingComp;
+  app._projUpkeep = projUpkeep;
   f.querySelector('#gf-cost').innerHTML =
     `<span class="px">YEAR COST</span> 🪙 ${total.toLocaleString('en-US')}`;
   const closeBtn = f.querySelector('#gf-close');

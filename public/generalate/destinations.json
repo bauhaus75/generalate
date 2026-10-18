@@ -258,5 +258,108 @@
   "travelYears": 3,
   "blurb": "Cambodia: the Khmer kingdom at Lovek. A brief Jesuit presence; a frontier for the bold.",
   "frontier": true
+ },
+ "congo": {
+  "name": "Congo",
+  "region": "Africa",
+  "ports": [
+   [
+    "Lisbon",
+    "Luanda"
+   ],
+   [
+    "Luanda",
+    "Mbanza Kongo"
+   ]
+  ],
+  "travelYears": 2,
+  "blurb": "The Kongo kingdom: an old Christian kingdom, its Jesuit mission struggles.",
+  "frontier": true
+ },
+ "angola": {
+  "name": "Angola",
+  "region": "Africa",
+  "ports": [
+   [
+    "Lisbon",
+    "Luanda"
+   ]
+  ],
+  "travelYears": 2,
+  "blurb": "Luanda: Portugal's African stronghold. A Jesuit college stands; the interior awaits.",
+  "frontier": true
+ },
+ "mozambique": {
+  "name": "Mozambique",
+  "region": "Africa",
+  "ports": [
+   [
+    "Lisbon",
+    "Mozambique Island"
+   ]
+  ],
+  "travelYears": 2,
+  "blurb": "Mozambique Island: gateway to the Zambezi. Fever country; few survive long.",
+  "frontier": true
+ },
+ "madagascar": {
+  "name": "Madagascar",
+  "region": "Africa",
+  "ports": [
+   [
+    "Lisbon",
+    "Goa"
+   ],
+   [
+    "Goa",
+    "Madagascar"
+   ]
+  ],
+  "travelYears": 3,
+  "blurb": "Madagascar: the great island. Brief attempts; no lasting mission yet.",
+  "frontier": true
+ },
+ "new-granada": {
+  "name": "New Granada",
+  "region": "South America",
+  "ports": [
+   [
+    "Seville",
+    "Cartagena"
+   ]
+  ],
+  "travelYears": 2,
+  "blurb": "New Granada: Cartagena and the interior. Jesuits arrived; the mission is young.",
+  "frontier": true
+ },
+ "quito": {
+  "name": "Quito",
+  "region": "South America",
+  "ports": [
+   [
+    "Seville",
+    "Callao"
+   ],
+   [
+    "Callao",
+    "Quito"
+   ]
+  ],
+  "travelYears": 2,
+  "blurb": "Quito: high in the Andes. A province will be erected in the 1620s.",
+  "frontier": true
+ },
+ "mexico": {
+  "name": "Mexico",
+  "region": "Americas",
+  "ports": [
+   [
+    "Seville",
+    "Veracruz"
+   ]
+  ],
+  "travelYears": 2,
+  "blurb": "New Spain: Mexico City and the northern frontier. The great province of the north.",
+  "frontier": true
  }
 }

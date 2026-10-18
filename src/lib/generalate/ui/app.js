@@ -295,7 +295,13 @@ function renderHeader() {
     if (drawer) drawer.addEventListener('click', (e) => { if (e.target === drawer) closeDrawer(); });
     const drawerGo = (id, fn) => {
       const b = h.querySelector(id);
-      if (b) b.addEventListener('click', () => { app.sound('page'); closeDrawer(); fn(); });
+      if (b) b.addEventListener('click', () => {
+        try {
+          app.sound('page'); closeDrawer(); fn();
+        } catch (e) {
+          alert('Navigation failed: ' + e.message);
+        }
+      });
     };
     drawerGo('#gh-d-briefing', () => app.go('briefing'));
     drawerGo('#gh-d-indipetae', () => app.go('indipetae'));

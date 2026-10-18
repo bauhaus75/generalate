@@ -2846,6 +2846,8 @@ export function newGame({ mode = 'campaign', seed = 'generalate', data = null } 
     seed: String(seed),
     mode,
     year: CAMPAIGN_START,
+    finance: { income: {}, expenses: {} },
+    financeYears: {},
     phase: 'campaign',
     diverged: false,
     ended: false,
@@ -4575,6 +4577,8 @@ export function deserialize(obj) {
   }
   const state = JSON.parse(JSON.stringify(obj));
   if (!('currentYear' in state)) state.currentYear = null;
+  if (!state.finance) state.finance = { income: {}, expenses: {} };
+  if (!state.financeYears) state.financeYears = {};
   if (!('novitiates' in state)) state.novitiates = [];
   if (!state.missions || typeof state.missions !== 'object') state.missions = initMissions();
   else for (const id of Object.keys(state.missions)) missionStaff(state, id); // normalize shape

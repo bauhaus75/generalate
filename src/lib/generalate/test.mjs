@@ -3149,12 +3149,20 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   // answering: agree needs men; validation
   {
     const s = setup('req3');
-    s.provincialRequests = { east: { regionId: 'east', year: s.year, professed: 99, fathers: 0, brothers: 0 } };
+    s.provincialRequests = { east: { regionId: 'east', year: s.year, professed: 999, fathers: 0, brothers: 0 } };
     let threw = false;
-    try { answerProvincialRequest(s, 'east', { professed: 99, fathers: 0, brothers: 0 }); }
+    try { answerProvincialRequest(s, 'east', { professed: 999, fathers: 0, brothers: 0 }); }
     catch (e) { threw = /available/.test(e.message); }
-    ok('requests: cannot send what Europe lacks', threw);
+    ok('requests: cannot send more than Europe + abstract pool', threw);
     ok('requests: failed answer keeps the request', !!s.provincialRequests.east);
+  }
+  {
+    const s = setup('req4');
+    s.europeanLabor = [];
+    s.available = 10;
+    s.provincialRequests = { east: { regionId: 'east', year: s.year, professed: 0, fathers: 2, brothers: 0 } };
+    const r = answerProvincialRequest(s, 'east', { professed: 0, fathers: 2, brothers: 0 });
+    ok('requests: spawns from abstract pool', r.sent === 2 && s.available === 8);
   }
   // asking: 3/year, energy, province check
   {

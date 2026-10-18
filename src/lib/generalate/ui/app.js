@@ -238,14 +238,14 @@ function renderHeader() {
       <div class="gh-energy" title="The General's energy this year">
         <span class="gh-energy-label px">⚡</span><span class="gh-num" id="gh-energy">5</span>
       </div>
-      <div class="gh-stat" title="Berths in port">
-        <span class="gh-stat-label">Berths</span><span class="gh-num" id="gh-berths">3</span>
+      <div class="gh-stat" title="Berths in port" style="display:flex;align-items:center;gap:0.25rem;">
+        <span class="gh-stat-label">Berths&nbsp;</span><span class="gh-num" id="gh-berths">3</span>
       </div>
-      <div class="gh-stat" title="Ships free">
-        <span class="gh-stat-label">Ships</span><span class="gh-num" id="gh-hulls">3/3</span>
+      <div class="gh-stat" title="Ships free" style="display:flex;align-items:center;gap:0.25rem;">
+        <span class="gh-stat-label">Ships&nbsp;</span><span class="gh-num" id="gh-hulls">3/3</span>
       </div>
-      <div class="gh-stat" title="Men available for mission">
-        <span class="gh-stat-label">Men</span><span class="gh-num" id="gh-men">131</span>
+      <div class="gh-stat" title="Men available for mission" style="display:flex;align-items:center;gap:0.25rem;">
+        <span class="gh-stat-label">Men&nbsp;</span><span class="gh-num" id="gh-men">131</span>
       </div>
       <button class="gbtn small ghost" id="gh-music" title="Allegri's Miserere (harp)">🎵</button>
       <button class="gbtn small ghost" id="gh-export" title="Export game state">📥</button>

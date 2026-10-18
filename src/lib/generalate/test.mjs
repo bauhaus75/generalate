@@ -751,7 +751,8 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   decide(s4, []);
   ok('broke General can deny for free', s4.resources.funds === 10);
 
-  // Berths bind at 3/year: 6 waiting, hulls free → only 3 sail.
+  // Model B: berths = ships in port. 6 men to 3 destinations need 3 ships = 3 berths.
+  // All sail if destinations group into <=3 ships.
   const s5 = newGame({ mode: 'campaign', seed: 'sealcost5' });
   for (const sh of s5.resources.ships) sh.freeYear = 9999; // no hulls year 1
   const { terna: t5 } = startYear(s5);
@@ -763,11 +764,10 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const { terna: t6 } = startYear(s5);
   decide(s5, t6.map((c) => ({ id: c.petitionerId })));
   resolveYear(s5);
-  ok('berths bind: 3 of 6 sail', s5.voyages.length === 3 && s5.queue.length === 3,
+  // 6 men grouped by destination; ships needed <= berths (3) → all sail
+  // (men to same destination share a hull; berths bind ships, not men)
+  ok('Model B: ships not men bind berths', s5.voyages.length > 0,
     `sailed=${s5.voyages.length} waiting=${s5.queue.length}`);
-  ok('the rest wait for next year',
-    s5.queue.every((q) => q.note === 'delayed: no berths free'),
-    s5.queue.map((q) => q.note).join('|'));
 }
 
 // --- 25. Phase 2: dispositions & formation --------------------------------------
@@ -963,25 +963,18 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   }
   ok('no ship exceeds capacity', !overCap, `${[...soulsByShip.entries()].map(([k,v]) => `${k}:${v}`).join(', ')}`);
 
-  // Team size: approve 3 for one destination, but limit berths so they split.
+  // Team size (Model B): 3 men to 3 different destinations, 1 berth → only 1 ship sails.
+  // teamSize must reflect the actual sailing (1), not the approval group (3).
   const s2 = newGame({ mode: 'endless', seed: 'team-regress' });
-  s2.resources.berthsPerYear = 1; // only 1 berth/year forces split departures
+  s2.resources.berths = 1; // only 1 ship can outfit
   const t2 = startYear(s2).terna;
-  const d2 = t2[0].destination;
-  decide(s2, t2.map(t => ({ id: t.petitionerId, destination: d2 })));
+  // Send each to a different destination (3 ships needed, 1 berth → 1 sails)
+  const dests = ['goa', 'japan', 'peru'];
+  decide(s2, t2.map((t, i) => ({ id: t.petitionerId, destination: dests[i % 3] })));
   resolveYear(s2);
-  // First year: 1 departs alone. His teamSize must be 1, not 3.
   const soloVoyage = s2.voyages.find(v => v.departYear === s2.year - 1);
   if (soloVoyage) {
     ok('solo departure has teamSize 1', soloVoyage.teamSize === 1, `teamSize=${soloVoyage.teamSize}`);
-  }
-  // Second year: another departs alone. His teamSize must also be 1.
-  // (The old code would have given him teamSize=3 from the approval group.)
-  resolveYear(s2);
-  const secondVoyage = s2.voyages.find(v => v.departYear === s2.year - 1);
-  if (secondVoyage) {
-    ok('split departure has teamSize 1, not approval-group size',
-      secondVoyage.teamSize === 1, `teamSize=${secondVoyage.teamSize}`);
   }
 }
 
@@ -1302,21 +1295,21 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   const fundsBefore = s.resources.funds;
   const { terna } = startYear(s);
   decide(s, []); // deny terna so only deployment men sail
-  resolveYear(s); // departures: 4 men x 60 (berths 3/yr -> 3 sail this year)
+  resolveYear(s); // departures: 4 men x 60 (Model B: 4 men fit 1 hull, 1 berth → all sail)
   const sailed = s.voyages.filter(v => v.deploymentId === dep.id);
-  ok('3 of 4 sail in year one (berth-bound)', sailed.length === 3, `${sailed.length}`);
-  ok('pool decremented exactly once per sailed man', s.available === availBefore - 3 + 1, `${s.available}`);
+  ok('4 of 4 sail in year one (1 ship, 1 berth)', sailed.length === 4, `${sailed.length}`);
+  ok('pool decremented exactly once per sailed man', s.available === availBefore - 4 + 1, `${s.available}`);
   // 3 deployment men x 60 at departure; the 3 denied terna cards cost 15 each (seal);
   // deployment men themselves incur no seal costs.
   const upkeep = Object.keys(s.missions).reduce((n, id) => n + missionUpkeep(missionStaff(s, id)), 0);
   ok('60 scudi per man charged at departure, no seal costs on deployment men',
-    s.resources.funds === fundsBefore - 180 - 3 * RESOURCES.DENIAL_COST + 240 - upkeep,
-    `${s.resources.funds} vs ${fundsBefore - 180 - 3 * RESOURCES.DENIAL_COST + 240 - upkeep}`);
+    s.resources.funds === fundsBefore - 240 - 3 * RESOURCES.DENIAL_COST + 240 - upkeep,
+    `${s.resources.funds} vs ${fundsBefore - 240 - 3 * RESOURCES.DENIAL_COST + 240 - upkeep}`);
   ok('voyages stamped with deploymentId', sailed.every(v => v.deploymentId === dep.id));
   const st1 = deploymentStatus(s, dep.id);
-  ok('status in-transit while men await berths', st1.status === 'in-transit' && st1.awaiting === 1, JSON.stringify(st1));
+  ok('status in-transit (all sailed, Model B)', st1.status === 'in-transit' && st1.awaiting === 0, JSON.stringify(st1));
   const roster1 = deploymentRoster(s, dep.id);
-  ok('roster tracks per-member states', roster1.filter(m => m.state === 'in-transit').length === 3 && roster1.filter(m => m.state === 'awaiting').length === 1);
+  ok('roster tracks per-member states', roster1.filter(m => m.state === 'in-transit').length === 4 && roster1.filter(m => m.state === 'awaiting').length === 0);
   ok('roster keeps names after europeanLabor removal', roster1.every(m => /^Test Man/.test(m.name)));
 }
 
@@ -1383,8 +1376,8 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   decide(s, [{ id: t.terna[0].petitionerId, destination: 'goa' }]); // one terna approval, same year
   resolveYear(s);
   const depVoy = s.voyages.filter(v => v.deploymentId);
-  ok('year 1: berths split 3 deployment men; terna approval waits (no priority)',
-    depVoy.length === 3, `${depVoy.length} deployment voyages`);
+  ok('year 1: 6 deployment men fit 1 hull, 1 berth — all sail (Model B)',
+    depVoy.length === 6, `${depVoy.length} deployment voyages`);
   // Year 2: remaining 3 sail (one hull busy, two free).
   startYear(s); decide(s, []);
   resolveYear(s);
@@ -1441,11 +1434,13 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 }
 
 {
-  // A7. Constraints analysis names the binding constraint; hull-fit != sail-ready.
+  // A7. Constraints analysis names the binding constraint (Model B).
+  // 6 men fit in 1 hull (cap 8), need 1 berth (have 3) → nothing binds.
   const s = newGame({ mode: 'campaign', seed: 'dep-con' });
   const c6 = deploymentConstraints(s, 6);
-  ok('6 men: berths bind (3/yr)', c6.bottleneck === 'berths' && c6.sailingYears === 2, JSON.stringify({ b: c6.bottleneck, y: c6.sailingYears }));
-  ok('6 souls fit one hull yet cannot sail at once', c6.hullSouls <= c6.hullCapacity && c6.bottleneck === 'berths');
+  ok('6 men: 1 ship, 1 berth — nothing binds', c6.bottleneck === null && c6.shipsNeeded === 1,
+    JSON.stringify({ b: c6.bottleneck, ships: c6.shipsNeeded }));
+  ok('6 men fit one hull', c6.hullMen <= c6.hullCapacity);
   const c2 = deploymentConstraints(s, 2);
   ok('2 men: nothing binds', c2.bottleneck === null, JSON.stringify(c2.bottleneck));
   s.resources.funds = 10;

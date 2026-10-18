@@ -195,6 +195,12 @@ export function missionRequests(state) {
 export const REQUEST_GRADES = ['professed', 'fathers', 'brothers'];
 
 /** Map a request grade to the mission-staffing bucket it fills. */
+/**
+ * Maps a provincial request grade to the staff grade actually sent.
+ * A request for "fathers" is filled by coadjutors (priests not yet professed)
+ * at the coadjutor rate (80), not by professed fathers (120). The professed
+ * are 4th-vow men, reserved for requests explicitly naming them.
+ */
 function requestGradeToStaffGrade(cat) {
   return cat === 'professed' ? 'fathers' : cat === 'fathers' ? 'coadjutors' : 'brothers';
 }
@@ -401,6 +407,11 @@ export function answerProvincialRequest(state, regionId, mix, earmarked = null) 
       const dest = g ? (g.destinations || []).find((d) => d.id === hqDest) : null;
       const travelYears = (dest && dest.travelYears) || 2;
       if (!state.missionTransit) state.missionTransit = {};
+  // Migration: Model B berths (static port capacity). Old saves have berthsPerYear.
+  if (state.resources && state.resources.berthsPerYear != null && state.resources.berths == null) {
+    state.resources.berths = state.resources.berthsPerYear;
+    delete state.resources.berthsPerYear;
+  }
       if (!state.missionTransit[hqDest]) state.missionTransit[hqDest] = [];
       state.missionTransit[hqDest].push({
         arrivalYear: state.year + travelYears,
@@ -1776,25 +1787,25 @@ export function deploymentStatus(state, depId) {
  * Reports each of the four departure constraints separately and names the
  * binding one in planning order: funds (which gates the order itself),
  * then men to spare, berths, hulls. Pure: no mutation.
- * Hull capacity is per-hull souls; berths are per-man per-year — a contingent
- * that fits one hull can still need several sailing years of berths.
+ * Model B: berths = static port capacity (ships outfitting simultaneously).
  */
 export function deploymentConstraints(state, count) {
-  const berthsPerYear = state.resources.berthsPerYear || 0;
+  const berths = state.resources.berths || 0;
   const freeHulls = (state.resources.ships || []).filter((s) => (s.freeYear || 0) <= state.year);
   const cost = count * rules.RESOURCES.DEPARTURE_COST;
   const avail = state.available || 0;
   const funds = state.resources.funds || 0;
-  const sailingYears = berthsPerYear > 0 ? Math.ceil(count / berthsPerYear) : Infinity;
+  const CAP = rules.RESOURCES.SHIP_CAPACITY;
+  const shipsNeeded = Math.ceil(count / CAP);
   let bottleneck = null;
   if (funds < cost) bottleneck = 'funds';
   else if (avail < count) bottleneck = 'men';
-  else if (berthsPerYear < count) bottleneck = 'berths';
-  else if (freeHulls.length === 0) bottleneck = 'hulls';
+  else if (freeHulls.length < shipsNeeded) bottleneck = 'hulls';
+  else if (berths < shipsNeeded) bottleneck = 'berths';
   return {
     count, cost,
-    berthsNeeded: count, berthsPerYear, sailingYears,
-    hullSouls: count, hullCapacity: rules.RESOURCES.SHIP_CAPACITY, hullsFree: freeHulls.length,
+    berthsNeeded: shipsNeeded, berths, shipsNeeded,
+    hullMen: count, hullCapacity: rules.RESOURCES.SHIP_CAPACITY, hullsFree: freeHulls.length,
     menNeeded: count, menAvailable: avail,
     fundsNeeded: cost, funds,
     bottleneck, // null when the whole contingent can sail this year
@@ -2869,7 +2880,7 @@ export function newGame({ mode = 'campaign', seed = 'generalate', data = null } 
     ledger: [],        // every decision, departure, outcome, event
     resources: {
       funds: rules.RESOURCES.START_FUNDS,
-      berthsPerYear: rules.RESOURCES.BERTHS_PER_YEAR,
+      berths: rules.RESOURCES.BERTHS,
       ships: rules.RESOURCES.SHIP_NAMES.map((name, i) => ({ id: `ship-${i + 1}`, name, freeYear: 0 })),
     },
     destState: initDestState(g.destinations),
@@ -3184,7 +3195,7 @@ function buildBriefing(state, g, relaxedClosed) {
     .map((e) => `${e.year} — ${e.title}`);
   return {
     funds: state.resources.funds,
-    berths: state.resources.berthsPerYear,
+    berths: state.resources.berths,
     ships: state.resources.ships.length,
     shipNames: state.resources.ships.map((s) => s.name),
     missionNews: news,
@@ -3459,7 +3470,7 @@ export function decide(state, approvals) {
  * expand yearly capacity. The General may do this at any time between
  * ternas (not mid-terna).
  * @param {object} state
- * @returns {{berthsPerYear:number, funds:number, cost:number}}
+ * @returns {{berths:number, funds:number, cost:number}}
  */
 export function expandBerths(state) {
   spendEnergy(state, 1, 'expanding berths');
@@ -3471,13 +3482,13 @@ export function expandBerths(state) {
     throw new Error(`Insufficient funds: need ${cost} ducats, have ${state.resources.funds}.`);
   }
   spendFunds(state, cost, 'berths');
-  state.resources.berthsPerYear += rules.RESOURCES.BERTH_EXPANSION_AMOUNT;
+  state.resources.berths += rules.RESOURCES.BERTH_EXPANSION_AMOUNT;
   addLedger(state, {
     year: state.year, type: 'expansion',
-    note: `The General commissions additional berths (+${rules.RESOURCES.BERTH_EXPANSION_AMOUNT}/year, ${cost} ducats). Yearly capacity is now ${state.resources.berthsPerYear}.`,
+    note: `The General commissions an additional berth (+${rules.RESOURCES.BERTH_EXPANSION_AMOUNT} dock space, ${cost} ducats). Port capacity is now ${state.resources.berths} ships.`,
   });
   return {
-    berthsPerYear: state.resources.berthsPerYear,
+    berths: state.resources.berths,
     funds: state.resources.funds,
     cost,
   };
@@ -3911,7 +3922,8 @@ export function resolveYear(state) {
   //    sailing, then is busy for the voyage's travel years. Men bound for the
   //    same mission share hulls — teams sail together.
   const departures = [];
-  let berths = state.resources.berthsPerYear;
+  // Model B: berths = static port capacity (ships that can outfit simultaneously)
+  let berths = state.resources.berths || 0;
   const ships = Array.isArray(state.resources.ships) ? state.resources.ships : [];
   const awaiting = state.queue
     .filter((q) => q.status === 'awaiting')
@@ -3963,6 +3975,11 @@ export function resolveYear(state) {
         continue;
       }
       if (!ship || (ship.used || 0) + party > CAP) {
+        // Model B: each ship packed occupies one berth. Check before selecting.
+        if (berths <= 0) {
+          for (; idx < men.length; idx++) men[idx].note = 'delayed: no berths free';
+          break;
+        }
         // Select a hull not already packed this year. Using !packed.has(s)
         // (not s !== ship) prevents re-selecting a hull that was already
         // filled earlier in this packing operation, which would reset its
@@ -3973,13 +3990,14 @@ export function resolveYear(state) {
           break;
         }
         ship.used = 0;
+        packed.add(ship);
+        berths -= 1; // one berth per ship outfitting
       }
       spendFunds(state, cost, 'voyages');
       // The man and his companions leave the mission-eligible pool.
       state.available = avail - (1 + comps);
       if (comps < (q.companions || 0)) q.spareShortfall = (q.companions || 0) - comps;
       q.embarked = comps; // companions who actually sailed (may be fewer than requested)
-      berths -= 1;
       ship.used += party;
       packed.add(ship);
       aboard.push({ q, ship, comps });
@@ -4237,7 +4255,7 @@ export function resolveYear(state) {
     arrivals: outcomes.map((o) => ({ voyageId: o.voyageId, name: o.name, destinationName: o.destinationName, outcome: o.outcome, outcomeLabel: o.outcomeLabel })),
     delayedDepartures: state.queue.length,
     funds: state.resources.funds,
-    berthsUsed: state.resources.berthsPerYear - berths,
+    berthsUsed: (state.resources.berths || 0) - berths,
   };
 
   // Mission fragility (informational only): track accumulated years each mission

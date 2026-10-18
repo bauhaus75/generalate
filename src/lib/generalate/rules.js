@@ -67,7 +67,7 @@ export function addScore(score, delta) {
 /** Resource economy constants. */
 export const RESOURCES = Object.freeze({
   /** Sailing berths available per year. */
-  BERTHS_PER_YEAR: 3,
+  BERTHS: 3, // static port capacity: ships that can outfit simultaneously
   /** The seal is not free: every decision costs the mission chest.
    *  An approval commits the Society's resources (advances, dispensations,
    *  letters); a refusal still requires pastoral care and correspondence. */
@@ -122,7 +122,7 @@ export const RESOURCES = Object.freeze({
   MAX_QUEUE: 40,
   /** Cost to commission +2 berths/year (expand mission capacity). */
   BERTH_EXPANSION_COST: 400,
-  BERTH_EXPANSION_AMOUNT: 2,
+  BERTH_EXPANSION_AMOUNT: 1, // one dock space per expansion
   /** Cost to found a novitiate (house of formation) at an open mission. */
   NOVITIATE_COST: 800,
   /** Minimum team size for the sailing-in-company voyage bonus. */

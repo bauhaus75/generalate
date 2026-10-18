@@ -813,20 +813,20 @@ function deploymentConstraintsHTML(app, count) {
   const c = E.deploymentConstraints(app.state, count);
   const row = (label, text, binding) =>
     `<div class="dc-row${binding ? ' binding' : ''}"><span class="dc-label">${label}</span><span class="dc-val">${text}</span>${binding ? '<span class="dc-flag">binding</span>' : ''}</div>`;
-  const hullText = c.hullSouls <= c.hullCapacity
-    ? `${c.hullSouls} souls — fits in one hull (capacity ${c.hullCapacity})`
-    : `${c.hullSouls} souls — needs ${Math.ceil(c.hullSouls / c.hullCapacity)} hulls (capacity ${c.hullCapacity} each)`;
-  const berthText = c.berthsPerYear >= c.berthsNeeded
-    ? `${c.berthsNeeded} berths needed · ${c.berthsPerYear}/year — sails this year`
-    : `${c.berthsNeeded} berths needed · ${c.berthsPerYear}/year — expect ~${c.sailingYears} sailing years`;
+  const hullText = c.hullMen <= c.hullCapacity
+    ? `${c.hullMen} men — fits in one hull (capacity ${c.hullCapacity})`
+    : `${c.hullMen} men — needs ${Math.ceil(c.hullMen / c.hullCapacity)} hulls (capacity ${c.hullCapacity} each)`;
+  const berthText = c.berths >= c.berthsNeeded
+    ? `${c.shipsNeeded} ship${c.shipsNeeded === 1 ? '' : 's'} needed · ${c.berths} berths in port — sails this year`
+    : `${c.shipsNeeded} ship${c.shipsNeeded === 1 ? '' : 's'} needed · only ${c.berths} berths in port — delayed`;
   let html = `<div class="dc-rows">`
     + row('Berths', berthText, c.bottleneck === 'berths')
     + row('Hulls', `${hullText} · ${c.hullsFree} free now`, c.bottleneck === 'hulls')
     + row('Men to spare', `${c.menNeeded} from the pool · ${c.menAvailable} to spare`, c.bottleneck === 'men')
     + row('Funds', `${c.fundsNeeded} scudi to embark · ${c.funds} in the chest`, c.bottleneck === 'funds')
     + `</div>`;
-  if (c.bottleneck === 'berths' && c.hullSouls <= c.hullCapacity) {
-    html += `<p class="howto-note dc-note">The contingent fits in a single hull, but berths — not hulls — govern when it sails: one berth per man, ${c.berthsPerYear} a year.</p>`;
+  if (c.bottleneck === 'berths') {
+    html += `<p class="howto-note dc-note">Not enough berths in port — each ship outfitting needs one berth. Expand the docks or charter fewer ships.</p>`;
   } else if (!c.bottleneck) {
     html += `<p class="howto-note dc-note">No constraint binds: the whole contingent can sail this year.</p>`;
   }
@@ -2074,7 +2074,7 @@ export function renderYearReport(app, root, res) {
 /* ---------------- map screen ---------------- */
 export function renderLogistics(app, root) {
   const ships = app.state.resources?.ships || [];
-  const berthsPerYear = app.state.resources?.berthsPerYear || 0;
+  const berths = app.state.resources?.berths || 0;
   const capacity = app.Engine.RESOURCES?.SHIP_CAPACITY || 8;
   const year = app.state.year;
   const voyages = (app.state.voyages || []).filter((v) => !v.resolvedYear || v.resolvedYear > year);
@@ -2092,7 +2092,7 @@ export function renderLogistics(app, root) {
         <div class="logi-ship-name">${esc(s.name)}</div>
         <div class="logi-ship-status">${isFree ? '<span class="logi-free">In port</span>' : `<span class="logi-away">At sea → ${esc(destName || 'unknown')}</span>`}</div>
         <div class="logi-cap-bar"><div class="logi-cap-fill" style="width:${isFree ? 0 : pct}%"></div></div>
-        <div class="logi-cap-text">${isFree ? '0' : used}/${capacity} souls${!isFree && s.freeYear ? ` · returns ${s.freeYear}` : ''}</div>
+        <div class="logi-cap-text">${isFree ? '0' : used}/${capacity} men${!isFree && s.freeYear ? ` · returns ${s.freeYear}` : ''}</div>
       </div>
     </div>`;
   }).join('');
@@ -2103,16 +2103,16 @@ export function renderLogistics(app, root) {
   root.innerHTML = `
   <section class="gscreen">
     <h2 class="px">LOGISTICS</h2>
-    <p class="desk-instr">Hulls carry the men; berths are the yearly sailing slots. A ship at sea is busy until its return year.</p>
+    <p class="desk-instr">Hulls carry the men; berths are dock space — each ship outfitting needs one. A ship at sea is busy until its return year.</p>
     <div class="logi-section">
       <h3 class="px">BERTHS</h3>
-      <p><strong>${berthsPerYear}</strong> sailing berths per year · <strong>${departedThisYear}</strong> used · <strong>${Math.max(0, berthsPerYear - departedThisYear)}</strong> remaining</p>
-      <p class="disp-mini">Commission +2 berths/year for 400 scudi and 1 energy (Governance).</p>
+      <p><strong>${berths}</strong> berths in port · <strong>${departedThisYear}</strong> ships outfitting</p>
+      <p class="disp-mini">Commission +1 berth for 400 scudi and 1 energy (Governance).</p>
     </div>
     <div class="logi-section">
       <h3 class="px">HULLS (${ships.length})</h3>
       <div class="logi-ships">${shipCards || '<p class="disp-mini">No hulls.</p>'}</div>
-      <p class="disp-mini">Each hull carries up to ${capacity} souls. Charter another for 300 scudi and 1 energy (Governance).</p>
+      <p class="disp-mini">Each hull carries up to ${capacity} men. Charter another for 300 scudi and 1 energy (Governance).</p>
     </div>
   </section>`;
 }

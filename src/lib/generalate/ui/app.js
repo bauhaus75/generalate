@@ -250,7 +250,7 @@ function renderHeader() {
       <button class="gbtn small ghost" id="gh-music" title="Allegri's Miserere (harp)">🎵</button>
       <button class="gbtn small ghost" id="gh-export" title="Export game state">📥</button>
       <button class="gbtn small ghost" id="gh-inbox" title="Notifications">🔔<span class="gh-badge" id="gh-badge-inbox" hidden></span></button>
-      <button class="gbtn small ghost" id="gh-fullscreen" title="Fullscreen">⛶</button>
+
       <audio id="gh-audio" loop preload="auto">
         <source src="miserere-harp.mp3" type="audio/mpeg">
       </audio>
@@ -359,12 +359,7 @@ function renderHeader() {
       if (badge) { badge.hidden = !items.length; badge.textContent = items.length > 9 ? '9+' : String(items.length); }
     };
     const closeInbox = () => { if (inboxPanel) inboxPanel.hidden = true; };
-    const fsBtn = h.querySelector('#gh-fullscreen');
-    if (fsBtn) fsBtn.addEventListener('click', () => {
-      if (document.fullscreenElement) document.exitFullscreen();
-      else document.documentElement.requestFullscreen().catch(() => {});
-    });
-    if (inboxBtn) inboxBtn.addEventListener('click', (e) => {
+if (inboxBtn) inboxBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       if (inboxPanel.hidden) renderInbox();
       inboxPanel.hidden = !inboxPanel.hidden;

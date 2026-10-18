@@ -1538,7 +1538,7 @@ function cardHTML(app, c) {
       <select class="card-dest-select" data-id="${esc(c.id)}" aria-label="Destination for ${esc(c.name)}"></select>
     </label>
     <div class="companion-row" data-id="${esc(c.id)}" hidden>
-      <span class="companion-label">Companions <span class="companion-cost">(40 scudi each · ${(app.state.available || 0).toLocaleString('en-US')} to spare · +1 voyage each up to +3 · hull-limited)</span>:</span>
+      <span class="companion-label">Companions <span class="companion-cost">(professed/father 120 · scholastic 80 · brother 50 · ${(app.state.available || 0).toLocaleString('en-US')} to spare · +1 voyage each up to +3 · hull-limited)</span>:</span>
       ${['professed', 'father', 'scholastic', 'brother'].map((g) => `
       <span class="comp-grade"><span class="comp-grade-name">${g}</span>
         <button class="gbtn small ghost comp-dec" data-id="${esc(c.id)}" data-grade="${g}" aria-label="Fewer ${g} companions">−</button>
@@ -2005,6 +2005,51 @@ export function renderYearReport(app, root, res) {
 }
 
 /* ---------------- map screen ---------------- */
+export function renderLogistics(app, root) {
+  const ships = app.state.resources?.ships || [];
+  const berthsPerYear = app.state.resources?.berthsPerYear || 0;
+  const capacity = app.Engine.RESOURCES?.SHIP_CAPACITY || 8;
+  const year = app.state.year;
+  const voyages = (app.state.voyages || []).filter((v) => !v.resolvedYear || v.resolvedYear > year);
+
+  const shipCards = ships.map((s) => {
+    const isFree = (s.freeYear || 0) <= year;
+    const used = s.used || 0;
+    const pct = capacity > 0 ? Math.round((used / capacity) * 100) : 0;
+    // Find active voyage for this ship
+    const voy = voyages.find((v) => v.shipId === s.id && !v.resolvedYear);
+    const destName = voy ? ((app.Engine.DESTINATIONS?.[voy.destination]?.name) || voy.destination) : null;
+    return `
+    <div class="logi-ship">
+      <div class="logi-ship-info">
+        <div class="logi-ship-name">${esc(s.name)}</div>
+        <div class="logi-ship-status">${isFree ? '<span class="logi-free">In port</span>' : `<span class="logi-away">At sea → ${esc(destName || 'unknown')}</span>`}</div>
+        <div class="logi-cap-bar"><div class="logi-cap-fill" style="width:${isFree ? 0 : pct}%"></div></div>
+        <div class="logi-cap-text">${isFree ? '0' : used}/${capacity} souls${!isFree && s.freeYear ? ` · returns ${s.freeYear}` : ''}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Berths: used this year (from voyages departed this year)
+  const departedThisYear = (app.state.voyages || []).filter((v) => v.departedYear === year).length;
+
+  root.innerHTML = `
+  <section class="gscreen">
+    <h2 class="px">LOGISTICS</h2>
+    <p class="desk-instr">Hulls carry the men; berths are the yearly sailing slots. A ship at sea is busy until its return year.</p>
+    <div class="logi-section">
+      <h3 class="px">BERTHS</h3>
+      <p><strong>${berthsPerYear}</strong> sailing berths per year · <strong>${departedThisYear}</strong> used · <strong>${Math.max(0, berthsPerYear - departedThisYear)}</strong> remaining</p>
+      <p class="disp-mini">Commission +2 berths/year for 400 scudi and 1 energy (Governance).</p>
+    </div>
+    <div class="logi-section">
+      <h3 class="px">HULLS (${ships.length})</h3>
+      <div class="logi-ships">${shipCards || '<p class="disp-mini">No hulls.</p>'}</div>
+      <p class="disp-mini">Each hull carries up to ${capacity} souls. Charter another for 300 scudi and 1 energy (Governance).</p>
+    </div>
+  </section>`;
+}
+
 export function renderMapScreen(app, root, from) {
   root.innerHTML = `
   <section class="gscreen map-screen">

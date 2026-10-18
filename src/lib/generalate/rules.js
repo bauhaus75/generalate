@@ -94,8 +94,15 @@ export const RESOURCES = Object.freeze({
   MISSION_PCT: 0.01,
   /** Yearly intake of new members (gameplay abstraction). */
   SOCIETY_YEARLY_INTAKE: 100,
-  /** Cost to fit out one companion sailing with an approved man. */
+  /** Cost to fit out one companion sailing with an approved man — by grade.
+   *  A professed priest costs as a father; a scholastic as a coadjutor. */
   COMPANION_COST: 40,
+  COMPANION_GRADE_COST: Object.freeze({
+    professed: 120,
+    father: 120,
+    scholastic: 80,
+    brother: 50,
+  }),
   /** Max companions per approved man: a full hull minus the man himself.
    *  The ship's spare room — shared with other petitioners bound for the
    *  same mission — is the real limit; the voyage-check bonus still caps

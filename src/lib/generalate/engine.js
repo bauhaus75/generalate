@@ -396,8 +396,16 @@ export function answerProvincialRequest(state, regionId, mix, earmarked = null) 
       state.europeanLabor = state.europeanLabor.filter((e) => e !== entry);
     }
     if (hqDest) {
-      const mst = missionStaff(state, hqDest);
-      mst[staffGrade] = (mst[staffGrade] || 0) + n[cat];
+      // Men travel by sea — they arrive after the voyage, not instantly.
+      const g = getGameData();
+      const dest = g ? (g.destinations || []).find((d) => d.id === hqDest) : null;
+      const travelYears = (dest && dest.travelYears) || 2;
+      if (!state.missionTransit) state.missionTransit = {};
+      if (!state.missionTransit[hqDest]) state.missionTransit[hqDest] = [];
+      state.missionTransit[hqDest].push({
+        arrivalYear: state.year + travelYears,
+        grades: { [staffGrade]: n[cat] },
+      });
     }
   }
   if (state.resources.funds < cost) {
@@ -2866,6 +2874,7 @@ export function newGame({ mode = 'campaign', seed = 'generalate', data = null } 
     },
     destState: initDestState(g.destinations),
     missions: initMissions(g.destinations), // per-mission staffing: {fathers, coadjutors, brothers, capacity}
+    missionTransit: {}, // destId -> [{arrivalYear, grades:{fathers,coadjutors,brothers}}] — men at sea
     novitiates: [],   // {destination, foundedYear} — houses of formation at missions
     europeanLabor: [], // men working in Europe: {petitionerId, name, year, via:'denied'|'returned'|'veteran'}
     pendingVows: [],
@@ -3856,6 +3865,28 @@ export function resolveYear(state) {
   const y = state.year;
   const statsBefore = { deaths: state.stats?.deaths || 0, illnesses: state.stats?.illnesses || 0 };
 
+  // 0. Mission transit arrivals: men sent in prior years reach their missions.
+  if (state.missionTransit) {
+    for (const destId of Object.keys(state.missionTransit)) {
+      const arrivals = state.missionTransit[destId] || [];
+      const arrived = arrivals.filter((t) => t.arrivalYear <= y);
+      const pending = arrivals.filter((t) => t.arrivalYear > y);
+      if (arrived.length) {
+        const mst = missionStaff(state, destId);
+        for (const t of arrived) {
+          for (const [grade, n] of Object.entries(t.grades || {})) {
+            mst[grade] = (mst[grade] || 0) + n;
+          }
+        }
+        const totalArrived = arrived.reduce((s, t) => s + Object.values(t.grades || {}).reduce((a, b) => a + b, 0), 0);
+        addLedger(state, { year: y, type: 'transit-arrival',
+          text: `${totalArrived} men arrive at ${(getGameData().destinations.find((d) => d.id === destId) || {}).name || destId}.` });
+      }
+      if (pending.length) state.missionTransit[destId] = pending;
+      else delete state.missionTransit[destId];
+    }
+  }
+
   // 1. Historical events fire on their dates and mutate destState.
   const eventsFired = [];
   for (const ev of g.events.filter((e) => e.year === y && !state.firedEvents.includes(e.id))) {
@@ -3909,7 +3940,16 @@ export function resolveYear(state) {
       // sails with fewer and the record says so.
       const comps = Math.min(q.companions || 0, rules.RESOURCES.COMPANION_MAX, avail - 1);
       const party = 1 + comps; // souls this retinue needs aboard
-      const cost = rules.RESOURCES.DEPARTURE_COST + comps * rules.RESOURCES.COMPANION_COST;
+      // Companion cost by grade (from the approved breakdown)
+      let compCost = 0;
+      const grades = q.companionGrades || {};
+      const gradeCost = rules.RESOURCES.COMPANION_GRADE_COST || {};
+      for (const [g, n] of Object.entries(grades)) {
+        compCost += (n || 0) * (gradeCost[g] || rules.RESOURCES.COMPANION_COST);
+      }
+      // Fallback: if no grade breakdown, use flat rate for the count
+      if (compCost === 0 && comps > 0) compCost = comps * rules.RESOURCES.COMPANION_COST;
+      const cost = rules.RESOURCES.DEPARTURE_COST + compCost;
       if (state.resources.funds < cost) {
         q.note = 'delayed: insufficient funds';
         idx += 1;
@@ -4579,6 +4619,7 @@ export function deserialize(obj) {
   if (!('currentYear' in state)) state.currentYear = null;
   if (!state.finance) state.finance = { income: {}, expenses: {} };
   if (!state.financeYears) state.financeYears = {};
+  if (!state.missionTransit) state.missionTransit = {};
   if (!('novitiates' in state)) state.novitiates = [];
   if (!state.missions || typeof state.missions !== 'object') state.missions = initMissions();
   else for (const id of Object.keys(state.missions)) missionStaff(state, id); // normalize shape

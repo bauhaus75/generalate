@@ -648,8 +648,8 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const availBefore = s.available;
   const upkeep = Object.keys(s.missions).reduce((n, id) => n + missionUpkeep(missionStaff(s, id)), 0);
   resolveYear(s); // departs: (60 + 2×40) + 60; yearly income 240; mission upkeep
-  ok('companions cost 40 each at departure',
-    s.resources.funds === fundsBefore - 200 + 240 - upkeep, `${s.resources.funds}`);
+  ok('companions cost by grade at departure (2 brothers × 50)',
+    s.resources.funds === fundsBefore - 220 + 240 - upkeep, `${s.resources.funds}`);
   ok('eligible pool loses the men and companions, gains 1% of intake',
     s.available === availBefore - 4 + 1, `${s.available}`);
   const v = s.voyages[0];

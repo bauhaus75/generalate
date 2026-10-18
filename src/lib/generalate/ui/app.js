@@ -189,15 +189,17 @@ function syncFooter() {
   let pendingSeal = 0, pendingComp = 0;
   try {
     const decisions = (app.ui && app.ui.decisions) || {};
+    const gradeCost = (app.Engine.RESOURCES && app.Engine.RESOURCES.COMPANION_GRADE_COST) || {};
+    const flatCost = (app.Engine.RESOURCES && app.Engine.RESOURCES.COMPANION_COST) || 40;
     for (const d of Object.values(decisions)) {
       if (d && d.verdict === 'approve') {
         pendingSeal += 30;
         const comps = d.companions;
         if (typeof comps === 'number' && comps > 0) {
-          pendingComp += comps * 40;
+          pendingComp += comps * flatCost;
         } else if (comps && typeof comps === 'object') {
-          for (const v of Object.values(comps)) {
-            if (typeof v === 'number' && v > 0) pendingComp += v * 40;
+          for (const [g, v] of Object.entries(comps)) {
+            if (typeof v === 'number' && v > 0) pendingComp += v * (gradeCost[g] || flatCost);
           }
         }
       }
@@ -276,6 +278,7 @@ function renderHeader() {
           <button class="gbtn small ghost" id="gh-d-map">Map</button>
           <button class="gbtn small ghost" id="gh-d-ledger">Ledger</button>
           <button class="gbtn small ghost" id="gh-d-treasury">Treasury</button>
+          <button class="gbtn small ghost" id="gh-d-logistics">Logistics</button>
         </div>
       </div>
       <div id="gh-inbox-panel" hidden>
@@ -303,6 +306,7 @@ function renderHeader() {
     drawerGo('#gh-d-map', () => app.go('map', { from: app.ui.screen }));
     drawerGo('#gh-d-ledger', () => Screens.showLedgerOverlay(app));
     drawerGo('#gh-d-treasury', () => app.go('treasury'));
+    drawerGo('#gh-d-logistics', () => app.go('logistics'));
     // Notification inbox
     const inboxPanel = h.querySelector('#gh-inbox-panel');
     const inboxList = h.querySelector('#gh-inbox-list');
@@ -549,12 +553,13 @@ app.go = function (screen, params = {}) {
     case 'missions': app.syncHeader(); Screens.renderMissions(app, r); break;
     case 'governance': app.syncHeader(); Screens.renderGovernance(app, r); break;
     case 'treasury': app.syncHeader(); Screens.renderTreasury(app, r); break;
+    case 'logistics': app.syncHeader(); Screens.renderLogistics(app, r); break;
     case 'decision': app.syncHeader(); Screens.renderDecision(app, r, app.ui.decision); break;
     case 'yearreport': app.syncHeader(); Screens.renderYearReport(app, r, app.ui.yearRes); break;
     case 'map': app.syncHeader(); Screens.renderMapScreen(app, r, params.from || app.ui.mapFrom); break;
     case 'ending': { const hh = document.getElementById('gheader'); if (hh) hh.style.display = 'none'; Screens.renderEnding(app, r, app.ui.end); break; }
   }
-  if (['briefing', 'desk', 'decision', 'yearreport', 'map', 'house', 'missions', 'governance', 'treasury', 'draft'].includes(screen)) app.save();
+  if (['briefing', 'desk', 'decision', 'yearreport', 'map', 'house', 'missions', 'governance', 'treasury', 'logistics', 'draft'].includes(screen)) app.save();
   // Energy gating: discretionary buttons go quiet at zero energy.
   try {
     const left = app.state ? (app.state.energy ?? Engine.ENERGY_PER_YEAR) : 0;

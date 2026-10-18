@@ -184,6 +184,204 @@ export function missionRequests(state) {
  * Costs scudi per grade and draws each man from the mission-eligible pool.
  * Invalid dispatches throw and change nothing.
  */
+// ---------------------------------------------------------------------------
+// Provincial manpower requests: each provincial may ask for men by grade —
+// professed, fathers, brothers. The General sends no men, agrees, or sends
+// his own mix. One pending request per province at a time.
+// ---------------------------------------------------------------------------
+
+/** Request grade categories (the General's words). */
+export const REQUEST_GRADES = ['professed', 'fathers', 'brothers'];
+
+/** Map a request grade to the mission-staffing bucket it fills. */
+function requestGradeToStaffGrade(cat) {
+  return cat === 'professed' ? 'fathers' : cat === 'fathers' ? 'coadjutors' : 'brothers';
+}
+
+/** Does a European labor entry count for a request grade? */
+function entryMatchesRequestGrade(state, entry, cat) {
+  const id = entry.petitionerId;
+  if (cat === 'brothers') return staffGradeFor(state, id) === 'brothers';
+  if (cat === 'professed') return isProfessedPriest(state, id);
+  return staffGradeFor(state, id) === 'fathers' && !isProfessedPriest(state, id);
+}
+
+/** European labor entries available for a request grade (not ill, free). */
+export function requestGradePool(state, cat) {
+  return (state.europeanLabor || []).filter((e) =>
+    !e.ill && !e.assignment && !(e.formation && e.formation.until > state.year)
+    && entryMatchesRequestGrade(state, e, cat));
+}
+
+/** How many men in Europe can fill a request grade (for the UI). */
+export function requestGradeAvailable(state, cat) {
+  return requestGradePool(state, cat).length;
+}
+
+/** Region ids with a pending manpower request. */
+export function provincesWithRequests(state) {
+  return Object.keys(state.provincialRequests || {}).filter((rid) => state.provincialRequests[rid]);
+}
+
+/**
+ * Each provincial may issue a manpower request. Seeded; roughly two in three
+ * provinces ask per year; one pending request per province at a time.
+ * Deliberately sometimes conflicts with the Society's other needs.
+ */
+export function generateProvincialRequests(state, y) {
+  if (!state.provincialRequests) state.provincialRequests = {};
+  if (!state.provincials) return;
+  for (const r of PROVINCIAL_REGIONS) {
+    const prov = state.provincials[r.id];
+    if (!prov || prov.vacant) continue;
+    if (state.provincialRequests[r.id]) continue;
+    const rng = streamFor(state, 'prov-request', r.id, String(y));
+    if (!rng.chance(0.65)) continue;
+    const req = {
+      regionId: r.id, year: y,
+      professed: rng.int(0, 2),
+      fathers: rng.int(1, 3),
+      brothers: rng.int(0, 2),
+    };
+    if (!req.professed && !req.fathers && !req.brothers) req.fathers = 1;
+    state.provincialRequests[r.id] = req;
+  }
+}
+
+/**
+ * Answer a provincial's manpower request.
+ * mix: { professed, fathers, brothers } — the numbers to send. All zeros =
+ * "send no men". Must not exceed the available pool per grade.
+ * The men leave Europe for the province; the chest pays passage.
+ */
+export function answerProvincialRequest(state, regionId, mix) {
+  const req = (state.provincialRequests || {})[regionId];
+  if (!req) throw new Error(`answerProvincialRequest: no pending request for "${regionId}".`);
+  const prov = (state.provincials || {})[regionId];
+  if (!prov || prov.vacant) throw new Error(`answerProvincialRequest: no provincial for "${regionId}".`);
+  const n = {};
+  let total = 0;
+  for (const cat of REQUEST_GRADES) {
+    const v = mix[cat] ?? 0;
+    if (!Number.isInteger(v) || v < 0) throw new Error(`answerProvincialRequest: "${cat}" must be a whole number ≥ 0.`);
+    const pool = requestGradePool(state, cat);
+    if (v > pool.length) throw new Error(`answerProvincialRequest: only ${pool.length} ${cat} available in Europe.`);
+    n[cat] = v;
+    total += v;
+  }
+  const region = PROVINCIAL_REGIONS.find((r) => r.id === regionId);
+  const hq = prov.hq || (state.provinceHQs || {})[regionId];
+  const g = ensureData();
+  const hqDest = hq && g.destinations.some((d) => d.id === hq) ? hq : null;
+
+  if (total === 0) {
+    delete state.provincialRequests[regionId];
+    addLedger(state, { year: state.year, type: 'provincial-request', decision: 'declined',
+      text: `${prov.name} (${region ? region.name : regionId}) asked for men; the General sends none.` });
+    return { sent: 0, cost: 0 };
+  }
+
+  let cost = 0;
+  for (const cat of REQUEST_GRADES) {
+    const pool = requestGradePool(state, cat).slice(0, n[cat]);
+    const staffGrade = requestGradeToStaffGrade(cat);
+    cost += n[cat] * rules.MISSION_GRADES[staffGrade].cost;
+    for (const entry of pool) {
+      state.europeanLabor = state.europeanLabor.filter((e) => e !== entry);
+    }
+    if (hqDest) {
+      const mst = missionStaff(state, hqDest);
+      mst[staffGrade] = (mst[staffGrade] || 0) + n[cat];
+    }
+  }
+  if (state.resources.funds < cost) {
+    throw new Error(`answerProvincialRequest: ${cost} scudi needed, the chest holds ${state.resources.funds}.`);
+  }
+  spendFunds(state, cost, 'provincial-requests');
+  state.available = Math.max(0, (state.available || 0) - total);
+
+  delete state.provincialRequests[regionId];
+  const parts = REQUEST_GRADES.filter((c) => n[c] > 0).map((c) => `${n[c]} ${c}`);
+  addLedger(state, { year: state.year, type: 'provincial-request', decision: 'answered',
+    text: `${prov.name} (${region ? region.name : regionId}) asked for men; the General sends ${parts.join(', ')} — ${cost} scudi.` });
+  return { sent: total, cost };
+}
+
+// ---------------------------------------------------------------------------
+// The General's energy: 5 points per year, no rollover. Judgment (indipetae,
+// closing the year, answering requests) is free; deliberate interventions cost.
+// ---------------------------------------------------------------------------
+
+export const ENERGY_PER_YEAR = 5;
+
+/** Spend energy; throws if the General has none left. */
+export function spendEnergy(state, n = 1, action = 'act') {
+  const have = state.energy ?? ENERGY_PER_YEAR;
+  if (have < n) throw new Error(`The General has no energy left for ${action} this year.`);
+  state.energy = have - n;
+}
+
+/** Reset the year's energy (called when the year turns). */
+export function resetEnergy(state) {
+  state.energy = ENERGY_PER_YEAR;
+  state.questionsAsked = 0;
+}
+
+// ---------------------------------------------------------------------------
+// Asking a provincial: 3 questions per year across all provinces. Each costs
+// 1 energy. Returns the man's petitionerId; the UI renders his dossier.
+// ---------------------------------------------------------------------------
+
+export const QUESTIONS_PER_YEAR = 3;
+
+/**
+ * Ask a provincial about one of his men. The man must serve in that province.
+ * Limited: 3 questions per year, 1 energy each.
+ */
+export function askProvincial(state, regionId, petitionerId) {
+  const prov = (state.provincials || {})[regionId];
+  if (!prov || prov.vacant) throw new Error(`askProvincial: no provincial for "${regionId}".`);
+  if ((state.questionsAsked || 0) >= QUESTIONS_PER_YEAR) {
+    throw new Error('askProvincial: the provincials have answered three questions this year.');
+  }
+  if (provinceOfMan(state, petitionerId) !== regionId) {
+    throw new Error('askProvincial: he does not serve in that province.');
+  }
+  spendEnergy(state, 1, 'asking a provincial');
+  state.questionsAsked = (state.questionsAsked || 0) + 1;
+  return { petitionerId, regionId, questionsLeft: QUESTIONS_PER_YEAR - state.questionsAsked };
+}
+
+// ---------------------------------------------------------------------------
+// Treasury: every movement of scudi is logged by category for the Treasury tab.
+// ---------------------------------------------------------------------------
+
+/** Log a funds movement: { income: {cat: amt}, expenses: {cat: amt} }, lifetime + per-year. */
+function logFunds(state, dir, category, amount) {
+  if (!amount) return;
+  if (!state.finance) state.finance = { income: {}, expenses: {} };
+  const book = dir === 'in' ? state.finance.income : state.finance.expenses;
+  book[category] = (book[category] || 0) + amount;
+  if (!state.financeYears) state.financeYears = {};
+  const y = state.financeYears[state.year] || (state.financeYears[state.year] = { income: {}, expenses: {} });
+  const ybook = dir === 'in' ? y.income : y.expenses;
+  ybook[category] = (ybook[category] || 0) + amount;
+}
+
+/** Spend scudi, logged under a category. */
+export function spendFunds(state, amount, category) {
+  if (amount < 0) throw new Error('spendFunds: negative amount.');
+  state.resources.funds -= amount;
+  logFunds(state, 'out', category, amount);
+}
+
+/** Gain scudi, logged under a category. */
+export function gainFunds(state, amount, category) {
+  if (amount < 0) throw new Error('gainFunds: negative amount.');
+  state.resources.funds += amount;
+  logFunds(state, 'in', category, amount);
+}
+
 export function dispatchMission(state, destId, counts = {}) {
   const g = ensureData();
   const dest = g.destinations.find((d) => d.id === destId);
@@ -207,8 +405,9 @@ export function dispatchMission(state, destId, counts = {}) {
   if ((state.available || 0) < total) {
     throw new Error(`dispatchMission: only ${state.available || 0} men can be spared`);
   }
-  state.resources.funds -= cost;
+  spendFunds(state, cost, 'dispatches');
   state.available -= total;
+  spendEnergy(state, 1, 'dispatching men');
   const st = missionStaff(state, destId);
   for (const gid of rules.MISSION_GRADE_IDS) st[gid] += n[gid];
   // Report-card instrumentation (additive only): record mission-strengthening
@@ -749,6 +948,91 @@ function advanceAgeInReligion(state, years = 1, { honorDeferral = true } = {}) {
 }
 
 
+// ---------------------------------------------------------------------------
+// Mortality: every man carries a hidden death age (65-70); the ill may
+// recover or worsen each year. Invisible to the General.
+// ---------------------------------------------------------------------------
+
+/** Seed a man's hidden death age and his current age. */
+function initMortality(state, petitionerId) {
+  const rec = (state.petitioners || {})[petitionerId];
+  if (!rec || typeof rec.deathAge === 'number') return;
+  const g = getGameData();
+  const pet = g ? (g.petitioners || []).find((p) => p.id === petitionerId) : null;
+  const age = typeof rec.age === 'number' ? rec.age
+    : (pet && typeof pet.age === 'number') ? pet.age : 30;
+  rec.age = age;
+  const roll = 65 + streamFor(state, 'deathAge', petitionerId).int(0, 5);
+  rec.deathAge = Math.max(age + 1, roll); // never instant death at seeding
+}
+
+/** Record a non-voyage death (old age, illness). */
+function dieOf(state, petitionerId, cause, text) {
+  const rec = (state.petitioners || {})[petitionerId];
+  if (!rec || rec.status === STATUS.DECEASED) return;
+  const g = getGameData();
+  const pet = g ? (g.petitioners || []).find((p) => p.id === petitionerId) : null;
+  const name = rec.name || (pet && pet.name) || petitionerId;
+  rec.status = STATUS.DECEASED;
+  purgeVowsState(state, petitionerId);
+  if (Array.isArray(state.europeanLabor)) {
+    state.europeanLabor = state.europeanLabor.filter((e) => e.petitionerId !== petitionerId);
+  }
+  state.stats.deaths = (state.stats.deaths || 0) + 1;
+  state.society = Math.max(0, (state.society || 0) - 1);
+  // Release his stationed strength if he died in the field.
+  for (const v of state.voyages || []) {
+    if (v.petitionerId === petitionerId && v.outcome === 'thriving' && !v.veteranReturned && v.staffGrade) {
+      const mst = missionStaff(state, v.destination);
+      mst[v.staffGrade] = Math.max(0, (mst[v.staffGrade] || 0) - 1);
+      if (v.staffCompanions) mst.brothers = Math.max(0, (mst.brothers || 0) - v.staffCompanions);
+      v.veteranReturned = true;
+    }
+  }
+  addLedger(state, { year: state.year, type: 'death', decision: cause, petitionerId,
+    text: `${name}: ${text}` });
+  recordHistory(state, petitionerId, { kind: 'formation', event: 'death', text });
+  // a provincial who dies leaves his region vacant
+  for (const [rid, prov] of Object.entries(state.provincials || {})) {
+    if (prov && !prov.vacant && prov.petitionerId === petitionerId) {
+      const region = (PROVINCIAL_REGIONS.find((r) => r.id === rid) || {}).name || rid;
+      state.provincials[rid] = { vacant: true, name: 'Vacant', appointedYear: state.year, hq: prov.hq };
+      addLedger(state, { year: state.year, type: 'provincial', decision: 'died',
+        text: `The provincial of ${region} has died; name a successor.` });
+    }
+  }
+}
+
+/**
+ * Yearly mortality step: men age; the ill recover (1-3), linger (4-5), or
+ * die (6) on 1d6; those who reach their hidden death age die of old age.
+ */
+function advanceMortality(state, years = 1) {
+  for (let n = 0; n < years; n++) {
+    for (const id of Object.keys(state.petitioners || {})) {
+      const rec = state.petitioners[id];
+      if (!rec || rec.status === STATUS.DISMISSED || rec.status === STATUS.DECEASED) continue;
+      initMortality(state, id);
+      rec.age += 1;
+      const labor = (state.europeanLabor || []).find((e) => e.petitionerId === id);
+      if (labor && labor.ill) {
+        const r = streamFor(state, 'illness', id, String(state.year)).int(1, 6);
+        if (r <= 3) {
+          labor.ill = false;
+          recordHistory(state, id, { kind: 'formation', event: 'recovered',
+            text: 'Recovers from his illness and may labor again.' });
+        } else if (r === 6) {
+          dieOf(state, id, 'illness', 'Succumbs to his illness in Europe.');
+          continue;
+        }
+      }
+      if (rec.age >= rec.deathAge) {
+        dieOf(state, id, 'old age', `Dies of old age at ${rec.age}.`);
+      }
+    }
+  }
+}
+
 /**
  * Ordain an eligible scholastic as a priest. The General's decision, not automatic.
  * Sets an override so staffGradeFor returns 'fathers'. Cannot be undone.
@@ -757,6 +1041,7 @@ export function ordainPriest(state, petitionerId) {
   if (!ordinationEligible(state, petitionerId)) {
     throw new Error('Ordination requires an eligible scholastic (12+ years in the Society).');
   }
+  spendEnergy(state, 1, 'ordaining a priest');
   const entry = (state.europeanLabor || []).find((e) => e.petitionerId === petitionerId);
   const name = entry ? entry.name : petitionerId;
   const rec = ensureRecord(state, petitionerId, false);
@@ -875,7 +1160,8 @@ export function assignFormation(state, petitionerId, focusId) {
   const entry = (state.europeanLabor || []).find((e) => e.petitionerId === petitionerId);
   if (!entry) throw new Error('Formation is for men laboring in Europe.');
   if (entry.formation && entry.formation.until >= state.year) {
-    throw new Error(`${entry.name} is already in formation until ${entry.formation.until}.`);
+    throw new Error(`${entry.name} is already in formation until
+  spendEnergy(state, 1, 'assigning formation'); ${entry.formation.until}.`);
   }
   if (entry.assignment) {
     throw new Error(`${entry.name} holds a domestic assignment (${entry.assignment}); release him first or interrupt it explicitly.`);
@@ -886,7 +1172,7 @@ export function assignFormation(state, petitionerId, focusId) {
   if (state.resources.funds < cost) {
     throw new Error(`The mission chest cannot bear the formation cost (${cost} scudi).`);
   }
-  state.resources.funds -= cost;
+  spendFunds(state, cost, 'formation');
   entry.formation = { focus: focusId, until: state.year + 1 };
   ensureDisposition(state, petitionerId);
   addLedger(state, {
@@ -989,7 +1275,7 @@ export function dispatchFromFormation(state, petitionerId, destId) {
   entry.formation = null;
   // Remove from European labor; he is now at the mission.
   state.europeanLabor = state.europeanLabor.filter((e) => e.petitionerId !== petitionerId);
-  state.resources.funds -= cost;
+  spendFunds(state, cost, 'dispatches');
   const st = missionStaff(state, destId);
   st[grade] += 1;
   // Mark the petitioner record as active overseas.
@@ -1031,7 +1317,7 @@ export function dispatchFromEurope(state, petitionerId, destId) {
     throw new Error(`dispatchFromEurope: ${cost} scudi needed, the chest holds ${state.resources.funds}`);
   }
   state.europeanLabor = state.europeanLabor.filter((e) => e.petitionerId !== petitionerId);
-  state.resources.funds -= cost;
+  spendFunds(state, cost, 'dispatches');
   const st = missionStaff(state, destId);
   st[grade] += 1;
   const rec = ensureRecord(state, petitionerId, false);
@@ -1325,7 +1611,8 @@ export function issueInstruction(state, destId, typeId) {
   const dest = g.destinations.find((d) => d.id === destId);
   if (!dest) throw new Error(`issueInstruction: unknown destination "${destId}"`);
   const dst = state.destState[destId];
-  if (dst && dst.access === 'closed') throw new Error(`issueInstruction: ${dest.name || destId} is closed`);
+  if (dst && dst.access === 'closed') throw new Error
+  spendEnergy(state, 1, 'issuing an instruction');(`issueInstruction: ${dest.name || destId} is closed`);
   if (!state.instructions) state.instructions = {};
   if (state.instructions[destId] && state.instructions[destId].status === 'in-transit') {
     throw new Error(`An instruction to ${dest.name || destId} is already in transit.`);
@@ -1478,7 +1765,7 @@ export function provinceOfMan(state, petitionerId) {
   const g = getGameData();
   const loc = currentLocation(state, g, petitionerId);
   if (!loc || loc === 'Europe') return 'europe';
-  const dest = g ? (g.destinations || []).find((d) => d.id === loc) : null;
+  const dest = g ? (g.destinations || []).find((d) => d.id === loc || d.name === loc) : null;
   const dr = dest && dest.region;
   return DEST_REGION_TO_PROVINCE[dr] || 'europe';
 }
@@ -1495,6 +1782,7 @@ export function openDestinations(state) {
 export function chooseProvinceHQ(state, regionId, destId) {
   const region = PROVINCIAL_REGIONS.find((r) => r.id === regionId);
   if (!region) throw new Error(`chooseProvinceHQ: unknown region "${regionId}".`);
+  if (regionId === 'europe') throw new Error('chooseProvinceHQ: the European provincial resides at Rome.');
   if (!openDestinations(state).some((d) => d.id === destId)) {
     throw new Error(`chooseProvinceHQ: "${destId}" is not an open destination.`);
   }
@@ -1525,8 +1813,10 @@ export function chooseProvinceHQ(state, regionId, destId) {
 export function beginProvincialReplacement(state, regionId) {
   const prov = (state.provincials || {})[regionId];
   if (!prov) throw new Error(`beginProvincialReplacement: no provincial for "${regionId}".`);
+  if (!prov.vacant) spendEnergy(state, 1, 'naming a successor'); // a vacant see is duty, not discretion
   const region = PROVINCIAL_REGIONS.find((r) => r.id === regionId);
-  const pool = professedPriests(state).filter((p) => p.petitionerId !== prov.petitionerId);
+  const incumbentId = prov.vacant ? null : (prov.petitionerId || prov.id);
+  const pool = professedPriests(state).filter((p) => p.petitionerId !== incumbentId);
   const byProv = {};
   for (const p of pool) {
     const pv = provinceOfMan(state, p.petitionerId);
@@ -1543,9 +1833,8 @@ export function beginProvincialReplacement(state, regionId) {
     if (candidates.length >= 3) break;
   }
   if (!state.provincialTernas) state.provincialTernas = {};
-  state.provincialTernas[regionId] = { year: state.year, candidates,
-    incumbent: prov.petitionerId || prov.id };
-  return { region, incumbent: prov, candidates };
+  state.provincialTernas[regionId] = { year: state.year, candidates, incumbent: incumbentId };
+  return { region, incumbent: prov.vacant ? null : prov, candidates };
 }
 
 /**
@@ -2306,6 +2595,9 @@ export function newGame({ mode = 'campaign', seed = 'generalate', data = null } 
     endlessRngState: endlessRng.getState(),
   };
   state.draft = makeProvincialDraft(state);
+  state.energy = ENERGY_PER_YEAR;
+  state.questionsAsked = 0;
+  state.provinceHQs = { europe: 'Rome' }; // the European provincial resides at Rome
   return state;
 }
 
@@ -2660,14 +2952,9 @@ export function decide(state, approvals) {
     return { card, destination, companions };
   });
 
-  // The seal is not free: each approval draws on the mission chest.
-  // Denials are free. (Checked after validation so invalid input never moves money.)
-  const sealCost = normalized.length * rules.RESOURCES.APPROVAL_COST;
-  if (state.resources.funds < sealCost) {
-    throw new Error(
-      `The mission chest cannot bear this seal: ${sealCost} scudi required, ${state.resources.funds} in hand.`);
-  }
-  state.resources.funds -= sealCost;
+  // The seal is free: responding to the indipetae costs the General nothing.
+  // (Sailing men still draws on the mission chest at departure.)
+  const sealCost = 0;
 
   // Mark featured letters as used (denied petitioners will bring a new letter next time).
   // A letter dated after the current year is shown early and does not consume the "unused" slot.
@@ -2804,7 +3091,7 @@ export function decide(state, approvals) {
     detail:
       `${denied.length ? denied.map((d) => d.name).join(' and ') + (denied.length > 1 ? ' are' : ' is') + ' denied and may petition again. ' : ''}` +
       `The approved enter the departure queue; sailing depends on free hulls, berths, and the mission chest. ` +
-      `The seal costs ${sealCost} scudi (${approved.length} approval${approved.length === 1 ? '' : 's'} × 30). Denials are free.`,
+      `The seal costs nothing.`,
   };
   const result = { approved, denied, teams: report.teams, report, scoreDelta: state.score - scoreBefore };
   if (state.currentYear) {
@@ -2826,6 +3113,7 @@ export function decide(state, approvals) {
  * @returns {{berthsPerYear:number, funds:number, cost:number}}
  */
 export function expandBerths(state) {
+  spendEnergy(state, 1, 'expanding berths');
   if (state.currentTerna) {
     throw new Error('Finish deciding on the current terna first.');
   }
@@ -2833,7 +3121,7 @@ export function expandBerths(state) {
   if (state.resources.funds < cost) {
     throw new Error(`Insufficient funds: need ${cost} ducats, have ${state.resources.funds}.`);
   }
-  state.resources.funds -= cost;
+  spendFunds(state, cost, 'berths');
   state.resources.berthsPerYear += rules.RESOURCES.BERTH_EXPANSION_AMOUNT;
   addLedger(state, {
     year: state.year, type: 'expansion',
@@ -2854,6 +3142,7 @@ export function expandBerths(state) {
  * @returns {{ship:{id:string,name:string}, ships:number, funds:number, cost:number}}
  */
 export function charterShip(state) {
+  spendEnergy(state, 1, 'chartering a ship');
   if (state.currentTerna) {
     throw new Error('Finish deciding on the current terna first.');
   }
@@ -2862,7 +3151,7 @@ export function charterShip(state) {
   if (state.resources.funds < cost) {
     throw new Error(`Insufficient funds: need ${cost} ducats, have ${state.resources.funds}.`);
   }
-  state.resources.funds -= cost;
+  spendFunds(state, cost, 'ships');
   const used = new Set(state.resources.ships.map((s) => s.name));
   const name = rules.RESOURCES.SPARE_SHIP_NAMES.find((n) => !used.has(n))
     || `Chartered hull ${state.resources.ships.length + 1}`;
@@ -2903,7 +3192,7 @@ export function foundNovitiate(state, destinationId) {
   if (state.resources.funds < cost) {
     throw new Error(`The mission chest holds ${state.resources.funds} scudi; a novitiate requires ${cost}.`);
   }
-  state.resources.funds -= cost;
+  spendFunds(state, cost, 'novitiates');
   if (!state.destState[destinationId]) state.destState[destinationId] = { danger: 1, access: 'open' };
   const st = state.destState[destinationId];
   st.danger = Math.max(0, (st.danger ?? dest.danger ?? 1) - 1);
@@ -3014,6 +3303,71 @@ function archiveVoyages(state) {
  * @param {object} state
  * @returns {{outcomes:object[], eventsFired:object[], yearReport:object, score:number}}
  */
+// ---------------------------------------------------------------------------
+// State of the Society: a yearly report stored in the ledger. Four parts —
+// the condition of the body, the consequences of decisions, the condition of
+// governance, the burden of stewardship. A report, not a score.
+// ---------------------------------------------------------------------------
+
+/** Build and store the year's state-of-the-Society report. */
+export function buildSocietyReport(state, y, outcomes, statsBefore) {
+  const deaths = (state.stats?.deaths || 0) - (statsBefore.deaths || 0);
+  const illnesses = (state.stats?.illnesses || 0) - (statsBefore.illnesses || 0);
+  const voyageOutcomes = {};
+  for (const o of outcomes || []) {
+    if (o && o.outcome) voyageOutcomes[o.outcome] = (voyageOutcomes[o.outcome] || 0) + 1;
+  }
+  const inTransit = (state.voyages || []).filter((v) => v.stage === 'transit').length;
+  const awaiting = (state.queue || []).length;
+  const inEurope = (state.europeanLabor || []).length;
+  const inFormation = (state.europeanLabor || []).filter((e) => e.formation && e.formation.until > y).length;
+  let stationed = 0;
+  for (const d of (getGameData()?.destinations || [])) {
+    const mst = missionStaff(state, d.id);
+    stationed += (mst.fathers || 0) + (mst.coadjutors || 0) + (mst.brothers || 0);
+  }
+  const reqLedger = (state.ledger || []).filter((e) => e.year === y && e.type === 'provincial-request');
+  const answered = reqLedger.filter((e) => e.decision === 'answered').length;
+  const declined = reqLedger.filter((e) => e.decision === 'declined').length;
+  const pendingReqs = Object.keys(state.provincialRequests || {}).length;
+  const vacantSees = PROVINCIAL_REGIONS.filter((r) => state.provincials?.[r.id]?.vacant).length;
+  const successions = (state.ledger || []).filter((e) => e.year === y && e.type === 'provincial'
+    && /take office|has died/.test(e.text || '')).length;
+  const fin = (state.financeYears || {})[y] || { income: {}, expenses: {} };
+  const sum = (o) => Object.values(o || {}).reduce((a, b) => a + b, 0);
+
+  const lines = [
+    `The Society numbers ${state.society || 0} souls; ${state.available || 0} men can be spared for the missions.`,
+    `${inEurope} labor in Europe (${inFormation} in formation); ${stationed} stand at the missions; ${inTransit} are at sea and ${awaiting} await passage.`,
+  ];
+  const cons = [];
+  if (voyageOutcomes.thriving) cons.push(`${voyageOutcomes.thriving} reached their missions`);
+  if (voyageOutcomes.returned) cons.push(`${voyageOutcomes.returned} turned back`);
+  if (voyageOutcomes.ill) cons.push(`${voyageOutcomes.ill} came home ill`);
+  if (deaths) cons.push(`${deaths} died`);
+  if (illnesses) cons.push(`${illnesses} fell ill`);
+  lines.push(cons.length ? `This year's voyages: ${cons.join('; ')}.` : 'No voyages resolved this year.');
+  const gov = [];
+  if (answered) gov.push(`${answered} provincial request${answered === 1 ? '' : 's'} answered`);
+  if (declined) gov.push(`${declined} declined`);
+  if (pendingReqs) gov.push(`${pendingReqs} awaiting answer`);
+  if (successions) gov.push(`${successions} provincial succession${successions === 1 ? '' : 's'}`);
+  if (vacantSees) gov.push(`${vacantSees} see${vacantSees === 1 ? '' : 's'} vacant`);
+  lines.push(gov.length ? `Governance: ${gov.join('; ')}.` : 'Governance: quiet.');
+  lines.push(`The chest took in ${sum(fin.income)} scudi and paid out ${sum(fin.expenses)}; ${state.resources?.funds || 0} remain.`);
+
+  const report = {
+    year: y, type: 'society-report',
+    text: `State of the Society, anno ${y}: ${lines.join(' ')}`,
+    detail: { deaths, illnesses, voyageOutcomes, inTransit, awaiting, inEurope, inFormation,
+      stationed, answered, declined, pendingReqs, vacantSees, successions,
+      income: fin.income, expenses: fin.expenses, funds: state.resources?.funds || 0,
+      score: state.score },
+  };
+  addLedger(state, { year: y, type: 'society-report', text: report.text, detail: report.detail });
+  return report;
+}
+
 export function resolveYear(state) {
   if (state.currentTerna) {
     throw new Error('An undecided terna is pending.');
@@ -3022,6 +3376,7 @@ export function resolveYear(state) {
   const g = ensureData();
   const rng = mainRng(state);
   const y = state.year;
+  const statsBefore = { deaths: state.stats?.deaths || 0, illnesses: state.stats?.illnesses || 0 };
 
   // 1. Historical events fire on their dates and mutate destState.
   const eventsFired = [];
@@ -3094,7 +3449,7 @@ export function resolveYear(state) {
         }
         ship.used = 0;
       }
-      state.resources.funds -= cost;
+      spendFunds(state, cost, 'voyages');
       // The man and his companions leave the mission-eligible pool.
       state.available = avail - (1 + comps);
       if (comps < (q.companions || 0)) q.spareShortfall = (q.companions || 0) - comps;
@@ -3252,6 +3607,11 @@ export function resolveYear(state) {
   // to voyage checks for a few years — and scores for the fruit of testimony.
   // Isolated stream per voyage: unrelated rolls never perturb a homecoming.
   for (const v of state.voyages.filter((v) => v.outcome === 'thriving' && !v.veteranReturned)) {
+    const vrec = (state.petitioners || {})[v.petitionerId];
+    if (vrec && (vrec.status === STATUS.DECEASED || vrec.status === STATUS.DISMISSED)) {
+      v.veteranReturned = true; // he died or left in the field; no homecoming
+      continue;
+    }
     const yearsServed = y - (v.resolvedYear ?? v.arriveYear);
     if (yearsServed < rules.VETERAN.MIN_YEARS) continue;
     // Include the year in the stream label: a fresh stream per call would
@@ -3302,11 +3662,11 @@ export function resolveYear(state) {
   }
 
   // 4. Resources: yearly income, Society intake, and each operating novitiate bears fruit.
-  state.resources.funds += rules.RESOURCES.YEARLY_INCOME;
+  gainFunds(state, rules.RESOURCES.YEARLY_INCOME, 'subsidy');
   // Domestic assignments contribute to the chest.
   const domesticFunds = domesticYearlyFunds(state);
   if (domesticFunds > 0) {
-    state.resources.funds += domesticFunds;
+    gainFunds(state, domesticFunds, 'domestic');
     state.ledger.unshift({
       seq: ++state.seq.ledger, year: y, type: 'domestic',
       text: `Domestic service contributed ${domesticFunds} scudi to the chest.`,
@@ -3326,7 +3686,7 @@ export function resolveYear(state) {
   for (const id of Object.keys(state.missions || {})) upkeep += missionUpkeep(missionStaff(state, id));
   if (upkeep > 0) {
     const paid = Math.min(upkeep, state.resources.funds);
-    state.resources.funds -= paid;
+    spendFunds(state, paid, 'upkeep');
     state.ledger.unshift({
       seq: ++state.seq.ledger, year: y, type: 'upkeep',
       text: paid >= upkeep
@@ -3377,7 +3737,7 @@ export function resolveYear(state) {
   resolveInstructions(state, y);
 
   // Provincial reports: autonomous reports from actual mission conditions.
-  generateReports(state, y);
+  generateProvincialRequests(state, y);
 
   // Novitiate vocations.
   resolveVocations(state, y);
@@ -3386,6 +3746,10 @@ export function resolveYear(state) {
 
   // Year-advance: total years +1 for every member; ageInReligion +1 unless deferred.
   advanceAgeInReligion(state, 1);
+  // Mortality: aging, illness, old age.
+  advanceMortality(state, 1);
+  resetEnergy(state);
+  buildSocietyReport(state, y, outcomes, statsBefore);
   state.year = y + 1;
   if (state.mode === 'campaign' && state.year > CAMPAIGN_END) state.ended = true;
   if (state.mode === 'endless' && state.year > CAMPAIGN_END && !state.diverged) {
@@ -3791,7 +4155,10 @@ export function deserialize(obj) {
 /** Jump the game clock (debug). */
 export function dbgJumpYear(state, y) {
   if (!Number.isInteger(y)) throw new Error('dbgJumpYear: year must be an integer');
-  if (typeof state.year === 'number' && y !== state.year) advanceAgeInReligion(state, y - state.year, { honorDeferral: false });
+  if (typeof state.year === 'number' && y !== state.year) {
+    advanceAgeInReligion(state, y - state.year, { honorDeferral: false });
+    advanceMortality(state, y - state.year);
+  }
   state.year = y;
   state.currentYear = null;
   return state.year;

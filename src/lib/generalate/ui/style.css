@@ -421,7 +421,10 @@ body > .debug-panel .debug-json {
 @media (max-width: 640px) {
   #generalate-app .brief-grid { grid-template-columns: 1fr; }
   #generalate-app .gh-bar { width: 5.5rem; }
-  #generalate-app .review-bar { margin: 1.5rem -1.25rem -4rem; }
+  #generalate-app .review-bar { margin: 0; flex-direction: column; align-items: stretch; padding: 0.75rem 1rem; }
+  #generalate-app .review-actions { width: 100%; }
+  #generalate-app .review-actions .gbtn { width: 100%; }
+  #generalate-app .desk-screen { padding-bottom: 10rem; }
   body > .overlay .dossier-list { grid-template-columns: 1fr 1fr; }
   body > .overlay .lrow { grid-template-columns: 2.6rem 4.5rem 1fr; }
   body > .overlay .lrow .delta { display: none; }

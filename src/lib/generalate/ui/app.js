@@ -147,6 +147,7 @@ function renderHeader() {
     h.querySelector('#gh-governance').addEventListener('click', () => { app.sound('page'); app.go('governance'); });
     h.querySelector('#gh-map').addEventListener('click', () => { app.sound('page'); app.go('map', { from: app.ui.screen }); });
     h.querySelector('#gh-ledger').addEventListener('click', () => Screens.showLedgerOverlay(app));
+    h.querySelector('#gh-treasury').addEventListener('click', () => { app.sound('page'); app.go('treasury'); });
     h.querySelector('#gh-sound').addEventListener('click', (e) => {
       app.muted = !app.muted;
       localStorage.setItem(MUTE_KEY, app.muted ? '1' : '0');
@@ -178,7 +179,8 @@ app.syncHeader = function () {
     if (indB) indB.hidden = !(cy && !cy.decided && (cy.terna || []).length);
     const govB = h.querySelector('#gh-badge-governance');
     if (govB) {
-      const n = Engine.pendingReports ? Engine.pendingReports(app.state).length : 0;
+      let n = 0;
+      try { n = Engine.provincesWithRequests ? Engine.provincesWithRequests(app.state).length : 0; } catch (e) { n = 0; }
       govB.hidden = !n;
       govB.textContent = n > 9 ? '9+' : String(n);
     }
@@ -280,12 +282,23 @@ app.go = function (screen, params = {}) {
     case 'house': app.syncHeader(); Screens.renderHouse(app, r); break;
     case 'missions': app.syncHeader(); Screens.renderMissions(app, r); break;
     case 'governance': app.syncHeader(); Screens.renderGovernance(app, r); break;
+    case 'treasury': app.syncHeader(); Screens.renderTreasury(app, r); break;
     case 'decision': app.syncHeader(); Screens.renderDecision(app, r, app.ui.decision); break;
     case 'yearreport': app.syncHeader(); Screens.renderYearReport(app, r, app.ui.yearRes); break;
     case 'map': app.syncHeader(); Screens.renderMapScreen(app, r, params.from || app.ui.mapFrom); break;
     case 'ending': { const hh = document.getElementById('gheader'); if (hh) hh.style.display = 'none'; Screens.renderEnding(app, r, app.ui.end); break; }
   }
-  if (['briefing', 'desk', 'decision', 'yearreport', 'map', 'house', 'missions', 'governance', 'draft'].includes(screen)) app.save();
+  if (['briefing', 'desk', 'decision', 'yearreport', 'map', 'house', 'missions', 'governance', 'treasury', 'draft'].includes(screen)) app.save();
+  // Energy gating: discretionary buttons go quiet at zero energy.
+  try {
+    const left = app.state ? (app.state.energy ?? Engine.ENERGY_PER_YEAR) : 0;
+    if (left <= 0) {
+      r.querySelectorAll('[data-energy]').forEach((b) => {
+        b.disabled = true;
+        b.title = (b.title ? b.title + ' ' : '') + '(No energy left this year.)';
+      });
+    }
+  } catch (e) { /* garnish */ }
 };
 
 app.newGame = function (mode, seed) {

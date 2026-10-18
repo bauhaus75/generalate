@@ -92,7 +92,7 @@ export function streamFor(state, ...parts) {
 
 function initDestState(destinations) {
   const ds = {};
-  for (const d of destinations) ds[d.id] = { danger: 1, access: 'open' };
+  for (const d of destinations) ds[d.id] = { danger: 1, access: d.frontier ? 'closed' : 'open' };
   return ds;
 }
 

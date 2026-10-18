@@ -238,6 +238,15 @@ function renderHeader() {
       <div class="gh-energy" title="The General's energy this year">
         <span class="gh-energy-label px">⚡</span><span class="gh-num" id="gh-energy">5</span>
       </div>
+      <div class="gh-stat" title="Berths in port">
+        <span class="gh-stat-label">Berths</span><span class="gh-num" id="gh-berths">3</span>
+      </div>
+      <div class="gh-stat" title="Hulls free">
+        <span class="gh-stat-label">Hulls</span><span class="gh-num" id="gh-hulls">3/3</span>
+      </div>
+      <div class="gh-stat" title="Men available for mission">
+        <span class="gh-stat-label">Men</span><span class="gh-num" id="gh-men">131</span>
+      </div>
       <button class="gbtn small ghost" id="gh-music" title="Allegri's Miserere (harp)">🎵</button>
       <button class="gbtn small ghost" id="gh-export" title="Export game state">📥</button>
       <button class="gbtn small ghost" id="gh-inbox" title="Notifications">🔔<span class="gh-badge" id="gh-badge-inbox" hidden></span></button>
@@ -419,8 +428,13 @@ app.syncHeader = function () {
   h.querySelector('#gh-num').textContent = s;
   try {
     h.querySelector('#gh-funds').textContent = (app.state.resources?.funds ?? 0).toLocaleString('en-US');
-    const eMax = Engine.ENERGY_PER_YEAR || 5;
+    const eMax = Engine.ENERGY_PER_YEAR || 6;
     h.querySelector('#gh-energy').textContent = `${app.state.energy ?? eMax}/${eMax}`;
+    h.querySelector('#gh-berths').textContent = app.state.resources?.berths ?? 0;
+    const ships = app.state.resources?.ships || [];
+    const free = ships.filter(s => (s.freeYear || 0) <= app.state.year).length;
+    h.querySelector('#gh-hulls').textContent = `${free}/${ships.length}`;
+    h.querySelector('#gh-men').textContent = (app.state.available || 0).toLocaleString('en-US');
   } catch (e) { /* garnish */ }
   h.querySelector('#gh-fill').style.width = Math.max(0, Math.min(100, s)) + '%';
   // notification badges: indipetae awaiting seal, pending reports, year ready to close

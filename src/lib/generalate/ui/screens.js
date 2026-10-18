@@ -437,10 +437,6 @@ export function renderBriefing(app, root, start) {
     <p class="kicker px">BRIEFING</p>
     <h2 class="year-head px">ANNO ${start.year}</h2>
     <div class="brief-grid">
-      <div class="brief-stat"><span class="bs-num">${b.funds}</span><span class="bs-label">scudi in the mission chest</span></div>
-      <div class="brief-stat"><span class="bs-num">${b.berths}</span><span class="bs-label">berths in port</span></div>
-      <div class="brief-stat"><span class="bs-num">${app.state.resources.ships.filter(s => (s.freeYear || 0) <= start.year).length}/${app.state.resources.ships.length}</span><span class="bs-label">hulls free</span></div>
-      <div class="brief-stat"><span class="bs-num">${(app.state.available || 0).toLocaleString('en-US')}</span><span class="bs-label">available for mission (1% of the Society)</span></div>
       <div class="brief-stat"><span class="bs-num">${(app.state.society || 0).toLocaleString('en-US')}</span><span class="bs-label">Jesuits in the Society</span></div>
     </div>
     ${generalDeskHTML(app, start.year)}

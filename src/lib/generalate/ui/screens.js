@@ -186,7 +186,7 @@ export function renderDraft(app, root) {
       <p><label class="dest-redirect">${esc(r.name)} HQ:
         <select data-hq="${esc(r.id)}" aria-label="HQ for ${esc(r.name)}">
           <option value="">— choose —</option>
-          ${dests.map((d) => `<option value="${esc(d.id)}"${hqs[r.id] === d.id ? ' selected' : ''}>${esc(d.name)}</option>`).join('')}
+          ${E.hqOptionsForRegion(app.state, r.id).map((d) => `<option value="${esc(d.id)}"${hqs[r.id] === d.id ? ' selected' : ''}>${esc(d.name)}</option>`).join('')}
         </select>
       </label></p>`).join('')}
     <div class="btn-row">

@@ -1770,6 +1770,16 @@ export function provinceOfMan(state, petitionerId) {
   return DEST_REGION_TO_PROVINCE[dr] || 'europe';
 }
 
+/** Open destinations in a province's region — the real HQ options for that province. */
+export function hqOptionsForRegion(state, regionId) {
+  const g = getGameData();
+  return openDestinations(state).filter((d) => {
+    const dest = g ? (g.destinations || []).find((x) => x.id === d.id) : null;
+    const dr = dest && dest.region;
+    return (DEST_REGION_TO_PROVINCE[dr] || 'europe') === regionId;
+  });
+}
+
 /** Open destinations (for HQ and posting pickers). */
 export function openDestinations(state) {
   const g = getGameData();
@@ -1785,6 +1795,9 @@ export function chooseProvinceHQ(state, regionId, destId) {
   if (regionId === 'europe') throw new Error('chooseProvinceHQ: the European provincial resides at Rome.');
   if (!openDestinations(state).some((d) => d.id === destId)) {
     throw new Error(`chooseProvinceHQ: "${destId}" is not an open destination.`);
+  }
+  if (!hqOptionsForRegion(state, regionId).some((d) => d.id === destId)) {
+    throw new Error(`chooseProvinceHQ: "${destId}" is not in ${regionId}'s region.`);
   }
   if (!state.provinceHQs) state.provinceHQs = {};
   state.provinceHQs[regionId] = destId;

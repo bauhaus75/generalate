@@ -25,7 +25,7 @@ import {
   chooseProvincial, PROVINCIAL_REGIONS, ensureRecord,
   beginProvincialReplacement, resolveProvincialReplacement,
   provincialTermYears, provincialTermComplete, isProfessedPriest, professedPriests,
-  PROVINCIAL_TERM_YEARS, chooseProvinceHQ, openDestinations, provinceOfMan,
+  PROVINCIAL_TERM_YEARS, chooseProvinceHQ, openDestinations, provinceOfMan, hqOptionsForRegion,
   generateProvincialRequests, answerProvincialRequest, provincesWithRequests,
   requestGradeAvailable, REQUEST_GRADES,
   askProvincial, QUESTIONS_PER_YEAR,
@@ -2840,8 +2840,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     ok('draft: incomplete at 3/4', !s.draft.done);
     chooseProvincial(s, ids[3][0], ids[3][1]);
     ok('draft: incomplete without HQs', !s.draft.done);
-    const dests = openDestinations(s).map((d) => d.id);
-    s.draft.regions.forEach((r, i) => { if (r.id !== 'europe') chooseProvinceHQ(s, r.id, dests[i % dests.length]); });
+    s.draft.regions.forEach((r) => { if (r.id !== 'europe') chooseProvinceHQ(s, r.id, hqOptionsForRegion(s, r.id)[0].id); });
     ok('draft: done at 4/4 + HQs', s.draft.done === true);
     ok('draft: provincials stored', Object.keys(s.provincials).length === 4
       && s.provincials.east.name === s.draft.regions[0].candidates[0].name);
@@ -2874,13 +2873,15 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     const s = newGame({ mode: 'campaign', seed: 'draft6' });
     for (const r of s.draft.regions) chooseProvincial(s, r.id, r.candidates[0].id);
     ok('draft: HQs required', !s.draft.done);
-    const dests = openDestinations(s).map((d) => d.id);
-    s.draft.regions.forEach((r, i) => { if (r.id !== 'europe') chooseProvinceHQ(s, r.id, dests[i % dests.length]); });
+    s.draft.regions.forEach((r) => { if (r.id !== 'europe') chooseProvinceHQ(s, r.id, hqOptionsForRegion(s, r.id)[0].id); });
     ok('draft: done with HQs', s.draft.done === true);
-    ok('draft: provincials carry HQ', s.provincials.east.hq === dests[0]);
+    ok('draft: provincials carry HQ', s.provincials.east.hq === hqOptionsForRegion(s, 'east')[0].id);
     let threw = 0;
     try { chooseProvinceHQ(s, 'east', 'nowhere'); } catch (e) { threw++; }
     ok('draft: bad HQ throws', threw === 1);
+    threw = 0;
+    try { chooseProvinceHQ(s, 'east', hqOptionsForRegion(s, 'newworld')[0].id); } catch (e) { threw++; }
+    ok('draft: cross-region HQ throws', threw === 1);
   }
   // deterministic: same seed, same candidates
   {
@@ -2896,8 +2897,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   const mkDrafted = (seed) => {
     const s = newGame({ mode: 'campaign', seed });
     for (const r of s.draft.regions) chooseProvincial(s, r.id, r.candidates[0].id);
-    const dests = openDestinations(s).map((d) => d.id);
-    s.draft.regions.forEach((r, i) => { if (r.id !== 'europe') chooseProvinceHQ(s, r.id, dests[i % dests.length]); });
+    s.draft.regions.forEach((r) => { if (r.id !== 'europe') chooseProvinceHQ(s, r.id, hqOptionsForRegion(s, r.id)[0].id); });
     return s;
   };
   const mkProfessed = (s, id) => {
@@ -3040,11 +3040,10 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   {
     const s = newGame({ mode: 'campaign', seed: 'mort5' });
     for (const r of s.draft.regions) chooseProvincial(s, r.id, r.candidates[0].id);
-    const dests = openDestinations(s).map((d) => d.id);
-    s.draft.regions.forEach((r, i) => { if (r.id !== 'europe') chooseProvinceHQ(s, r.id, dests[i % dests.length]); });
+    s.draft.regions.forEach((r) => { if (r.id !== 'europe') chooseProvinceHQ(s, r.id, hqOptionsForRegion(s, r.id)[0].id); });
     const rec = ensureRecord(s, 'hist-1'); rec.status = 'active';
     // install hist-1 as provincial of the east
-    s.provincials.east = { petitionerId: 'hist-1', name: 'Hist One', appointedYear: s.year, hq: dests[0] };
+    s.provincials.east = { petitionerId: 'hist-1', name: 'Hist One', appointedYear: s.year, hq: hqOptionsForRegion(s, 'east')[0].id };
     rec.age = 40; rec.deathAge = 41;
     resolveYear(s);
     ok('mortality: provincial death vacates', s.provincials.east.vacant === true);
@@ -3071,8 +3070,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   const setup = (seed) => {
     const s = newGame({ mode: 'campaign', seed });
     for (const r of s.draft.regions) chooseProvincial(s, r.id, r.candidates[0].id);
-    const dests = openDestinations(s).map((d) => d.id);
-    s.draft.regions.forEach((r, i) => { if (r.id !== 'europe') chooseProvinceHQ(s, r.id, dests[i % dests.length]); });
+    s.draft.regions.forEach((r) => { if (r.id !== 'europe') chooseProvinceHQ(s, r.id, hqOptionsForRegion(s, r.id)[0].id); });
     return s;
   };
   // requests generate (seeded)

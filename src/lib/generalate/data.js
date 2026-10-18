@@ -189,5 +189,6 @@ export const FIXTURES = {
     { id: 'china', name: 'China', travelYears: 3, ports: ['Lisbon', 'Macao'], region: 'Asia' },
     { id: 'peru', name: 'Peru', travelYears: 2, ports: ['Seville', 'Callao'], region: 'Americas' },
     { id: 'philippines', name: 'the Philippines', travelYears: 3, ports: ['Seville', 'Manila'], region: 'Asia' },
+    { id: 'aethiopia', name: 'Aethiopia', travelYears: 2, ports: ['Lisbon', 'Massawa'], region: 'Africa' },
   ],
 };

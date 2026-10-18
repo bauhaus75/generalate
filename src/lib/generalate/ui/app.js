@@ -367,7 +367,7 @@ function renderHeader() {
     app.renderInbox = renderInbox;
     h.querySelector('#gh-house').addEventListener('click', () => { app.sound('page'); app.ui.houseFrom = app.ui.screen; app.go('house'); });
     h.querySelector('#gh-missions').addEventListener('click', () => { app.sound('page'); app.ui.missionsFrom = app.ui.screen; app.go('missions'); });
-    h.querySelector('#gh-indipetae').addEventListener('click', () => { app.sound('page'); app.go('desk'); });
+    h.querySelector('#gh-indipetae').addEventListener('click', () => { app.sound('page'); app.go('indipetae'); });
     h.querySelector('#gh-governance').addEventListener('click', () => { app.sound('page'); app.go('governance'); });
     h.querySelector('#gh-map').addEventListener('click', () => { app.sound('page'); app.go('map', { from: app.ui.screen }); });
     h.querySelector('#gh-ledger').addEventListener('click', () => Screens.showLedgerOverlay(app));

@@ -37,6 +37,30 @@ export const SCORE = Object.freeze({
 });
 
 /**
+ * Fruit multipliers by destination: the harvest varies by field.
+ * Far East missions face great peril but reap great harvests;
+ * European missions are safe but yield little.
+ * Applied in fruitCapacity().
+ */
+export const FRUIT_MULTIPLIER = Object.freeze({
+  // Far East: 2.0x — vast populations, great peril
+  japan: 2.0, china: 2.0, india: 2.0, 'east-indies': 2.0, philippines: 2.0,
+  // Asia mainland: 1.5x
+  vietnam: 1.5, tonkin: 1.5, siam: 1.5, cambodia: 1.5, asia: 1.5,
+  // Africa: 1.2x
+  congo: 1.2, angola: 1.2, mozambique: 1.2, aethiopia: 1.2, madagascar: 1.2,
+  // Americas: 1.0x (baseline)
+  peru: 1.0, brazil: 1.0, paraguay: 1.0, chile: 1.0, 'west-indies': 1.0,
+  'new-granada': 1.0, quito: 1.0, mexico: 1.0, goa: 1.0,
+  // Europe: 0.7x — safe but small harvest
+  england: 0.7,
+});
+
+export function fruitMultiplierFor(destId) {
+  return FRUIT_MULTIPLIER[destId] ?? 1.0;
+}
+
+/**
  * Veterans: a man thriving in the mission may return to Europe after years of
  * service. His homecoming stirs zeal for the missions — a temporary bonus to
  * voyage checks — and scores for the fruit of his testimony.

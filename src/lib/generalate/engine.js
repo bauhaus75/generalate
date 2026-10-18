@@ -459,7 +459,7 @@ export function applyStagedAnswers(state) {
 // closing the year, answering requests) is free; deliberate interventions cost.
 // ---------------------------------------------------------------------------
 
-export const ENERGY_PER_YEAR = 5;
+export const ENERGY_PER_YEAR = 6;
 
 /** Spend energy; throws if the General has none left. */
 export function spendEnergy(state, n = 1, action = 'act') {
@@ -3307,7 +3307,11 @@ export function decide(state, approvals) {
   });
 
   // The seal: 30 scudi per approval. A missioning event draws on the chest.
+  // Each approval also costs 1 energy: the General's attention is finite.
   const sealCost = normalized.length * rules.RESOURCES.SEAL_COST;
+  if (normalized.length > 0) {
+    spendEnergy(state, normalized.length, 'sealing approvals');
+  }
   if (sealCost > 0) {
     if (state.resources.funds < sealCost) {
       throw new Error(`decide: the seal needs ${sealCost} scudi; the chest holds ${state.resources.funds}.`);
@@ -3697,11 +3701,12 @@ export function isProvincial(state, petitionerId) {
  * Range: 50 (zeal 1, prudence 1) to 250 (zeal 5, prudence 5).
  * To whom much is given, much is expected.
  */
-export function fruitCapacity(state, petitionerId) {
+export function fruitCapacity(state, petitionerId, destId = null) {
   const cur = ensureDisposition(state, petitionerId).current;
   const zeal = cur.zeal || 3;
   const prudence = cur.prudence || 3;
-  return 25 * (zeal + prudence);
+  const mult = destId ? rules.fruitMultiplierFor(destId) : 1.0;
+  return Math.round(25 * (zeal + prudence) * mult);
 }
 
 /**
@@ -3755,7 +3760,7 @@ export function produceFruits(state) {
     let expected = 0;
     let prudenceSum = 0;
     for (const id of men) {
-      const cap = fruitCapacity(state, id);
+      const cap = fruitCapacity(state, id, destId);
       const variance = 0.6 + streamFor(state, 'fruits', id, String(state.year)).float() * 0.4;
       harvest += Math.round(cap * variance);
       expected += Math.round(cap * QUOTA_RATIO);

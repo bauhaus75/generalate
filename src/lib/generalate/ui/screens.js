@@ -330,7 +330,7 @@ export function showHowTo(app) {
       <p><strong>2. The indipetae.</strong> Three petitioners lay their letters on your desk. Read each letter — the full text, the dossier, the man's history. No choice is marked; the weight is yours.</p>
       <p><strong>3. The decision.</strong> Select one petitioner, review your choice, and confirm. The seal falls: <em>APPROVED</em> on one, <em>DENIED</em> on two.</p>
       <p><strong>4. The year turns.</strong> Your chosen man sails. Storms, war, plague, and politics decide what your seal began. The ledger records everything.</p>
-      <p><strong>5. The account.</strong> Your SCORE starts at 50: the indipetae give +3 for each man you approve and −2 for each man you deny. Campaign ends in 1645; in Endless mode, you lay down the office when you choose.</p>
+      <p><strong>5. The account.</strong> Your SCORE starts at 50. You are judged by fruit, not dispatches: score moves when voyage news arrives and through lasting foundations. Each approval costs 1 energy and 30 scudi for the seal. Campaign ends in 1645; in Endless mode, you lay down the office when you choose.</p>
 
     </div>
   </div>`;
@@ -1587,7 +1587,7 @@ function cardHTML(app, c) {
       <button class="gbtn small ghost inspect-btn" data-id="${esc(c.id)}" data-name="${esc(c.name)}">Inspect</button></p>
     <button class="gbtn small read-letter" data-id="${esc(c.id)}">Read letter</button>
     <div class="verdict-row" role="group" aria-label="Decision for ${esc(c.name)}">
-      <button class="gbtn small verdict approve-btn" data-id="${esc(c.id)}" data-verdict="approve" aria-pressed="false">Approve</button>
+      <button class="gbtn small verdict approve-btn" data-id="${esc(c.id)}" data-verdict="approve" aria-pressed="false" title="Approve (1 energy, 30 scudi seal)">Approve</button>
       <button class="gbtn small ghost verdict deny-btn" data-id="${esc(c.id)}" data-verdict="deny" aria-pressed="false">Deny</button>
     </div>
     <label class="dest-redirect card-dest" data-id="${esc(c.id)}" hidden>Send to:

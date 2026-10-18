@@ -92,6 +92,46 @@
 }
 #gfooter .gf-detail li:last-child { border-bottom: none; }
 #generalate-app { padding-bottom: 3.5rem; }
+
+/* The sealing: black fade, IHS, globe. */
+.seal-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: #000; opacity: 0;
+  transition: opacity 0.9s ease;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.seal-overlay.on { opacity: 1; }
+.seal-overlay.out { opacity: 0; }
+.seal-stage { text-align: center; }
+.seal-ihs { opacity: 0; transform: scale(0.92); transition: opacity 1.2s ease, transform 1.2s ease; }
+.seal-overlay.show-ihs .seal-ihs { opacity: 1; transform: scale(1); }
+.seal-cross { color: var(--gold); font-size: 2rem; line-height: 1; margin-bottom: -0.4rem; }
+.seal-letters {
+  font-family: var(--px); font-size: 4.5rem; letter-spacing: 0.12em;
+  color: var(--gold); text-shadow: 0 0 32px rgba(212, 175, 55, 0.45);
+  margin-left: 0.12em;
+}
+.seal-nails { display: flex; justify-content: center; gap: 0.9rem; margin-top: 0.7rem; }
+.seal-nails span {
+  width: 0.5rem; height: 1.6rem; border-radius: 0.25rem;
+  background: linear-gradient(to bottom, #e8d9b0, #8a6d3b);
+  transform: rotate(12deg);
+}
+.seal-nails span:nth-child(2) { transform: rotate(0deg); height: 1.9rem; }
+.seal-nails span:nth-child(3) { transform: rotate(-12deg); }
+.seal-globe {
+  font-size: 3.2rem; margin-top: 1.6rem;
+  opacity: 0; transform: translateY(12px);
+  transition: opacity 1.2s ease, transform 1.2s ease;
+}
+.seal-overlay.show-globe .seal-globe { opacity: 1; transform: translateY(0); }
+.seal-caption {
+  margin-top: 1.4rem; font-size: 0.62rem; letter-spacing: 0.3em; color: rgba(232, 217, 176, 0.75);
+  opacity: 0; transition: opacity 1.2s ease;
+  margin-left: 0.3em;
+}
+.seal-overlay.show-caption .seal-caption { opacity: 1; }
 #generalate-app .btn-row { display: flex; gap: 0.8rem; margin: 1.4rem 0 0.5rem; flex-wrap: wrap; }
 
 /* ---------- screens ---------- */

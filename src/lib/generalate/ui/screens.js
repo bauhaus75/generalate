@@ -190,7 +190,7 @@ export function renderDraft(app, root) {
         </select>
       </label></p>`).join('')}
     <div class="btn-row">
-      <button class="gbtn primary" id="take-office" ${picked === 4 && hqPicked === 4 ? '' : 'disabled'}>Take office &rarr;</button>
+      <button class="gbtn primary" id="take-office" ${picked === 4 && hqPicked === 4 ? '' : 'disabled'}>Seal the decision</button>
     </div>
   </section>`;
 
@@ -215,7 +215,45 @@ export function renderDraft(app, root) {
     });
   });
   const take = root.querySelector('#take-office');
-  if (take) take.addEventListener('click', () => { app.sound('page'); app.go('briefing'); });
+  if (take) take.addEventListener('click', () => { app.sound('seal'); playSealAnimation(app, () => app.go('briefing')); });
+}
+
+/**
+ * The sealing: fade to black, the IHS Christogram, the globe, then the game.
+ * Tap to skip.
+ */
+export function playSealAnimation(app, done) {
+  const ov = document.createElement('div');
+  ov.className = 'seal-overlay';
+  ov.innerHTML = `
+    <div class="seal-stage">
+      <div class="seal-ihs">
+        <div class="seal-cross">†</div>
+        <div class="seal-letters">IHS</div>
+        <div class="seal-nails"><span></span><span></span><span></span></div>
+      </div>
+      <div class="seal-globe">🌍</div>
+      <div class="seal-caption px">AD MAJOREM DEI GLORIAM</div>
+    </div>`;
+  document.getElementById('generalate-app').appendChild(ov);
+  // force reflow so the fade-in transition runs
+  void ov.offsetWidth;
+  ov.classList.add('on');
+
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    ov.classList.add('out');
+    setTimeout(() => { ov.remove(); done(); }, 900);
+  };
+  ov.addEventListener('click', finish);
+
+  // staged reveals
+  setTimeout(() => ov.classList.add('show-ihs'), 900);
+  setTimeout(() => ov.classList.add('show-globe'), 2600);
+  setTimeout(() => ov.classList.add('show-caption'), 3400);
+  setTimeout(finish, 5200);
 }
 
 /* ---------------- title ---------------- */

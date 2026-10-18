@@ -254,21 +254,72 @@ export function generateProvincialRequests(state, y) {
  * "send no men". Must not exceed the available pool per grade.
  * The men leave Europe for the province; the chest pays passage.
  */
+/** Scudi cost of a request answer mix, without executing it. */
+export function requestAnswerCost(mix) {
+  let cost = 0;
+  for (const cat of REQUEST_GRADES) {
+    const v = mix[cat] ?? 0;
+    cost += v * rules.MISSION_GRADES[requestGradeToStaffGrade(cat)].cost;
+  }
+  return cost;
+}
+
+/** Validate a request answer mix against the current Europe pool. Returns normalized counts. */
+function validateRequestMix(state, regionId, mix) {
+  const req = (state.provincialRequests || {})[regionId];
+  if (!req) throw new Error(`no pending request for "${regionId}".`);
+  const prov = (state.provincials || {})[regionId];
+  if (!prov || prov.vacant) throw new Error(`no provincial for "${regionId}".`);
+  const n = {};
+  for (const cat of REQUEST_GRADES) {
+    const v = mix[cat] ?? 0;
+    if (!Number.isInteger(v) || v < 0) throw new Error(`"${cat}" must be a whole number ≥ 0.`);
+    const pool = requestGradePool(state, cat);
+    if (v > pool.length) throw new Error(`only ${pool.length} ${cat} available in Europe.`);
+    n[cat] = v;
+  }
+  return n;
+}
+
+/**
+ * Stage a provincial request answer. Nothing moves until the year closes —
+ * the General decides during the year, the chest opens at year-end.
+ * mix of all zeros = decline. Overwrites any earlier staged answer.
+ */
+export function stageProvincialAnswer(state, regionId, mix) {
+  const n = validateRequestMix(state, regionId, mix);
+  if (!state.stagedAnswers) state.stagedAnswers = {};
+  state.stagedAnswers[regionId] = { regionId, mix: n, year: state.year, cost: requestAnswerCost(n) };
+  return state.stagedAnswers[regionId];
+}
+
+/** Withdraw a staged answer. */
+export function unstageProvincialAnswer(state, regionId) {
+  if (state.stagedAnswers) delete state.stagedAnswers[regionId];
+}
+
+/** Totals across all staged answers: {scudi, men, count}. */
+export function stagedCommitments(state) {
+  const out = { scudi: 0, men: 0, count: 0 };
+  for (const sa of Object.values(state.stagedAnswers || {})) {
+    out.scudi += sa.cost || 0;
+    out.men += Object.values(sa.mix || {}).reduce((a, b) => a + b, 0);
+    out.count += 1;
+  }
+  return out;
+}
+
+/**
+ * Execute a staged (or immediate) provincial request answer: men leave Europe,
+ * the chest pays, the mission is staffed. Called at year close for staged answers.
+ */
 export function answerProvincialRequest(state, regionId, mix) {
   const req = (state.provincialRequests || {})[regionId];
   if (!req) throw new Error(`answerProvincialRequest: no pending request for "${regionId}".`);
   const prov = (state.provincials || {})[regionId];
   if (!prov || prov.vacant) throw new Error(`answerProvincialRequest: no provincial for "${regionId}".`);
-  const n = {};
-  let total = 0;
-  for (const cat of REQUEST_GRADES) {
-    const v = mix[cat] ?? 0;
-    if (!Number.isInteger(v) || v < 0) throw new Error(`answerProvincialRequest: "${cat}" must be a whole number ≥ 0.`);
-    const pool = requestGradePool(state, cat);
-    if (v > pool.length) throw new Error(`answerProvincialRequest: only ${pool.length} ${cat} available in Europe.`);
-    n[cat] = v;
-    total += v;
-  }
+  const n = validateRequestMix(state, regionId, mix);
+  const total = Object.values(n).reduce((a, b) => a + b, 0);
   const region = PROVINCIAL_REGIONS.find((r) => r.id === regionId);
   const hq = prov.hq || (state.provinceHQs || {})[regionId];
   const g = ensureData();
@@ -305,6 +356,28 @@ export function answerProvincialRequest(state, regionId, mix) {
   addLedger(state, { year: state.year, type: 'provincial-request', decision: 'answered',
     text: `${prov.name} (${region ? region.name : regionId}) asked for men; the General sends ${parts.join(', ')} — ${cost} scudi.` });
   return { sent: total, cost };
+}
+
+/**
+ * Execute all staged provincial answers at year close. Each is re-validated —
+ * men may have died or been sent elsewhere since the decision was staged.
+ * Shortfalls are logged, not half-applied.
+ */
+export function applyStagedAnswers(state) {
+  const staged = state.stagedAnswers || {};
+  for (const regionId of Object.keys(staged)) {
+    const sa = staged[regionId];
+    try {
+      answerProvincialRequest(state, regionId, sa.mix);
+    } catch (e) {
+      const prov = (state.provincials || {})[regionId];
+      const name = prov ? prov.name : regionId;
+      addLedger(state, { year: state.year, type: 'provincial-request', decision: 'staged-failed',
+        text: `${name}'s staged answer could not be carried out: ${e.message}` });
+      delete state.provincialRequests[regionId];
+    }
+  }
+  state.stagedAnswers = {};
 }
 
 // ---------------------------------------------------------------------------
@@ -2592,6 +2665,8 @@ export function newGame({ mode = 'campaign', seed = 'generalate', data = null } 
     draft: null,      // pre-game provincial draft (set below)
     provincials: {},  // regionId -> chosen provincial (organizational for now)
     provinceHQs: {},  // regionId -> destination id where the provincial resides
+    provincialRequests: {}, // regionId -> pending manpower request
+    stagedAnswers: {}, // regionId -> staged request answer, executed at year close
     provincialTernas: {}, // active replacement ternas by region
     novices: [], // {id, name, destination, startYear, readyYear} - candidates in formation
     currentYear: null,  // UI-facing mirror: {year, briefing, terna, decided, decisionResult}
@@ -3748,6 +3823,9 @@ export function resolveYear(state) {
 
   // Resolve instructions arriving this year.
   resolveInstructions(state, y);
+
+  // Staged provincial answers take effect at year close.
+  applyStagedAnswers(state);
 
   // Provincial reports: autonomous reports from actual mission conditions.
   generateProvincialRequests(state, y);

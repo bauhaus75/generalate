@@ -115,6 +115,39 @@ app.confirmOverwrite = function (cb) {
 };
 
 /* ---------------- header + score ---------------- */
+function renderFooter() {
+  let f = document.getElementById('gfooter');
+  if (!f) {
+    f = document.createElement('footer');
+    f.id = 'gfooter';
+    f.innerHTML = `
+      <div class="gf-commit" id="gf-commit" title="Decisions staged for year close"></div>
+      <button class="gbtn primary" id="gf-close">Close the year &rarr;</button>`;
+    document.getElementById('generalate-app').appendChild(f);
+    f.querySelector('#gf-close').addEventListener('click', () => {
+      app.sound('page'); app.closeYear();
+    });
+  }
+}
+
+function syncFooter() {
+  const f = document.getElementById('gfooter');
+  if (!f) return;
+  if (!app.state || !app.state.year) { f.style.display = 'none'; return; }
+  f.style.display = 'flex';
+  const c = app.Engine.stagedCommitments(app.state);
+  const commitEl = f.querySelector('#gf-commit');
+  if (c.count > 0) {
+    commitEl.innerHTML = `<span class="px">COMMITTED</span> ${c.scudi.toLocaleString('en-US')} scudi · ${c.men} men · ${c.count} request${c.count === 1 ? '' : 's'}`;
+  } else {
+    commitEl.innerHTML = `<span class="px">COMMITTED</span> nothing staged`;
+  }
+  const closeBtn = f.querySelector('#gf-close');
+  const canClose = app.state.currentYear && app.state.currentYear.decided;
+  closeBtn.disabled = !canClose;
+  closeBtn.title = canClose ? 'Turn the year' : 'Seal the indipetae first';
+}
+
 function renderHeader() {
   let h = document.getElementById('gheader');
   if (!h) {
@@ -171,6 +204,7 @@ function renderHeader() {
   }
   return h;
 }
+app.syncFooter = function () { syncFooter(); };
 app.syncHeader = function () {
   const h = document.getElementById('gheader');
   if (!h || !app.state) return;
@@ -207,7 +241,7 @@ app.bumpScore = function () {
   const target = Engine.getScore(app.state);
   const numEl = h.querySelector('#gh-num'), fillEl = h.querySelector('#gh-fill');
   const from = parseInt(numEl.textContent, 10) || 0;
-  if (from === target || app.prefersReducedMotion()) { app.syncHeader(); return; }
+  if (from === target || app.prefersReducedMotion()) { app.syncHeader(); syncFooter(); return; }
   const t0 = performance.now(), dur = 700;
   function frame(t) {
     const p = Math.min(1, (t - t0) / dur);
@@ -215,7 +249,7 @@ app.bumpScore = function () {
     const v = Math.round(from + (target - from) * e);
     numEl.textContent = v;
     fillEl.style.width = Math.max(0, Math.min(100, v)) + '%';
-    if (p < 1) requestAnimationFrame(frame); else app.syncHeader();
+    if (p < 1) requestAnimationFrame(frame); else { app.syncHeader(); syncFooter(); }
   }
   requestAnimationFrame(frame);
 };
@@ -414,6 +448,7 @@ async function boot() {
   scr.innerHTML = `<div class="boot"><p class="px">CONSULTING THE ARCHIVE…</p></div>`;
 
   renderHeader();
+  renderFooter();
   const dbgBtn = document.getElementById('gh-debug');
   if (DEBUG_Q && dbgBtn) dbgBtn.hidden = false;
 

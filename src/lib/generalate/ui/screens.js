@@ -1165,6 +1165,7 @@ function renderProvincialPage(app, root, regionId) {
   };
 
   const req = (app.state.provincialRequests || {})[regionId];
+  const staged = (app.state.stagedAnswers || {})[regionId];
   const questionsLeft = E.QUESTIONS_PER_YEAR - (app.state.questionsAsked || 0);
   const energy = app.state.energy ?? E.ENERGY_PER_YEAR;
 
@@ -1186,19 +1187,24 @@ function renderProvincialPage(app, root, regionId) {
     ${req ? `
     <h3 class="sect">His request <span class="disp-mini">anno ${req.year}</span></h3>
     <p><strong>Requests ${esc(reqLine)}.</strong></p>
-    <p class="howto-note">In Europe: ${E.REQUEST_GRADES.map((c) => `${avail[c]} ${c}`).join(', ')}.</p>
+    <p class="howto-note">In Europe: ${E.REQUEST_GRADES.map((c) => `${avail[c]} ${c}`).join(', ')}. Cost to agree: ${E.requestAnswerCost({ professed: req.professed, fathers: req.fathers, brothers: req.brothers })} scudi.</p>
+    ${staged ? `
+    <p class="howto-note"><strong>Staged:</strong> ${staged.mix && Object.values(staged.mix).every((v) => v === 0) ? 'send no men' : `send ${E.REQUEST_GRADES.filter((c) => staged.mix[c] > 0).map((c) => plural(staged.mix[c], c === 'brothers' ? 'brother' : c.slice(0, -1), c)).join(', ')}`} — ${staged.cost} scudi. Takes effect at year close.</p>
     <div class="btn-row">
-      <button class="gbtn ghost" id="req-decline">Send no men</button>
-      <button class="gbtn primary" id="req-agree" ${canAgree ? '' : 'disabled'}>Agree — send ${esc(reqLine)}</button>
-      <button class="gbtn ghost" id="req-mix">Send my own mix</button>
-    </div>
-
+      <button class="gbtn ghost" id="req-unstage">Withdraw</button>
+      <button class="gbtn ghost" id="req-mix">Change the mix</button>
+    </div>` : `
+    <div class="btn-row">
+      <button class="gbtn ghost" id="req-decline">Stage: send no men</button>
+      <button class="gbtn primary" id="req-agree" ${canAgree ? '' : 'disabled'}>Stage: agree — ${esc(reqLine)}</button>
+      <button class="gbtn ghost" id="req-mix">Stage my own mix</button>
+    </div>`}
     <div id="req-mixbox" hidden>
       ${E.REQUEST_GRADES.map((c) => `
         <label class="dest-redirect">${esc(c)} <span class="disp-mini">(have ${avail[c]})</span>
           <input type="number" min="0" max="${avail[c]}" value="${Math.min(req[c] || 0, avail[c])}" data-mix="${esc(c)}" style="width:4rem">
         </label>`).join('')}
-      <div class="btn-row"><button class="gbtn primary" id="req-sendmix">Send the mix</button></div>
+      <div class="btn-row"><button class="gbtn primary" id="req-sendmix">Stage the mix</button></div>
     </div>` : `<p class="howto-note">No pending request from ${esc(prov.name)}.</p>`}
 
     <h3 class="sect">His men <span class="disp-mini">(${roster.length})</span></h3>
@@ -1222,13 +1228,17 @@ function renderProvincialPage(app, root, regionId) {
   };
   const rd = root.querySelector('#req-decline');
   if (rd) rd.addEventListener('click', () => {
-    try { E.answerProvincialRequest(app.state, regionId, { professed: 0, fathers: 0, brothers: 0 }); done(); }
+    try { E.stageProvincialAnswer(app.state, regionId, { professed: 0, fathers: 0, brothers: 0 }); done(); }
     catch (e) { done(e.message, false); }
   });
   const ra = root.querySelector('#req-agree');
   if (ra) ra.addEventListener('click', () => {
-    try { E.answerProvincialRequest(app.state, regionId, { professed: req.professed, fathers: req.fathers, brothers: req.brothers }); done(); }
+    try { E.stageProvincialAnswer(app.state, regionId, { professed: req.professed, fathers: req.fathers, brothers: req.brothers }); done(); }
     catch (e) { done(e.message, false); }
+  });
+  const ru = root.querySelector('#req-unstage');
+  if (ru) ru.addEventListener('click', () => {
+    E.unstageProvincialAnswer(app.state, regionId); done();
   });
   const rm = root.querySelector('#req-mix');
   if (rm) rm.addEventListener('click', () => {
@@ -1239,7 +1249,7 @@ function renderProvincialPage(app, root, regionId) {
   if (sm) sm.addEventListener('click', () => {
     const mix = {};
     root.querySelectorAll('[data-mix]').forEach((inp) => { mix[inp.dataset.mix] = parseInt(inp.value, 10) || 0; });
-    try { E.answerProvincialRequest(app.state, regionId, mix); done(); }
+    try { E.stageProvincialAnswer(app.state, regionId, mix); done(); }
     catch (e) { done(e.message, false); }
   });
   root.querySelectorAll('.prov-ask').forEach((b) => b.addEventListener('click', () => {

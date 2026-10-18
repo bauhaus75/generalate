@@ -26,6 +26,7 @@ import {
   beginProvincialReplacement, resolveProvincialReplacement,
   provincialTermYears, provincialTermComplete, isProfessedPriest, professedPriests,
   PROVINCIAL_TERM_YEARS, chooseProvinceHQ, openDestinations, provinceOfMan, hqOptionsForRegion,
+  stageProvincialAnswer, unstageProvincialAnswer, stagedCommitments, applyStagedAnswers, requestAnswerCost,
   generateProvincialRequests, answerProvincialRequest, provincesWithRequests,
   requestGradeAvailable, REQUEST_GRADES,
   askProvincial, QUESTIONS_PER_YEAR,
@@ -2882,6 +2883,38 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     threw = 0;
     try { chooseProvinceHQ(s, 'east', hqOptionsForRegion(s, 'newworld')[0].id); } catch (e) { threw++; }
     ok('draft: cross-region HQ throws', threw === 1);
+  }
+  // Staged provincial answers: decide now, execute at year close.
+  {
+    const s = newGame({ mode: 'campaign', seed: 'stage1' });
+    for (const r of s.draft.regions) chooseProvincial(s, r.id, r.candidates[0].id);
+    for (const r of s.draft.regions) { if (r.id !== 'europe') chooseProvinceHQ(s, r.id, hqOptionsForRegion(s, r.id)[0].id); }
+    s.provincialRequests = { east: { regionId: 'east', year: s.year, professed: 0, fathers: 0, brothers: 0 } };
+    // add a man to the pool
+    const e = { petitionerId: 'stage-man-1', name: 'Stage Man', year: s.year, via: 'test', assignment: null };
+    s.europeanLabor.push(e);
+    s.petitioners['stage-man-1'] = { id: 'stage-man-1', name: 'Stage Man', status: 'active' };
+    const fundsBefore = s.resources.funds;
+    const laborBefore = s.europeanLabor.length;
+    // stage an answer: nothing moves yet
+    const sa = stageProvincialAnswer(s, 'east', { professed: 0, fathers: 0, brothers: 1 });
+    ok('stage: stored', s.stagedAnswers.east && s.stagedAnswers.east.mix.brothers === 1);
+    ok('stage: nothing moved', s.resources.funds === fundsBefore && s.europeanLabor.length === laborBefore);
+    ok('stage: request still pending', !!s.provincialRequests.east);
+    const com = stagedCommitments(s);
+    ok('stage: commitments counted', com.count === 1 && com.men === 1 && com.scudi === sa.cost);
+    // year close executes it
+    applyStagedAnswers(s);
+    ok('stage: executed at close', s.europeanLabor.length === laborBefore - 1);
+    ok('stage: funds spent', s.resources.funds < fundsBefore);
+    ok('stage: request cleared', !s.provincialRequests.east);
+    ok('stage: staged cleared', Object.keys(s.stagedAnswers).length === 0);
+    // unstage works
+    s.provincialRequests = { east: { regionId: 'east', year: s.year, professed: 0, fathers: 0, brothers: 0 } };
+    stageProvincialAnswer(s, 'east', { professed: 0, fathers: 0, brothers: 0 });
+    unstageProvincialAnswer(s, 'east');
+    ok('stage: unstage removes', !s.stagedAnswers.east);
+    ok('stage: commitments zero', stagedCommitments(s).count === 0);
   }
   // deterministic: same seed, same candidates
   {

@@ -2178,22 +2178,30 @@ export function renderLogistics(app, root) {
   const voyages = (app.state.voyages || []).filter((v) => !v.resolvedYear || v.resolvedYear > year);
   const tiers = app.Engine.RESOURCES?.SHIP_TIERS || {};
 
+  // Count assigned men from the queue (live, updates with staffing changes)
+  const queue = app.state.queue || [];
   const shipCards = ships.map((s) => {
     const tierInfo = tiers[s.tier || 'carrack'] || { label: 'Carrack', range: 2, capacity: 8 };
     const capacity = tierInfo.capacity;
     const isFree = (s.freeYear || 0) <= year;
-    const used = s.used || 0;
-    const pct = capacity > 0 ? Math.round((used / capacity) * 100) : 0;
-    // Find active voyage for this ship
+    // For ships in port: count queue assignments. For ships at sea: use voyage data.
+    const assigned = queue.filter((q) => q.shipId === s.id && q.status === 'awaiting').length;
     const voy = voyages.find((v) => v.shipId === s.id && !v.resolvedYear);
+    const used = isFree ? assigned : (voy?.men || s.used || 0);
+    const pct = capacity > 0 ? Math.round((used / capacity) * 100) : 0;
     const destName = voy ? ((app.Engine.DESTINATIONS?.[voy.destination]?.name) || voy.destination) : null;
+    // Show assigned men names for ships in port
+    const assignedNames = isFree && assigned > 0
+      ? queue.filter((q) => q.shipId === s.id && q.status === 'awaiting').map((q) => esc(q.petitionerName || q.petitionerId)).join(', ')
+      : '';
     return `
     <div class="logi-ship">
       <div class="logi-ship-info">
         <div class="logi-ship-name">${esc(s.name)} <span class="logi-tier">${esc(tierInfo.label)} (range ${tierInfo.range})</span></div>
         <div class="logi-ship-status">${isFree ? '<span class="logi-free">In port</span>' : `<span class="logi-away">At sea → ${esc(destName || 'unknown')}</span>`}</div>
-        <div class="logi-cap-bar"><div class="logi-cap-fill" style="width:${isFree ? 0 : pct}%"></div></div>
-        <div class="logi-cap-text">${isFree ? '0' : used}/${capacity} men${!isFree && s.freeYear ? ` · returns ${s.freeYear}` : ''}</div>
+        <div class="logi-cap-bar"><div class="logi-cap-fill" style="width:${pct}%"></div></div>
+        <div class="logi-cap-text">${used}/${capacity} men${!isFree && s.freeYear ? ` · returns ${s.freeYear}` : ''}</div>
+        ${assignedNames ? `<div class="logi-assigned">Aboard: ${assignedNames}</div>` : ''}
       </div>
     </div>`;
   }).join('');

@@ -4012,6 +4012,9 @@ export function resolveYear(state) {
     if (!groups.has(q.destination)) groups.set(q.destination, []);
     groups.get(q.destination).push(q);
   }
+  // Ships sail to ONE destination per year. The packed set is shared across
+  // all destinations so a ship can't be assigned twice.
+  const packed = new Set(); // ships given a sailing this year (all destinations)
   for (const [destId, men] of groups) {
     const dest = g.destinations.find((d) => d.id === destId);
     const travel = dest?.travelYears ?? rules.defaultTravelYears();
@@ -4020,8 +4023,7 @@ export function resolveYear(state) {
     const shipRange = (ship) => tierInfo(ship).range;
     const shipCap = (ship) => tierInfo(ship).capacity;
     let idx = 0;
-    let ship = null; // hull currently being packed for this destination
-    const packed = new Set(); // hulls given a sailing this year, per destination group
+    let ship = null; // ship currently being packed for this destination
     const aboard = []; // {q, ship, comps}
     while (idx < men.length) {
       if (berths <= 0) {

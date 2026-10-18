@@ -1611,6 +1611,11 @@ function cardHTML(app, c) {
     <label class="dest-redirect card-dest" data-id="${esc(c.id)}" hidden>Send to:
       <select class="card-dest-select" data-id="${esc(c.id)}" aria-label="Destination for ${esc(c.name)}"></select>
     </label>
+    <label class="dest-redirect card-ship" data-id="${esc(c.id)}" hidden>Sail on:
+      <select class="card-ship-select" data-id="${esc(c.id)}" aria-label="Ship for ${esc(c.name)}">
+        <option value="">Auto (first available)</option>
+      </select>
+    </label>
     <div class="companion-row" data-id="${esc(c.id)}" hidden>
       <span class="companion-label">Companions <span class="companion-cost">(professed/father 120 · scholastic 80 · brother 50 · ${(app.state.available || 0).toLocaleString('en-US')} to spare · +1 voyage each up to +3 · ship-limited)</span>:</span>
       ${['professed', 'father', 'scholastic', 'brother'].map((g) => `
@@ -1735,6 +1740,31 @@ function attachVowsHandlers(app, root) {
       }
     });
   });
+}
+
+function refreshShipOptions(app, selectEl, destId, selectedShipId) {
+  const ships = (app.state.resources?.ships || []).filter((s) => (s.freeYear || 0) <= app.state.year);
+  const tiers = app.Engine.RESOURCES?.SHIP_TIERS || {};
+  const g = app.Engine.getGameData ? app.Engine.getGameData() : null;
+  const dest = g?.destinations?.find?.((d) => d.id === destId) || (Array.isArray(g?.destinations) ? g.destinations.find((d) => d.id === destId) : null);
+  // Handle destinations as object or array
+  let destObj = null;
+  if (g?.destinations) {
+    if (Array.isArray(g.destinations)) destObj = g.destinations.find((d) => d.id === destId);
+    else destObj = g.destinations[destId];
+  }
+  const travel = destObj?.travelYears ?? 2;
+  
+  let html = '<option value="">Auto (first available)</option>';
+  for (const s of ships) {
+    const ti = tiers[s.tier || 'carrack'] || { label: 'Carrack', range: 2, capacity: 8 };
+    const canReach = ti.range >= travel;
+    const sel = selectedShipId === s.id ? ' selected' : '';
+    const dis = canReach ? '' : ' disabled';
+    html += `<option value="${s.id}"${sel}${dis}>${esc(s.name)} (${ti.label}, ${ti.capacity} men${canReach ? '' : ' — cannot reach'})</option>`;
+  }
+  selectEl.innerHTML = html;
+  if (selectedShipId) selectEl.value = selectedShipId;
 }
 
 export function renderDesk(app, root, terna) {
@@ -1862,12 +1892,17 @@ export function renderDesk(app, root, terna) {
     card.classList.toggle('denied-pick', d.verdict === 'deny');
     const destLabel = card.querySelector('.card-dest');
     const destSelect = card.querySelector('.card-dest-select');
+    const shipLabel = card.querySelector('.card-ship');
+    const shipSelect = card.querySelector('.card-ship-select');
     const compRow = card.querySelector('.companion-row');
     if (d.verdict === 'approve') {
       destLabel.hidden = false;
+      shipLabel.hidden = false;
       compRow.hidden = false;
       if (!destSelect.options.length) destSelect.innerHTML = destOptions(c.destination);
       destSelect.value = d.destination;
+      // Populate ships (filter by range for the selected destination)
+      refreshShipOptions(app, shipSelect, d.destination, d.shipId);
       const co = (d.companions && typeof d.companions === 'object') ? d.companions : {};
       for (const g of ['professed', 'father', 'scholastic', 'brother']) {
         const el = card.querySelector(`.companion-count[data-grade="${g}"]`);
@@ -1875,6 +1910,7 @@ export function renderDesk(app, root, terna) {
       }
     } else {
       destLabel.hidden = true;
+      shipLabel.hidden = true;
       compRow.hidden = true;
     }
   };
@@ -1902,9 +1938,24 @@ export function renderDesk(app, root, terna) {
     sel.addEventListener('change', (e) => {
       e.stopPropagation();
       const id = sel.dataset.id;
-      if (app.ui.decisions[id]) app.ui.decisions[id].destination = sel.value;
+      if (app.ui.decisions[id]) {
+        app.ui.decisions[id].destination = sel.value;
+        // Clear ship if it can't reach the new destination
+        app.ui.decisions[id].shipId = null;
+      }
       app.sound('tick');
       refresh();
+      if (app.syncFooter) app.syncFooter();
+    });
+    sel.addEventListener('click', (e) => e.stopPropagation());
+  });
+
+  root.querySelectorAll('.card-ship-select').forEach(sel => {
+    sel.addEventListener('change', (e) => {
+      e.stopPropagation();
+      const id = sel.dataset.id;
+      if (app.ui.decisions[id]) app.ui.decisions[id].shipId = sel.value || null;
+      app.sound('tick');
       if (app.syncFooter) app.syncFooter();
     });
     sel.addEventListener('click', (e) => e.stopPropagation());
@@ -1960,6 +2011,7 @@ export function renderDesk(app, root, terna) {
           id: c.id,
           destination: app.ui.decisions[c.id].destination,
           companions: app.ui.decisions[c.id].companions || 0,
+          shipId: app.ui.decisions[c.id].shipId || null,
         }));
       app.confirmDecision(approvals);
     } catch (e) {

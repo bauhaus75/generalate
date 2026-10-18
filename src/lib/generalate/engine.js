@@ -3284,6 +3284,7 @@ export function decide(state, approvals) {
   const seen = new Set();
   const normalized = approvals.map((a) => {
     const id = a && a.id;
+    const shipId = a && a.shipId ? String(a.shipId) : null;
     if (!id || !byId.has(id)) {
       throw new Error(`decide: "${id}" is not in the current terna.`);
     }
@@ -3315,7 +3316,7 @@ export function decide(state, approvals) {
         }
       }
     }
-    return { card, destination, companions, companionTotal };
+    return { card, destination, companions, companionTotal, shipId };
   });
 
   // The seal: 30 scudi per approval. A missioning event draws on the chest.
@@ -3388,6 +3389,7 @@ export function decide(state, approvals) {
       teamSize,
       companions: n.companionTotal || 0,
       companionGrades: n.companions,
+      shipId: n.shipId || null,
     });
     addLedger(state, {
       year: state.year, type: 'decision',

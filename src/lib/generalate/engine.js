@@ -412,6 +412,12 @@ export function answerProvincialRequest(state, regionId, mix, earmarked = null) 
     state.resources.berths = state.resources.berthsPerYear;
     delete state.resources.berthsPerYear;
   }
+  // Migration: ship tiers. Old ships have no tier -> default to carrack.
+  if (state.resources && Array.isArray(state.resources.ships)) {
+    for (const sh of state.resources.ships) {
+      if (!sh.tier) sh.tier = 'carrack';
+    }
+  }
       if (!state.missionTransit[hqDest]) state.missionTransit[hqDest] = [];
       state.missionTransit[hqDest].push({
         arrivalYear: state.year + travelYears,
@@ -2881,7 +2887,12 @@ export function newGame({ mode = 'campaign', seed = 'generalate', data = null } 
     resources: {
       funds: rules.RESOURCES.START_FUNDS,
       berths: rules.RESOURCES.BERTHS,
-      ships: rules.RESOURCES.SHIP_NAMES.map((name, i) => ({ id: `ship-${i + 1}`, name, freeYear: 0 })),
+      ships: rules.RESOURCES.STARTING_FLEET.map((tier, i) => ({
+        id: `ship-${i + 1}`,
+        name: rules.RESOURCES.SHIP_NAMES[i] || `Hull ${i + 1}`,
+        tier,
+        freeYear: 0,
+      })),
     },
     destState: initDestState(g.destinations),
     missions: initMissions(g.destinations), // per-mission staffing: {fathers, coadjutors, brothers, capacity}
@@ -3524,25 +3535,27 @@ export function expandBerths(state) {
  * @param {object} state
  * @returns {{ship:{id:string,name:string}, ships:number, funds:number, cost:number}}
  */
-export function charterShip(state) {
-  spendEnergy(state, 1, 'chartering a ship');
+export function charterShip(state, tier = 'carrack') {
+  const tierInfo = rules.RESOURCES.SHIP_TIERS[tier];
+  if (!tierInfo) throw new Error(`charterShip: unknown tier "${tier}".`);
+  spendEnergy(state, 1, `chartering a ${tierInfo.label.toLowerCase()}`);
   if (state.currentTerna) {
     throw new Error('Finish deciding on the current terna first.');
   }
   if (state.ended) throw campaignCompleteError();
-  const cost = rules.RESOURCES.SHIP_CHARTER_COST;
+  const cost = tierInfo.cost;
   if (state.resources.funds < cost) {
     throw new Error(`Insufficient funds: need ${cost} ducats, have ${state.resources.funds}.`);
   }
   spendFunds(state, cost, 'ships');
   const used = new Set(state.resources.ships.map((s) => s.name));
   const name = rules.RESOURCES.SPARE_SHIP_NAMES.find((n) => !used.has(n))
-    || `Chartered hull ${state.resources.ships.length + 1}`;
-  const ship = { id: `ship-${state.resources.ships.length + 1}`, name, freeYear: 0 };
+    || `Chartered ${tierInfo.label.toLowerCase()} ${state.resources.ships.length + 1}`;
+  const ship = { id: `ship-${state.resources.ships.length + 1}`, name, tier, freeYear: 0 };
   state.resources.ships.push(ship);
   addLedger(state, {
     year: state.year, type: 'expansion',
-    note: `The General charters another hull, the ${name} (${cost} ducats). ${state.resources.ships.length} hulls now serve the missions.`,
+    note: `The General charters a ${tierInfo.label.toLowerCase()}, the ${name} (${cost} ducats, range ${tierInfo.range}, capacity ${tierInfo.capacity}). ${state.resources.ships.length} hulls now serve the missions.`,
   });
   return { ship, ships: state.resources.ships.length, funds: state.resources.funds, cost };
 }
@@ -3961,7 +3974,10 @@ export function resolveYear(state) {
   for (const [destId, men] of groups) {
     const dest = g.destinations.find((d) => d.id === destId);
     const travel = dest?.travelYears ?? rules.defaultTravelYears();
-    const CAP = rules.RESOURCES.SHIP_CAPACITY;
+    // Ship tiers: filter by range, use per-tier capacity
+    const tierInfo = (ship) => rules.RESOURCES.SHIP_TIERS[ship.tier || 'carrack'] || rules.RESOURCES.SHIP_TIERS.carrack;
+    const shipRange = (ship) => tierInfo(ship).range;
+    const shipCap = (ship) => tierInfo(ship).capacity;
     let idx = 0;
     let ship = null; // hull currently being packed for this destination
     const packed = new Set(); // hulls given a sailing this year, per destination group
@@ -3998,7 +4014,8 @@ export function resolveYear(state) {
         idx += 1;
         continue;
       }
-      if (!ship || (ship.used || 0) + party > CAP) {
+      const curCap = ship ? shipCap(ship) : 0;
+      if (!ship || (ship.used || 0) + party > curCap) {
         // Model B: each ship packed occupies one berth. Check before selecting.
         if (berths <= 0) {
           for (; idx < men.length; idx++) men[idx].note = 'delayed: no berths free';
@@ -4008,9 +4025,12 @@ export function resolveYear(state) {
         // (not s !== ship) prevents re-selecting a hull that was already
         // filled earlier in this packing operation, which would reset its
         // used counter and exceed capacity.
-        ship = ships.find((s) => (s.freeYear || 0) <= y && !packed.has(s));
+        ship = ships.find((s) => (s.freeYear || 0) <= y && !packed.has(s) && shipRange(s) >= travel);
         if (!ship) {
-          for (; idx < men.length; idx++) men[idx].note = 'delayed: no hulls free';
+          // Check if it's a range issue vs no hulls
+          const anyFree = ships.some((s) => (s.freeYear || 0) <= y && !packed.has(s));
+          const note = anyFree ? `delayed: no hull with range ${travel} free` : 'delayed: no hulls free';
+          for (; idx < men.length; idx++) men[idx].note = note;
           break;
         }
         ship.used = 0;

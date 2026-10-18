@@ -106,8 +106,19 @@ export const RESOURCES = Object.freeze({
     'Santo António de Lisboa', 'Nossa Senhora da Conceição', 'São Francisco Xavier',
     'Bom Jesus', 'Santa Cruz', 'Nossa Senhora do Rosário',
   ]),
-  SHIP_CAPACITY: 8,
-  /** Cost to charter an additional hull (permanent). */
+  SHIP_CAPACITY: 8, // default (carrack); overridden per-tier below
+  /**
+   * Ship tiers by range. A ship can only sail to destinations within its range
+   * (travelYears <= range). Only galleons reach the Far East.
+   */
+  SHIP_TIERS: Object.freeze({
+    caravel: Object.freeze({ range: 1, capacity: 4, cost: 150, label: 'Caravel' }),
+    carrack: Object.freeze({ range: 2, capacity: 8, cost: 300, label: 'Carrack' }),
+    galleon: Object.freeze({ range: 3, capacity: 12, cost: 600, label: 'Galleon' }),
+  }),
+  /** Starting fleet: 2 carracks + 1 caravel. */
+  STARTING_FLEET: Object.freeze(['carrack', 'carrack', 'caravel']),
+  /** Cost to charter an additional hull (permanent). Now per-tier; this is the default (carrack). */
   SHIP_CHARTER_COST: 300,
   /** The Society at Vitelleschi's election (Jan 1615): 13,112 members in
    *  32 provinces and 559 houses (Catholic Encyclopedia, s.v. Aquaviva).

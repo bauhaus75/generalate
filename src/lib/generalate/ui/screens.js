@@ -438,7 +438,7 @@ export function renderBriefing(app, root, start) {
     <h2 class="year-head px">ANNO ${start.year}</h2>
     <div class="brief-grid">
       <div class="brief-stat"><span class="bs-num">${b.funds}</span><span class="bs-label">scudi in the mission chest</span></div>
-      <div class="brief-stat"><span class="bs-num">${b.berths}</span><span class="bs-label">free berths this year</span></div>
+      <div class="brief-stat"><span class="bs-num">${b.berths}</span><span class="bs-label">berths in port</span></div>
       <div class="brief-stat"><span class="bs-num">${app.state.resources.ships.filter(s => (s.freeYear || 0) <= start.year).length}/${app.state.resources.ships.length}</span><span class="bs-label">hulls free</span></div>
       <div class="brief-stat"><span class="bs-num">${(app.state.available || 0).toLocaleString('en-US')}</span><span class="bs-label">available for mission (1% of the Society)</span></div>
       <div class="brief-stat"><span class="bs-num">${(app.state.society || 0).toLocaleString('en-US')}</span><span class="bs-label">Jesuits in the Society</span></div>
@@ -462,7 +462,14 @@ export function renderBriefing(app, root, start) {
     <ul class="news-list rumors">${b.eventsUpcoming.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
     <div class="btn-row">
       <button class="gbtn" id="expand-berths" data-energy="1">Commission +1 berth (400 scudi)</button>
-      <button class="gbtn" id="charter-ship" data-energy="1">Charter a hull (300 scudi)</button>
+      <label class="dest-redirect">Charter:
+        <select id="charter-tier" aria-label="Ship tier">
+          <option value="caravel">Caravel — range 1, 4 men, 150 scudi</option>
+          <option value="carrack" selected>Carrack — range 2, 8 men, 300 scudi</option>
+          <option value="galleon">Galleon — range 3, 12 men, 600 scudi</option>
+        </select>
+        <button class="gbtn" id="charter-ship" data-energy="1">Charter</button>
+      </label>
       <button class="gbtn" id="exhort-missions" data-energy="1">Exhort the missions (+1 voyage rolls this year)</button>
       <label class="dest-redirect">Novitiate at:
         <select id="novitiate-dest" aria-label="Novitiate destination">
@@ -531,7 +538,8 @@ export function renderBriefing(app, root, start) {
   });
   root.querySelector('#charter-ship').addEventListener('click', () => {
     try {
-      app.Engine.charterShip(app.state);
+      const tier = root.querySelector('#charter-tier')?.value || 'carrack';
+      app.Engine.charterShip(app.state, tier);
       app.Engine.refreshBriefing(app.state);
       app.save();
       app.sound('coin');
@@ -2088,11 +2096,13 @@ export function renderYearReport(app, root, res) {
 export function renderLogistics(app, root) {
   const ships = app.state.resources?.ships || [];
   const berths = app.state.resources?.berths || 0;
-  const capacity = app.Engine.RESOURCES?.SHIP_CAPACITY || 8;
   const year = app.state.year;
   const voyages = (app.state.voyages || []).filter((v) => !v.resolvedYear || v.resolvedYear > year);
+  const tiers = app.Engine.RESOURCES?.SHIP_TIERS || {};
 
   const shipCards = ships.map((s) => {
+    const tierInfo = tiers[s.tier || 'carrack'] || { label: 'Carrack', range: 2, capacity: 8 };
+    const capacity = tierInfo.capacity;
     const isFree = (s.freeYear || 0) <= year;
     const used = s.used || 0;
     const pct = capacity > 0 ? Math.round((used / capacity) * 100) : 0;
@@ -2102,7 +2112,7 @@ export function renderLogistics(app, root) {
     return `
     <div class="logi-ship">
       <div class="logi-ship-info">
-        <div class="logi-ship-name">${esc(s.name)}</div>
+        <div class="logi-ship-name">${esc(s.name)} <span class="logi-tier">${esc(tierInfo.label)} (range ${tierInfo.range})</span></div>
         <div class="logi-ship-status">${isFree ? '<span class="logi-free">In port</span>' : `<span class="logi-away">At sea → ${esc(destName || 'unknown')}</span>`}</div>
         <div class="logi-cap-bar"><div class="logi-cap-fill" style="width:${isFree ? 0 : pct}%"></div></div>
         <div class="logi-cap-text">${isFree ? '0' : used}/${capacity} men${!isFree && s.freeYear ? ` · returns ${s.freeYear}` : ''}</div>

@@ -50,6 +50,15 @@ function ok(name, cond, extra = '') {
 
 setGameData(FIXTURES);
 
+// Test helper: newGame with galleons (so ship range never blocks test voyages).
+// Ship tiers are tested separately; most tests just need voyages to sail.
+const _newGame = newGame;
+function newGameWithGalleons(opts) {
+  const s = _newGame(opts);
+  for (const sh of s.resources.ships) sh.tier = 'galleon';
+  return s;
+}
+
 // --- 1. Endless soak: 500 rounds, random valid decisions ---------------------
 const soak = soakTest({ rounds: 500, seed: 'soak-a' });
 ok('soak endless: 500 rounds completed', soak.rounds === 500, `rounds=${soak.rounds}`);
@@ -90,7 +99,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 4. Campaign API walkthrough ----------------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'walkthrough' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'walkthrough' });
   ok('newGame year', s.year === CAMPAIGN_START);
   ok('newGame score 50', getScore(s) === 50);
   const { year, briefing, terna } = startYear(s);
@@ -129,7 +138,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 5. Closed destinations excluded from ternas --------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'japan-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'japan-test' });
   dbgJumpYear(s, 1622);
   dbgFireEvent(s, 'ev-nagasaki-1622'); // closes japan
   const { terna } = startYear(s);
@@ -142,7 +151,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 6. Voyage outcomes resolve travelYears later; news +0–1y; counterfactual --
 {
-  const s = newGame({ mode: 'campaign', seed: 'voyage-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'voyage-test' });
   const { terna } = startYear(s);
   const goa = terna.find((c) => c.destination === 'goa') || terna[0];
   decide(s, [{ id: goa.petitionerId }]);
@@ -160,7 +169,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 7. Debug tools -------------------------------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'debug-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'debug-test' });
   ok('dbgJumpYear', dbgJumpYear(s, 1630) === 1630);
   const cards = dbgSpawnTerna(s);
   ok('dbgSpawnTerna 3 cards', cards.length === 3);
@@ -172,7 +181,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   try { dbgForceOutcome(s, s.voyages[0].id, 'ascended'); } catch { threw = true; }
   ok('dbgForceOutcome rejects bad outcome', threw);
   ok('__fireEvent alias', typeof __fireEvent(s, 'ev-macao-1635').title === 'string');
-  const s2 = newGame({ mode: 'campaign', seed: 'debug-test-2' });
+  const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'debug-test-2' });
   const { terna: t2 } = startYear(s2); decide(s2, [{ id: t2[0].petitionerId }]); resolveYear(s2);
   const o2 = __forceOutcome(s2, s2.voyages[0].id, 'lost'); // mock vocabulary
   ok('__forceOutcome maps lost→deceased', o2.outcome === 'deceased');
@@ -182,7 +191,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 8. Endless divergence → fictional petitioners with disclaimers ---------------
 {
-  const s = newGame({ mode: 'endless', seed: 'fic-test' });
+  const s = newGameWithGalleons({ mode: 'endless', seed: 'fic-test' });
   dbgJumpYear(s, 1646);
   resolveYear(s); // triggers divergence
   ok('diverged flag + phase', s.diverged === true && s.phase === 'alternate history', s.phase);
@@ -202,10 +211,10 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
     || (f.yearsInSociety > 8 && ['professed', 'priest'].includes(f.formation)));
   ok('fic yearsInSociety <= age-15', f.yearsInSociety <= f.age - 15);
   // fictional regeneration is deterministic: same seed+ficNum → same name
-  const sB = newGame({ mode: 'endless', seed: 'fic-test' });
+  const sB = newGameWithGalleons({ mode: 'endless', seed: 'fic-test' });
   dbgJumpYear(sB, 1646); resolveYear(sB);
   const { terna: tb } = startYear(sB);
-  const sA2 = newGame({ mode: 'endless', seed: 'fic-test' });
+  const sA2 = newGameWithGalleons({ mode: 'endless', seed: 'fic-test' });
   dbgJumpYear(sA2, 1646); resolveYear(sA2);
   const { terna: ta2 } = startYear(sA2);
   ok('fictional identities deterministic', JSON.stringify(tb.map(c=>c.id)) === JSON.stringify(ta2.map(c=>c.id)));
@@ -213,7 +222,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 9. Ledger filters -----------------------------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'ledger-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'ledger-test' });
   const { terna } = startYear(s);
   decide(s, [{ id: terna[0].petitionerId }]);
   ok('filter by decision=approved', getLedger(s, { decision: 'approved' }).length === 1);
@@ -231,7 +240,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 11. Approve all three; teams ------------------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'approve-all' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'approve-all' });
   const { terna } = startYear(s);
   const dest = terna[0].destination;
   // Approve all three, two bound for the same destination -> one team of 2.
@@ -258,7 +267,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 12. Approve none ------------------------------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'approve-none' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'approve-none' });
   const { terna } = startYear(s);
   const res = decide(s, []);
   ok('approve-none: 0 approved, 3 denied', res.approved.length === 0 && res.denied.length === 3);
@@ -268,7 +277,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 13. decide() validation -----------------------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'decide-valid' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'decide-valid' });
   const { terna } = startYear(s);
   let t1 = false; try { decide(s, 'nope'); } catch { t1 = true; }
   ok('decide rejects non-array', t1);
@@ -278,7 +287,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   try { decide(s, [{ id: terna[0].petitionerId }, { id: terna[0].petitionerId }]); } catch { t3 = true; }
   ok('decide rejects duplicate id', t3);
   // Closed destination falls back to the petitioned one.
-  const s2 = newGame({ mode: 'campaign', seed: 'decide-valid-2' });
+  const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'decide-valid-2' });
   dbgJumpYear(s2, 1622);
   dbgFireEvent(s2, 'ev-nagasaki-1622');
   const { terna: t } = startYear(s2);
@@ -289,7 +298,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 14. Novitiate construction --------------------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'novitiate' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'novitiate' });
   const fundsBefore = s.resources.funds; // 1000
   const goaDangerBefore = s.destState.goa?.danger ?? 1;
   const r = foundNovitiate(s, 'goa');
@@ -316,7 +325,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   let mid = false; try { foundNovitiate(s, 'china'); } catch { mid = true; }
   ok('novitiate mid-terna throws', mid);
   // Insufficient funds.
-  const s3 = newGame({ mode: 'campaign', seed: 'novitiate-poor' });
+  const s3 = newGameWithGalleons({ mode: 'campaign', seed: 'novitiate-poor' });
   s3.resources.funds = 10;
   let poor = false; try { foundNovitiate(s3, 'china'); } catch { poor = true; }
   ok('novitiate without funds throws', poor);
@@ -324,7 +333,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 15. refreshBriefing ---------------------------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'briefing' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'briefing' });
   const { terna } = startYear(s);
   const b1 = refreshBriefing(s);
   ok('briefing lists no novitiates initially', b1.novitiates.length === 0);
@@ -339,7 +348,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 16. Old saves deserialize with new fields -----------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'old-save' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'old-save' });
   const raw = serialize(s);
   delete raw.novitiates; delete raw.seq.team; delete raw.stats.teams; delete raw.stats.novitiates;
   const back = deserialize(raw);
@@ -351,7 +360,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 // --- 17. d20 dice core ------------------------------------------------------------
 {
   // Determinism: same label → same rolls, regardless of call order.
-  const s = newGame({ mode: 'campaign', seed: 'dice-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'dice-test' });
   const a1 = streamFor(s, 'voyage', 'voy-1').int(1, 20);
   const b1 = streamFor(s, 'profile', 'x').int(1, 20);
   const a2 = streamFor(s, 'voyage', 'voy-1').int(1, 20);
@@ -360,7 +369,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   ok('different labels differ', a1 !== b1);
   // Isolation: inspecting profiles cannot perturb voyage outcomes.
   const mk = () => {
-    const st = newGame({ mode: 'campaign', seed: 'isolation' });
+    const st = newGameWithGalleons({ mode: 'campaign', seed: 'isolation' });
     const { terna } = startYear(st);
     decide(st, [{ id: terna[0].petitionerId }]);
     resolveYear(st); // first voyage sails
@@ -415,7 +424,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 18. Voyage d20 migration ---------------------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'voyage-d20' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'voyage-d20' });
   const { terna } = startYear(s);
   decide(s, [{ id: terna[0].petitionerId }]);
   resolveYear(s);
@@ -435,7 +444,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const news = getLedger(s, { type: 'outcome', petitionerId: v.petitionerId });
   ok('ledger shows the roll', news.length === 1 && news[0].note.includes('d20'), news[0]?.note.slice(-60));
   // Deterministic repeat: same seed + actions → same roll.
-  const s2 = newGame({ mode: 'campaign', seed: 'voyage-d20' });
+  const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'voyage-d20' });
   const { terna: t2 } = startYear(s2);
   decide(s2, [{ id: t2[0].petitionerId }]);
   resolveYear(s2);
@@ -452,7 +461,9 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 19. Fruit scoring: outcomes move the score, dispatches don't ------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'fruit' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'fruit' });
+  // Give a galleon so any destination is reachable (ship tier test isolation)
+  s.resources.ships.push({ id: 'ship-test-galleon', name: 'Test Galleon', tier: 'galleon', freeYear: 0 });
   const { terna } = startYear(s);
   decide(s, [{ id: terna[0].petitionerId }]);
   ok('dispatch earns nothing', getScore(s) === 50);
@@ -482,7 +493,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 20. European fruit: denied and returned men labor in Europe ----------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'europe' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'europe' });
   const { terna } = startYear(s);
   // Approve the first; the other two are denied by omission.
   decide(s, [{ id: terna[0].petitionerId }]);
@@ -500,7 +511,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
     s.europeanLabor.some((e) => e.petitionerId === v.petitionerId && e.via === 'returned'));
   ok('outcome delta shown for returned', out.delta === 1);
   // A denied man approved later leaves the European roster when he sails.
-  const s3 = newGame({ mode: 'campaign', seed: 'europeX' });
+  const s3 = newGameWithGalleons({ mode: 'campaign', seed: 'europeX' });
   for (let i = 0; i < 6; i++) { startYear(s3); decide(s3, []); resolveYear(s3); }
   let repettioned = 0;
   for (let i = 0; i < 4; i++) {
@@ -520,7 +531,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 21. Veterans: thriving men may return; homecoming stirs zeal -------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'vet1' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'vet1' });
   const { terna } = startYear(s);
   decide(s, terna.map((c) => ({ id: c.petitionerId })));
   resolveYear(s);
@@ -566,7 +577,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 // --- 22. Hulls bind departures -------------------------------------------------
 {
   // No hulls free: nobody sails, the queue waits.
-  const s = newGame({ mode: 'campaign', seed: 'hulls1' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'hulls1' });
   for (const sh of s.resources.ships) sh.freeYear = 9999;
   const { terna } = startYear(s);
   decide(s, terna.map((c) => ({ id: c.petitionerId })));
@@ -577,7 +588,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
     s.queue.map((q) => q.note).join('|'));
 
   // Soul packing: 3 men, one destination, no companions → one hull (3 souls ≤ 8).
-  const s2 = newGame({ mode: 'campaign', seed: 'hulls2' });
+  const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'hulls2' });
   const { terna: t2 } = startYear(s2);
   const dest = t2[0].destination;
   decide(s2, t2.map((c) => ({ id: c.id, destination: dest })));
@@ -593,7 +604,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
     s2.resources.ships.filter((sh) => !freeShips.includes(sh)).every((sh) => sh.freeYear === yr + travel));
 
   // Retinues fill hulls: 1 man + 7 companions = 8 souls fills a hull alone.
-  const s3 = newGame({ mode: 'campaign', seed: 'hulls3' });
+  const s3 = newGameWithGalleons({ mode: 'campaign', seed: 'hulls3' });
   const { terna: t3 } = startYear(s3);
   decide(s3, [
     { id: t3[0].petitionerId, destination: dest, companions: 7 },
@@ -611,7 +622,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
     JSON.stringify(mods7.map((m) => m.label)));
 
   // Small parties share: (1+3) + (1+3) = 8 souls on one hull.
-  const s4 = newGame({ mode: 'campaign', seed: 'hulls4' });
+  const s4 = newGameWithGalleons({ mode: 'campaign', seed: 'hulls4' });
   const { terna: t4 } = startYear(s4);
   decide(s4, [
     { id: t4[0].petitionerId, destination: dest, companions: 3 },
@@ -638,7 +649,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 23. Companions: extra Jesuits strengthen the voyage -------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'companions' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'companions' });
   ok('society starts at 13,112', s.society === 13112, `${s.society}`);
   ok('mission-eligible pool is 1% of the Society', s.available === 131, `${s.available}`);
   const { terna } = startYear(s);
@@ -665,7 +676,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 {
   // Death and return accounting: use fresh voyages (not yet arrived).
   // Death and return accounting: use fresh voyages (not yet arrived).
-  const s = newGame({ mode: 'campaign', seed: 'death-return' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'death-return' });
   const { terna } = startYear(s);
   decide(s, [{ id: terna[0].petitionerId }, { id: terna[1].petitionerId }]);
   resolveYear(s); // both depart, still in transit
@@ -687,7 +698,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   ok('dbgForceOutcome rejects re-force', reforceRejected);
 
   // An empty eligible pool delays departures; companions clamp to what can be spared.
-  const s3 = newGame({ mode: 'campaign', seed: 'companions3' });
+  const s3 = newGameWithGalleons({ mode: 'campaign', seed: 'companions3' });
   s3.available = 0;
   const { terna: t3 } = startYear(s3);
   decide(s3, [{ id: t3[0].petitionerId, companions: 3 }]);
@@ -704,7 +715,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
     s3.ledger.filter((e) => e.type === 'departure').map((e) => e.note).join('|'));
 
   // Invalid companion counts throw and leave state untouched.
-  const s2 = newGame({ mode: 'campaign', seed: 'companions2' });
+  const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'companions2' });
   const { terna: t2 } = startYear(s2);
   for (const bad of [8, -1, 1.5, 'two']) {
     let threw = false;
@@ -724,24 +735,24 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 // --- 24. The seal costs 30 per approval; berths bind -------------------------
 {
   // Approve 1 + deny 2 → 30 scudi.
-  const s = newGame({ mode: 'campaign', seed: 'sealcost' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'sealcost' });
   const { terna } = startYear(s);
   const r = decide(s, [{ id: terna[0].petitionerId }]);
   ok('seal costs 30 per approval', s.resources.funds === 970, `${s.resources.funds}`);
   ok('report carries sealCost 30', r.report.sealCost === 30, `${r.report.sealCost}`);
 
   // Approve-all → 90. Deny-all → free.
-  const s2 = newGame({ mode: 'campaign', seed: 'sealcost2' });
+  const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'sealcost2' });
   const { terna: t2 } = startYear(s2);
   decide(s2, t2.map((c) => ({ id: c.petitionerId })));
   ok('approve-all seal costs 90', s2.resources.funds === 910, `${s2.resources.funds}`);
-  const s3 = newGame({ mode: 'campaign', seed: 'sealcost3' });
+  const s3 = newGameWithGalleons({ mode: 'campaign', seed: 'sealcost3' });
   startYear(s3);
   decide(s3, []);
   ok('deny-all seal is free', s3.resources.funds === 1000, `${s3.resources.funds}`);
 
   // A broke General cannot seal approvals (30 each) but can still deny for free.
-  const s4 = newGame({ mode: 'campaign', seed: 'sealcost4' });
+  const s4 = newGameWithGalleons({ mode: 'campaign', seed: 'sealcost4' });
   s4.resources.funds = 10;
   const { terna: t4 } = startYear(s4);
   let threw = false;
@@ -753,7 +764,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
   // Model B: berths = ships in port. 6 men to 3 destinations need 3 ships = 3 berths.
   // All sail if destinations group into <=3 ships.
-  const s5 = newGame({ mode: 'campaign', seed: 'sealcost5' });
+  const s5 = newGameWithGalleons({ mode: 'campaign', seed: 'sealcost5' });
   for (const sh of s5.resources.ships) sh.freeYear = 9999; // no hulls year 1
   const { terna: t5 } = startYear(s5);
   decide(s5, t5.map((c) => ({ id: c.petitionerId })));
@@ -773,8 +784,8 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 // --- 25. Phase 2: dispositions & formation --------------------------------------
 {
   // Determinism: same seed + same man → same initial disposition.
-  const a = newGame({ mode: 'campaign', seed: 'phase2' });
-  const b = newGame({ mode: 'campaign', seed: 'phase2' });
+  const a = newGameWithGalleons({ mode: 'campaign', seed: 'phase2' });
+  const b = newGameWithGalleons({ mode: 'campaign', seed: 'phase2' });
   const ia = ensureDisposition(a, 'hist-1').initial;
   const ib = ensureDisposition(b, 'hist-1').initial;
   ok('initial disposition is deterministic',
@@ -815,7 +826,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   try { assignFormation(a, deniedId, 'studies'); } catch (e) { dbl = /already in formation/.test(e.message); }
   ok('no double formation', dbl);
   // No double-booking: a queued man cannot be formed.
-  const sQ = newGame({ mode: 'campaign', seed: 'phase2q' });
+  const sQ = newGameWithGalleons({ mode: 'campaign', seed: 'phase2q' });
   const { terna: tQ } = startYear(sQ);
   decide(sQ, [{ id: tQ[0].petitionerId }]);
   let qThrow = false;
@@ -843,7 +854,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   ok('grade untouched by formation', gAfter.grade === gradeBefore, `${gradeBefore}→${gAfter.grade}`);
 
   // Voyage modifiers from current disposition.
-  const sV = newGame({ mode: 'campaign', seed: 'phase2v' });
+  const sV = newGameWithGalleons({ mode: 'campaign', seed: 'phase2v' });
   const { terna: tV } = startYear(sV);
   const vid = tV[0].petitionerId;
   const dv = ensureDisposition(sV, vid);
@@ -864,7 +875,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 13. Mission staffing: dispatch, capacity, upkeep, requests ----------------
 {
-  const s = newGame({ mode: 'endless', seed: 'mission-a' });
+  const s = newGameWithGalleons({ mode: 'endless', seed: 'mission-a' });
   const destId = FIXTURES.destinations[0].id;
   const st0 = { ...missionStaff(s, destId) };
   ok('missions init with capacity', st0.capacity > 0 && Number.isInteger(st0.capacity), `${destId} cap=${st0.capacity}`);
@@ -914,7 +925,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   ok('yearly upkeep deducted', s.resources.funds === f2 + 240 - upkeepTotal, `${s.resources.funds}`);
 
   // Arrivals join staffing; the voyage records the grade for later release.
-  const s2 = newGame({ mode: 'endless', seed: 'mission-b' });
+  const s2 = newGameWithGalleons({ mode: 'endless', seed: 'mission-b' });
   const d2 = FIXTURES.destinations[1].id;
   const { terna: t2 } = startYear(s2);
   decide(s2, [{ id: t2[0].petitionerId, destination: d2, companions: 1 }]);
@@ -931,7 +942,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   ok('voyage records staff grade', !!v2.staffGrade, `${v2.staffGrade}`);
 
   // Migration: old saves gain missions.
-  const s3 = newGame({ mode: 'endless', seed: 'mission-c' });
+  const s3 = newGameWithGalleons({ mode: 'endless', seed: 'mission-c' });
   delete s3.missions;
   const s3r = deserialize(serialize(s3));
   ok('old saves gain missions on load', !!s3r.missions && Object.keys(s3r.missions).length > 0, `${Object.keys(s3r.missions || {}).length}`);
@@ -943,7 +954,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 // Bug: voyage.teamSize came from the approval group, not actual departures.
 {
   // Ship capacity: force a scenario where the old code would over-pack.
-  const s = newGame({ mode: 'endless', seed: 'ship-regress' });
+  const s = newGameWithGalleons({ mode: 'endless', seed: 'ship-regress' });
   // Approve 3 men for the same destination with full retinues (8 souls each).
   // With 3 hulls of capacity 8, the third party needs a fresh hull, not a reset one.
   const { terna } = startYear(s);
@@ -965,7 +976,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
   // Team size (Model B): 3 men to 3 different destinations, 1 berth → only 1 ship sails.
   // teamSize must reflect the actual sailing (1), not the approval group (3).
-  const s2 = newGame({ mode: 'endless', seed: 'team-regress' });
+  const s2 = newGameWithGalleons({ mode: 'endless', seed: 'team-regress' });
   s2.resources.berths = 1; // only 1 ship can outfit
   const t2 = startYear(s2).terna;
   // Send each to a different destination (3 ships needed, 1 berth → 1 sails)
@@ -981,7 +992,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 // --- Mission fragility (informational only) ---------------------------------
 // Counter: <40% increment, 40-60% pause, >=60% reset, FRAGILE at 3 accumulated.
 {
-  const s = newGame({ mode: 'campaign', seed: 'frag-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'frag-test' });
   const st = missionStaff(s, 'japan'); // capacity 12
   // Start: 35% (4/12) -> below 40%, counter should increment each year
   ok('fragility counter initializes to 0', st.fragileYears === 0 && st.fragile === false);
@@ -1023,7 +1034,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   ok('counter pauses at 40-60%', missionStaff(s, 'japan').fragileYears === 1,
     `fragileYears=${missionStaff(s, 'japan').fragileYears}`);
   // Old save compat: missing fields backfill safely
-  const s2 = newGame({ mode: 'campaign', seed: 'frag-compat' });
+  const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'frag-compat' });
   delete s2.missions['china'].fragileYears;
   delete s2.missions['china'].fragile;
   const sc = missionStaff(s2, 'china');
@@ -1032,7 +1043,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- Domestic assignments --------------------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'dom-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'dom-test' });
   // Deny a man to get him into europeanLabor
   let { terna } = startYear(s);
   const deniedId = terna[1].petitionerId;
@@ -1062,7 +1073,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
     ok('teaching requires non-brother (skipped, man is brother)', true);
   }
   // Pastoral requires priest
-  const s2 = newGame({ mode: 'campaign', seed: 'dom-test2' });
+  const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'dom-test2' });
   let { terna: tr2 } = startYear(s2);
   decide(s2, [{ id: tr2[0].petitionerId }]);
   resolveYear(s2);
@@ -1077,7 +1088,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- Emergency dispatch from formation ---------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'emg-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'emg-test' });
   let { terna } = startYear(s);
   const deniedId = terna[1].petitionerId;
   decide(s, [{ id: terna[0].petitionerId }]);
@@ -1102,7 +1113,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- Ordination and career stages --------------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'ord-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'ord-test' });
   // Find a scholastic in the terna and deny him to get him into europeanLabor
   let { terna } = startYear(s);
   // Force a scholastic: use dbgSpawnTerna or find one
@@ -1123,7 +1134,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- Delegated authority: instructions ---------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'instr-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'instr-test' });
   const inst = issueInstruction(s, 'goa', 'expand');
   ok('instruction issued', inst.status === 'in-transit' && inst.arriveYear > s.year);
   ok('instruction has travel delay', inst.arriveYear >= s.year + 1);
@@ -1142,7 +1153,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   ok('instruction resolves', r.status === 'resolved' && ['obeyed','adapted','delayed','disobeyed'].includes(r.outcome),
     `outcome=${r.outcome}`);
   // Determinism: same seed, same outcome
-  const s2 = newGame({ mode: 'campaign', seed: 'instr-test' });
+  const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'instr-test' });
   issueInstruction(s2, 'goa', 'expand');
   for (let i = 0; i < 5; i++) {
     const { terna } = startYear(s2);
@@ -1155,7 +1166,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- Diminishing thriving returns --------------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'dim-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'dim-test' });
   const st = missionStaff(s, 'goa');
   ok('thrivingCount initializes to 0', st.thrivingCount === 0);
   // Simulate 4 thriving arrivals at goa
@@ -1169,7 +1180,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 // --- Personnel lifecycle audit ------------------------------------------------
 // Verify: thriving men remain stationed; only veterans leave; no silent departures.
 {
-  const s = newGame({ mode: 'campaign', seed: 'life-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'life-test' });
   // Force a thriving outcome via debug
   let { terna } = startYear(s);
   const pid = terna[0].petitionerId;
@@ -1200,7 +1211,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- Ill personnel lifecycle -------------------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'ill-life-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'ill-life-test' });
   const { terna } = startYear(s);
   const pid = terna[0].petitionerId;
   const pname = terna[0].name || pid;
@@ -1232,7 +1243,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- Dispatch from Europe (post-formation) -------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'europe-dispatch-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'europe-dispatch-test' });
   // Deny a man to get him into europeanLabor
   const { terna } = startYear(s);
   const pid = terna[0].petitionerId;
@@ -1249,7 +1260,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
     ok('mission staffing increased', missionStaffed(missionStaff(s, 'goa')) === goaBefore + 1);
     ok('funds decreased', s.resources.funds < fundsBefore);
     // Ill men cannot be dispatched
-    const s2 = newGame({ mode: 'campaign', seed: 'ill-dispatch-test' });
+    const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'ill-dispatch-test' });
     const t2 = startYear(s2);
     const pid2 = t2.terna[0].petitionerId;
     decide(s2, [{ id: pid2, destination: 'goa' }]);
@@ -1283,7 +1294,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
 {
   // A1. Accounting: order removes from europeanLabor, pool decrements once at departure.
-  const s = newGame({ mode: 'campaign', seed: 'dep-acct' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'dep-acct' });
   const ids = seedLabor(s, 4);
   const availBefore = s.available;
   const laborBefore = s.europeanLabor.length;
@@ -1315,7 +1326,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
 {
   // A2. Eligibility: ill / in-formation / assigned men are excluded.
-  const s = newGame({ mode: 'campaign', seed: 'dep-elig' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'dep-elig' });
   const okIds = seedLabor(s, 2, 'elig-ok');
   const illIds = seedLabor(s, 1, 'elig-ill', { ill: 'recovering (ill 1615)' });
   const formIds = seedLabor(s, 1, 'elig-form', { formation: { focus: 'exercises', until: s.year + 1 } });
@@ -1344,7 +1355,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
 {
   // A3. Deterministic selection: headcount and grade modes; fail loudly.
-  const s = newGame({ mode: 'campaign', seed: 'dep-sel' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'dep-sel' });
   seedLabor(s, 6, 'sel');
   const a = selectDeploymentMembers(s, { count: 4 });
   const b = selectDeploymentMembers(s, { count: 4 });
@@ -1355,7 +1366,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   ok('selection fails loudly when short', threw);
   // Grade mode: request the majority grade among seeded men (grades come from
   // the deterministic per-seed stream for fictional records).
-  const s2 = newGame({ mode: 'campaign', seed: 'dep-selg' });
+  const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'dep-selg' });
   const gids = seedLabor(s2, 8, 'selg');
   const gcounts = {};
   for (const id of gids) { const gr = staffGradeFor(s2, id); gcounts[gr] = (gcounts[gr] || 0) + 1; }
@@ -1369,7 +1380,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
 {
   // A4. Partial departure across years; queue interleaving with terna approvals.
-  const s = newGame({ mode: 'campaign', seed: 'dep-partial' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'dep-partial' });
   const ids = seedLabor(s, 6, 'part');
   orderDeployment(s, { destId: 'goa', purpose: 'replace', memberIds: ids });
   const t = startYear(s);
@@ -1392,7 +1403,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
 {
   // A5. Save/load round-trip preserves deployments; old saves default safely.
-  const s = newGame({ mode: 'campaign', seed: 'dep-save' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'dep-save' });
   const ids = seedLabor(s, 3, 'save');
   const dep = orderDeployment(s, { destId: 'goa', purpose: 'college', memberIds: ids });
   const rt = deserialize(serialize(s));
@@ -1408,7 +1419,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
 {
   // A6. Single-fire resolution: no duplication or loss on re-resolve.
-  const s = newGame({ mode: 'campaign', seed: 'dep-once' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'dep-once' });
   const ids = seedLabor(s, 2, 'once');
   const dep = orderDeployment(s, { destId: 'goa', purpose: 'reinforce', memberIds: ids });
   startYear(s); decide(s, []);
@@ -1436,7 +1447,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 {
   // A7. Constraints analysis names the binding constraint (Model B).
   // 6 men fit in 1 hull (cap 8), need 1 berth (have 3) → nothing binds.
-  const s = newGame({ mode: 'campaign', seed: 'dep-con' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'dep-con' });
   const c6 = deploymentConstraints(s, 6);
   ok('6 men: 1 ship, 1 berth — nothing binds', c6.bottleneck === null && c6.shipsNeeded === 1,
     JSON.stringify({ b: c6.bottleneck, ships: c6.shipsNeeded }));
@@ -1455,7 +1466,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 // --- Report card (Stage 2): end-of-generalate account -----------------------
 {
   // Fresh game: zeros, treasury 1000/1000, no missing-data flags on new saves.
-  const s = newGame({ mode: 'campaign', seed: 'rep-fresh' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'rep-fresh' });
   const r = generalateReport(s);
   ok('report: fresh game score 50', r.score === 50 && r.scoreTitle === 'The Steady General');
   ok('report: fresh game zeros', r.outcomes.thriving === 0 && r.personnel.dispatched === 0
@@ -1469,7 +1480,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   ok('report: JSON-safe', JSON.parse(JSON.stringify(r)).score === 50);
 
   // Scripted campaign fragment: dispatch, novitiate, voyages.
-  const g = newGame({ mode: 'campaign', seed: 'rep-script' });
+  const g = newGameWithGalleons({ mode: 'campaign', seed: 'rep-script' });
   foundNovitiate(g, 'china');
   dispatchMission(g, 'goa', { brothers: 2 });
   ok('report: dispatch counter', g.stats.missionDispatches === 2 && g.stats.missionDispatchDests.goa === 2);
@@ -1490,7 +1501,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   ok('endGame carries the report', end.report && end.report.score === getScore(g));
 
   // Missing data (older save): omitted/marked unavailable, never fabricated.
-  const o = newGame({ mode: 'campaign', seed: 'rep-old' });
+  const o = newGameWithGalleons({ mode: 'campaign', seed: 'rep-old' });
   delete o.stats.missionDispatches;
   delete o.stats.missionDispatchDests;
   const r3 = generalateReport(o);
@@ -1500,7 +1511,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   ok('report: old save still renders numbers', r3.score === 50 && r3.treasury.start === 1000);
 
   // Round-trip through serialize/deserialize preserves the report inputs.
-  const g2 = newGame({ mode: 'campaign', seed: 'rep-ser' });
+  const g2 = newGameWithGalleons({ mode: 'campaign', seed: 'rep-ser' });
   dispatchMission(g2, 'goa', { brothers: 3 });
   const back = deserialize(serialize(g2));
   const r4 = generalateReport(back);
@@ -1531,7 +1542,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 1. Milestone detection: 2-year novice queues firstVows.
   {
-    const s = newGame({ mode: 'campaign', seed: 'vows-detect' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'vows-detect' });
     const id = vowsMan(s, 'nov2', 2, 'novice', 'scholastic');
     resolveYear(s);
     const p = (s.pendingVows || []).find((x) => x.petitionerId === id && x.type === 'firstVows');
@@ -1540,7 +1551,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 2. firstVows proceed: novice -> scholastic, +zeal/+humility.
   {
-    const s = newGame({ mode: 'campaign', seed: 'vows-first' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'vows-first' });
     const id = vowsMan(s, 'nov2', 2, 'novice', 'scholastic');
     resolveYear(s);
     const d0 = ensureDisposition(s, id);
@@ -1557,7 +1568,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 3. Brother firstVows: stays brother.
   {
-    const s = newGame({ mode: 'campaign', seed: 'vows-bro' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'vows-bro' });
     const id = vowsMan(s, 'bro2', 2, 'brother');
     resolveYear(s);
     decideVows(s, id, 'firstVows', 'proceed');
@@ -1571,7 +1582,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 4. Defer: +humility, deferredUntil, re-queued after 2 years.
   {
-    const s = newGame({ mode: 'campaign', seed: 'vows-defer' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'vows-defer' });
     const id = vowsMan(s, 'nov2', 2, 'novice', 'scholastic');
     resolveYear(s);
     const d0 = ensureDisposition(s, id);
@@ -1595,7 +1606,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 5. Dismiss: removed, status DISMISSED, never returns.
   {
-    const s = newGame({ mode: 'campaign', seed: 'vows-dismiss' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'vows-dismiss' });
     const id = vowsMan(s, 'nov2', 2, 'novice', 'scholastic');
     resolveYear(s);
     decideVows(s, id, 'firstVows', 'dismiss');
@@ -1608,7 +1619,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 6. Ordination threshold: 10 years NOT eligible, 12 years eligible.
   {
-    const s = newGame({ mode: 'campaign', seed: 'vows-ord10' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'vows-ord10' });
     // hist-67 is a scholastic in the fixtures (deterministic grade).
     const pid = 'hist-67';
     s.petitioners[pid] = {
@@ -1630,7 +1641,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 7. Full progression: novice -> scholastic -> ordained via milestones.
   {
-    const s = newGame({ mode: 'campaign', seed: 'vows-full' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'vows-full' });
     const id = vowsMan(s, 'nov2', 2, 'novice', 'scholastic');
     // firstVows
     resolveYear(s);
@@ -1675,7 +1686,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 8. Final vows: invite -> tertianship -> grade choice.
   {
-    const s = newGame({ mode: 'campaign', seed: 'vows-final' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'vows-final' });
     const id = vowsMan(s, 'ord', 15, 'ordained');
     const y0 = s.year;
     inviteFinalVows(s, id);
@@ -1699,7 +1710,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 9. rankSuffix: nSJ for novice, SJ otherwise.
   {
-    const s = newGame({ mode: 'campaign', seed: 'vows-suffix' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'vows-suffix' });
     const novId = vowsMan(s, 'nov', 1, 'novice');
     const schId = vowsMan(s, 'sch', 5, 'scholastic');
     const broId = vowsMan(s, 'bro', 5, 'brother');
@@ -1711,7 +1722,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 10. Invalid inputs throw.
   {
-    const s = newGame({ mode: 'campaign', seed: 'vows-err' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'vows-err' });
     const id = vowsMan(s, 'nov2', 2, 'novice', 'scholastic');
     let threw = false;
     try { decideVows(s, id, 'firstVows', 'proceed'); } catch { threw = true; }
@@ -1729,7 +1740,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 11. Save round-trip preserves vows.
   {
-    const s = newGame({ mode: 'campaign', seed: 'vows-save' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'vows-save' });
     const id = vowsMan(s, 'nov2', 2, 'novice', 'scholastic');
     resolveYear(s);
     decideVows(s, id, 'firstVows', 'proceed');
@@ -1742,7 +1753,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 12. Old save without vows gets backfilled.
   {
-    const s = newGame({ mode: 'campaign', seed: 'vows-old' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'vows-old' });
     const id = vowsMan(s, 'nov2', 2, 'novice', 'scholastic');
     const entry = s.europeanLabor.find((e) => e.petitionerId === id);
     delete entry.vows;
@@ -1753,7 +1764,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // DEAD-END TESTS
   {
-    const s = newGame({ mode: 'campaign', seed: 'deadend-terna' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'deadend-terna' });
     dbgSpawnTerna(s);
     decide(s, []);
     let threw = false;
@@ -1761,7 +1772,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     ok('deadend: decide() after seal throws clear error', threw);
   }
   {
-    const s = newGame({ mode: 'campaign', seed: 'deadend-block' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'deadend-block' });
     dbgSpawnTerna(s);
     let blocked = 0;
     for (const fn of [() => foundNovitiate(s, 'goa'), () => expandBerths(s), () => charterShip(s)]) {
@@ -1793,7 +1804,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 40a. Death purges vows queues (Stage 1).
   {
-    const s = newGame({ mode: 'campaign', seed: 'death-purge' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'death-purge' });
     const id = overseasMan(s, 'dp', 8, 'goa');
     // Manually queue in-transit news and a pending decision for him.
     s.vowsNewsInTransit = [{ petitionerId: id, type: 'regency', name: 'Overseas Man dp', destId: 'goa', milestoneYear: s.year, arriveYear: s.year + 2, newsText: 'has completed regency' }];
@@ -1805,7 +1816,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 40b. decideVows on a dead man throws (Stage 1 defense in depth).
   {
-    const s = newGame({ mode: 'campaign', seed: 'death-decide' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'death-decide' });
     const id = vowsMan(s, 'dd', 2, 'novice', 'scholastic');
     s.pendingVows = [{ petitionerId: id, type: 'firstVows', year: s.year, name: 'Vows Man dd' }];
     s.petitioners[id].status = 'deceased';
@@ -1816,7 +1827,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 40c. Voyage death purges vows state end-to-end (Stage 1).
   {
-    const s = newGame({ mode: 'campaign', seed: 'death-voyage' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'death-voyage' });
     const { terna } = startYear(s);
     const pick = terna[0];
     decide(s, [{ id: pick.petitionerId }]);
@@ -1833,7 +1844,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 40d. entryYear set on approval; years advance for approved men (Stage 2).
   {
-    const s = newGame({ mode: 'campaign', seed: 'entry-year' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'entry-year' });
     const { terna } = startYear(s);
     const pick = terna[0];
     // Give the petitioner known historical years.
@@ -1854,7 +1865,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 40e. Overseas milestone: detection -> transit -> Desk (Stage 2 + overseas flow).
   {
-    const s = newGame({ mode: 'campaign', seed: 'ovs-mile' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'ovs-mile' });
     // 12-year scholastic stationed at Goa; theology milestone triggers.
     const id = overseasMan(s, 'om', 12, 'goa');
     s.petitioners[id].vows = {
@@ -1877,7 +1888,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 40f. Final vows: invitation -> tertianship -> coadjutor/professed (Stage 5).
   {
-    const s = newGame({ mode: 'campaign', seed: 'final-vows-p' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'final-vows-p' });
     const id = vowsMan(s, 'fv', 13, 'ordained', 'scholastic');
     const inv = inviteFinalVows(s, id);
     ok('final-vows: invited', inv.invited === true);
@@ -1888,7 +1899,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     ok('final-vows: professed chosen', done.grade === 'professed' && e0.vows.stage === 'professed');
   }
   {
-    const s = newGame({ mode: 'campaign', seed: 'final-vows-c' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'final-vows-c' });
     const id = vowsMan(s, 'fv', 13, 'ordained', 'scholastic');
     inviteFinalVows(s, id);
     const { terna: t } = startYear(s); decide(s, []); resolveYear(s);
@@ -1897,7 +1908,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   {
     // Tertianship completion queues the finalVowsGrade Desk decision.
-    const s = newGame({ mode: 'campaign', seed: 'final-vows-q' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'final-vows-q' });
     const id = vowsMan(s, 'fv', 13, 'ordained', 'scholastic');
     inviteFinalVows(s, id);
     for (let i = 0; i < 2; i++) { const { terna: t } = startYear(s); decide(s, []); resolveYear(s); }
@@ -1907,7 +1918,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 40g. Rank monotonicity: stages never regress across years (Stage 5).
   {
-    const s = newGame({ mode: 'campaign', seed: 'mono' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'mono' });
     const order = { novice: 0, scholastic: 1, brother: 1, ordained: 2, coadjutor: 3, professed: 3 };
     const ids = [
       vowsMan(s, 'm1', 1, 'novice', 'scholastic'),
@@ -1935,7 +1946,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 40h. Direct dispatch preserves years progression like terna approval (Stage 5).
   {
-    const s = newGame({ mode: 'campaign', seed: 'dispatch-years' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'dispatch-years' });
     const id = vowsMan(s, 'de', 4, 'scholastic', 'scholastic');
     const rec = s.petitioners[id];
     ok('dispatch-years: entryYear set via europeanLabor', rec.entryYear === s.year);
@@ -1948,7 +1959,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 40i. Multi-man isolation: decisions on one man don't touch another (Stage 5).
   {
-    const s = newGame({ mode: 'campaign', seed: 'isolation' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'isolation' });
     const a = vowsMan(s, 'ia', 2, 'novice', 'scholastic');
     const b = vowsMan(s, 'ib', 2, 'novice', 'scholastic');
     s.pendingVows = [
@@ -1968,7 +1979,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     ok('age-in-religion: thresholds', JSON.stringify(FORMATION_THRESHOLDS) ===
       JSON.stringify({ firstVows: 2, philosophy: 5, regency: 8, theology: 12, ordination: 12 }));
     // Seeded from historical years + elapsed, then advanced once per resolveYear.
-    const s = newGame({ mode: 'campaign', seed: 'air-1' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'air-1' });
     const id = vowsMan(s, 'air', 0, 'novice', 'scholastic');
     ok('age-in-religion: unseeded reads legacy derivation', ageInReligion(s, id) === 0
       && s.petitioners[id].ageInReligion === undefined);
@@ -2015,7 +2026,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     resolveYear(s);
     ok('age-in-religion: deceased frozen', ageInReligion(s, id) === 5 && yearsInSociety(s, id) === 7);
     // Men not yet in the Society (no entryYear) are not advanced.
-    const s2 = newGame({ mode: 'campaign', seed: 'air-2' });
+    const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'air-2' });
     s2.petitioners['air-out'] = { id: 'air-out', fictional: true, status: 'new', history: [], yearsInSociety: 3 };
     resolveYear(s2);
     ok('age-in-religion: outsiders not advanced', s2.petitioners['air-out'].ageInReligion === undefined
@@ -2024,7 +2035,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 40k. Old saves lacking ageInReligion migrate from entryYear on load.
   {
-    const s = newGame({ mode: 'campaign', seed: 'air-migrate' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'air-migrate' });
     const id = vowsMan(s, 'mig', 3, 'scholastic', 'scholastic');
     s.petitioners[id].entryYear = s.year - 4; // entered 4 years ago with 3 historical years
     const raw = JSON.parse(JSON.stringify(serialize(s)));
@@ -2040,7 +2051,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 40l. Diagnostics export carries ageInReligion.
   {
-    const s = newGame({ mode: 'campaign', seed: 'air-diag' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'air-diag' });
     const id = vowsMan(s, 'dg', 1, 'novice', 'brother');
     resolveYear(s);
     const before = JSON.stringify(s);
@@ -2061,7 +2072,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   {
     let checked = 0, mismatches = [];
     for (const seed of ['card-seed-1', 'card-seed-2', 'card-seed-3', 'card-seed-4']) {
-      const s = newGame({ mode: 'campaign', seed });
+      const s = newGameWithGalleons({ mode: 'campaign', seed });
       for (let yr = 0; yr < 3; yr++) {
         const { terna } = startYear(s);
         const g = getGameData();
@@ -2086,7 +2097,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // Null yearsInSociety on a historical record: card-seeded value is used, deterministically.
   {
-    const s = newGame({ mode: 'campaign', seed: 'card-null' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'card-null' });
     const g = getGameData();
     const pet = g.petitioners.find((p) => !p.fictional);
     const saved = pet.yearsInSociety;
@@ -2099,14 +2110,14 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
       initAgeInReligion(s, pet.id);
       ok('card-seed: null record seeds both counters from card value (not 0)',
         s.petitioners[pet.id].ageInReligion === v1 && s.petitioners[pet.id].totalYearsInSociety === v1);
-      const s2 = newGame({ mode: 'campaign', seed: 'card-null' });
+      const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'card-null' });
       ok('card-seed: same seed -> same value', cardYearsInSociety(s2, pet.id) === v1);
     } finally { pet.yearsInSociety = saved; }
   }
 
   // 40n. Formation & Mission history: recorded live, in year order.
   {
-    const s = newGame({ mode: 'campaign', seed: 'hist-live' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'hist-live' });
     const id = vowsMan(s, 'hl', 1, 'novice', 'scholastic');
     initAgeInReligion(s, id);
     resolveYear(s); // 1 -> 2
@@ -2128,7 +2139,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     ok('history: rec flagged', s.petitioners[id].historyV === HISTORY_VERSION);
 
     // Desk + voyage path: entry, petition approved, departure, arrival.
-    const s2 = newGame({ mode: 'campaign', seed: 'hist-voyage' });
+    const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'hist-voyage' });
     const { terna } = startYear(s2);
     const pid = terna[0].petitionerId;
     decide(s2, [{ id: pid }]);
@@ -2166,7 +2177,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   // 40o. Mission-novitiate men: novitiate years count toward both counters, logged in history.
   {
     const mk = (seed, novYears) => {
-      const s = newGame({ mode: 'campaign', seed });
+      const s = newGameWithGalleons({ mode: 'campaign', seed });
       const dest = getGameData().destinations[0].id;
       const y0 = s.year;
       const id = `nov-${dest}-${y0 - (novYears - 2)}-0`;
@@ -2228,7 +2239,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 40p. Novitiate men: grade/track persisted on the record, stable across reloads.
   {
-    const s = newGame({ mode: 'campaign', seed: 'nov-grade' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'nov-grade' });
     const dest = getGameData().destinations[0].id;
     const id = `nov-${dest}-${s.year}-7`;
     s.novices = [{ id, name: 'Grade (novice)', destination: dest, startYear: s.year, readyYear: s.year + 2 }];
@@ -2279,13 +2290,13 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   const G = EngineNS;
   // newGame initializes governance state
   {
-    const s = newGame({ mode: 'campaign', seed: 'gov-t1' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-t1' });
     ok('gov: reports/staged init empty', Array.isArray(s.reports) && s.reports.length === 0
       && Array.isArray(s.staged) && s.staged.length === 0 && s.seq.report === 0);
   }
   // fragile report generation (newly fragile only) + dedupe
   {
-    const s = newGame({ mode: 'campaign', seed: 'gov-t2' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-t2' });
     const st = missionStaff(s, 'goa');
     st.fathers = 0; st.coadjutors = 1; st.brothers = 0; st.capacity = 5;
     st.fragileYears = 3; st.fragile = true;
@@ -2307,7 +2318,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // request report for understaffed mission
   {
-    const s = newGame({ mode: 'campaign', seed: 'gov-t3' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-t3' });
     for (const d of ['goa', 'japan', 'china', 'philippines']) {
       const m = missionStaff(s, d); m.fathers = 2; m.coadjutors = 2; m.brothers = 1;
     }
@@ -2319,7 +2330,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // decideReport lifecycle
   {
-    const s = newGame({ mode: 'campaign', seed: 'gov-t4' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-t4' });
     const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b', facts: {}, recommendations: [] });
     G.decideReport(s, rep.id, 'acknowledge');
     ok('gov: acknowledge sets status', s.reports.find((r) => r.id === rep.id).status === 'acknowledged');
@@ -2336,7 +2347,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // staging + validation
   {
-    const s = newGame({ mode: 'campaign', seed: 'gov-t5' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-t5' });
     const rep = G.queueReport(s, { kind: 'fragile', destId: 'goa', year: s.year, title: 't', body: 'b',
       facts: {}, recommendations: [{ id: 'reinforce', text: 'Reinforce', action: { type: 'dispatch', destId: 'goa', counts: { fathers: 0, coadjutors: 1, brothers: 0 } } }] });
     const sa = G.stageRecommendation(s, rep.id, 'reinforce');
@@ -2357,7 +2368,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // applyStaged: happy path + atomic rollback
   {
-    const s = newGame({ mode: 'campaign', seed: 'gov-t6' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-t6' });
     s.resources.funds = 10000; s.available = 50;
     const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b',
       facts: {}, recommendations: [{ id: 'reinforce', text: 'Reinforce', action: { type: 'dispatch', destId: 'goa', counts: { fathers: 0, coadjutors: 2, brothers: 0 } } }] });
@@ -2375,7 +2386,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   {
     // rollback: first action valid, second fails at apply time
-    const s = newGame({ mode: 'campaign', seed: 'gov-t7' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-t7' });
     s.resources.funds = 10000; s.available = 50;
     const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b',
       facts: {}, recommendations: [
@@ -2398,7 +2409,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // persistence round-trip + legacy backfill
   {
-    const s = newGame({ mode: 'campaign', seed: 'gov-t8b' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-t8b' });
     const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b',
       facts: { staffed: 1 }, recommendations: [{ id: 'r1', text: 't', action: { type: 'instruct', destId: 'goa', instructionType: 'encourage' } }] });
     G.stageRecommendation(s, rep.id, 'r1');
@@ -2414,7 +2425,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // report ids stable across round-trip
   {
-    const s = newGame({ mode: 'campaign', seed: 'gov-t9' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-t9' });
     const a = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 'a', body: 'b', facts: {}, recommendations: [] });
     const b = G.queueReport(s, { kind: 'request', destId: 'japan', year: s.year, title: 'b', body: 'b', facts: {}, recommendations: [] });
     const s2 = deserialize(serialize(s));
@@ -2428,7 +2439,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   const G = EngineNS;
   // Fix 1: two deaths at one destination -> two distinct, traceable reports; none lost
   {
-    const s = newGame({ mode: 'campaign', seed: 'gov-a1' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-a1' });
     for (const d of ['japan', 'china', 'peru', 'philippines']) {
       const m = missionStaff(s, d); m.fathers = 2; m.coadjutors = 2; m.brothers = 1;
     }
@@ -2448,7 +2459,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // Fix 1b: death while a voyage report pending for same dest -> still reported
   {
-    const s = newGame({ mode: 'campaign', seed: 'gov-a1b' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-a1b' });
     for (const d of ['japan', 'china', 'peru', 'philippines']) {
       const m = missionStaff(s, d); m.fathers = 2; m.coadjutors = 2; m.brothers = 1;
     }
@@ -2464,7 +2475,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // Fix 2: two recommendations from one report staged + applied -> both recorded
   {
-    const s = newGame({ mode: 'campaign', seed: 'gov-a2' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-a2' });
     s.resources.funds = 10000; s.available = 50;
     const rep = G.queueReport(s, { kind: 'fragile', destId: 'goa', year: s.year, title: 't', body: 'b',
       facts: {}, recommendations: [
@@ -2483,7 +2494,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // Fix 3: staged IDs unique across discard/re-stage/apply cycles
   {
-    const s = newGame({ mode: 'campaign', seed: 'gov-a3' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-a3' });
     const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b',
       facts: {}, recommendations: [
         { id: 'r1', text: 'A', action: { type: 'instruct', destId: 'goa', instructionType: 'encourage' } },
@@ -2502,7 +2513,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // Fix 4: batch conflict detected (two dispatches, each affordable alone, not together)
   {
-    const s = newGame({ mode: 'campaign', seed: 'gov-a4' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-a4' });
     s.available = 50;
     // coadjutor cost: find it
     const cost1 = 1 * (await import('./rules.js')).MISSION_GRADES.coadjutors.cost;
@@ -2526,7 +2537,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // Fix 4b: rollback restores rngState, seq counters, ledger length
   {
-    const s = newGame({ mode: 'campaign', seed: 'gov-a4b' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-a4b' });
     s.resources.funds = 10000; s.available = 50;
     const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b',
       facts: {}, recommendations: [
@@ -2558,7 +2569,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // Fix 5: deferred reports can be reopened and re-decided
   {
-    const s = newGame({ mode: 'campaign', seed: 'gov-a5' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-a5' });
     const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b', facts: {}, recommendations: [] });
     G.decideReport(s, rep.id, 'defer');
     ok('gov-audit: deferred leaves pending inbox', G.pendingReports(s).length === 0);
@@ -2572,7 +2583,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // Fix 5b: legacy reports gain dedupeKey + appliedActions on load
   {
-    const s = newGame({ mode: 'campaign', seed: 'gov-a5b' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-a5b' });
     const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b', facts: {}, recommendations: [] });
     const raw = serialize(s);
     delete raw.reports[0].dedupeKey; delete raw.reports[0].appliedActions;
@@ -2589,7 +2600,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   // Fixture reproducing the b9cc098 bug: two deaths at Goa, only the first
   // got a (legacy-format, no dedupeKey/voyageId) report; both voyages flagged.
   const buildLegacySave = () => {
-    const s = newGame({ mode: 'campaign', seed: 'gov-leg' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-leg' });
     for (const d of ['japan', 'china', 'peru', 'philippines']) {
       const m = missionStaff(s, d); m.fathers = 2; m.coadjutors = 2; m.brothers = 1;
     }
@@ -2648,7 +2659,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // Unrecoverable case: deceased voyage with no destination is left alone, no crash
   {
-    const s = newGame({ mode: 'campaign', seed: 'gov-leg2' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-leg2' });
     s.voyages.push({ id: 'voy-x', petitionerId: 'hist-9', petitionerName: 'Man X', destination: null,
       departYear: s.year, travelYears: 2, arriveYear: s.year, stage: 'resolved',
       outcome: 'deceased', resolvedYear: s.year, newsDelivered: true, deathReported: true });
@@ -2658,7 +2669,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // Non-deceased and unflagged voyages are ignored
   {
-    const s = newGame({ mode: 'campaign', seed: 'gov-leg3' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-leg3' });
     s.voyages.push({ id: 'voy-y', petitionerId: 'hist-9', petitionerName: 'Man Y', destination: 'goa',
       departYear: s.year, travelYears: 2, arriveYear: s.year, stage: 'resolved',
       outcome: 'thriving', resolvedYear: s.year, newsDelivered: true, deathReported: false });
@@ -2681,7 +2692,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 1+2. decline-after-staging: apply rejected, state fully unchanged
   {
-    const s = newGame({ mode: 'campaign', seed: 'gov-d1' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-d1' });
     s.resources.funds = 10000; s.available = 50;
     const rep = mkDispatchRep(s, 'goa', 'Goa asks');
     G.stageRecommendation(s, rep.id, 'r1');
@@ -2703,7 +2714,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // 3. mixed batch: valid + declined -> whole batch rejected and rolled back
   {
-    const s = newGame({ mode: 'campaign', seed: 'gov-d2' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-d2' });
     s.resources.funds = 10000; s.available = 50;
     const repA = mkDispatchRep(s, 'goa', 'Goa asks');
     const repB = mkDispatchRep(s, 'japan', 'Japan asks');
@@ -2731,7 +2742,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // 4. validator flags it directly (UI badge path)
   {
-    const s = newGame({ mode: 'campaign', seed: 'gov-d3' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-d3' });
     s.resources.funds = 10000; s.available = 50;
     const rep = mkDispatchRep(s, 'goa', 'Goa asks');
     const sa = G.stageRecommendation(s, rep.id, 'r1');
@@ -2742,7 +2753,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // 5. scope lock: acknowledge-after-stage still applies (only decline blocks)
   {
-    const s = newGame({ mode: 'campaign', seed: 'gov-d4' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-d4' });
     s.resources.funds = 10000; s.available = 50;
     const rep = mkDispatchRep(s, 'goa', 'Goa asks');
     G.stageRecommendation(s, rep.id, 'r1');
@@ -2767,7 +2778,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     return rec;
   };
   {
-    const s = newGame({ mode: 'campaign', seed: 'gov-entry' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-entry' });
     seedHist1(s);
     const s2 = deserialize(serialize(s));
     const rec = s2.petitioners['hist-1'];
@@ -2781,7 +2792,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // pre-history saves: backfilled entry event uses the true entry year
   {
-    const s = newGame({ mode: 'campaign', seed: 'gov-entry1b' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-entry1b' });
     const rec = G.ensureRecord(s, 'hist-1');
     rec.entryYear = s.year;
     delete rec.historyV; rec.history = [];
@@ -2791,7 +2802,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // historical man with 14 years: true entry = anchor - 14
   {
-    const s = newGame({ mode: 'campaign', seed: 'gov-entry2' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-entry2' });
     const rec = G.ensureRecord(s, 'hist-9');
     rec.entryYear = s.year;
     const s2 = deserialize(serialize(s));
@@ -2800,7 +2811,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // brand-new man (no history): true entry equals the anchor
   {
-    const s = newGame({ mode: 'campaign', seed: 'gov-entry2b' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-entry2b' });
     const rec = G.ensureRecord(s, 'brand-new-man');
     rec.entryYear = s.year;
     const s2 = deserialize(serialize(s));
@@ -2809,7 +2820,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // backfill is idempotent: existing trueEntryYear is never overwritten
   {
-    const s = newGame({ mode: 'campaign', seed: 'gov-entry3' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-entry3' });
     const rec = G.ensureRecord(s, 'hist-1');
     rec.entryYear = 1615;
     rec.trueEntryYear = 1609; // hand-corrected value
@@ -2823,7 +2834,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 {
   // draft exists with 4 regions x 3 candidates
   {
-    const s = newGame({ mode: 'campaign', seed: 'draft1' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'draft1' });
     ok('draft: 4 regions', s.draft.regions.length === 4);
     ok('draft: 3 candidates each', s.draft.regions.every((r) => r.candidates.length === 3));
     ok('draft: names unique', new Set(s.draft.regions.flatMap((r) => r.candidates.map((c) => c.name))).size === 12);
@@ -2833,7 +2844,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // picking completes at 4/4 + 4 HQs; provincials stored; ledger entry
   {
-    const s = newGame({ mode: 'campaign', seed: 'draft2' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'draft2' });
     const ids = s.draft.regions.map((r) => [r.id, r.candidates[0].id]);
     for (const [rid, cid] of ids.slice(0, 3)) chooseProvincial(s, rid, cid);
     ok('draft: incomplete at 3/4', !s.draft.done);
@@ -2848,7 +2859,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // invalid picks throw; one man cannot govern two regions
   {
-    const s = newGame({ mode: 'campaign', seed: 'draft3' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'draft3' });
     let threw = 0;
     try { chooseProvincial(s, 'nowhere', 'x'); } catch (e) { threw++; }
     try { chooseProvincial(s, 'east', 'prov-east-9'); } catch (e) { threw++; }
@@ -2861,7 +2872,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // old saves skip the draft
   {
-    const s = newGame({ mode: 'campaign', seed: 'draft4' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'draft4' });
     const raw = serialize(s);
     delete raw.draft; delete raw.provincials;
     const s2 = deserialize(raw);
@@ -2869,7 +2880,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // HQs are required to take office; provincials reside there
   {
-    const s = newGame({ mode: 'campaign', seed: 'draft6' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'draft6' });
     for (const r of s.draft.regions) chooseProvincial(s, r.id, r.candidates[0].id);
     ok('draft: HQs required', !s.draft.done);
     s.draft.regions.forEach((r) => { if (r.id !== 'europe') chooseProvinceHQ(s, r.id, hqOptionsForRegion(s, r.id)[0].id); });
@@ -2884,7 +2895,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // Staged provincial answers: decide now, execute at year close.
   {
-    const s = newGame({ mode: 'campaign', seed: 'stage1' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'stage1' });
     for (const r of s.draft.regions) chooseProvincial(s, r.id, r.candidates[0].id);
     for (const r of s.draft.regions) { if (r.id !== 'europe') chooseProvinceHQ(s, r.id, hqOptionsForRegion(s, r.id)[0].id); }
     s.provincialRequests = { east: { regionId: 'east', year: s.year, professed: 0, fathers: 0, brothers: 0 } };
@@ -2916,7 +2927,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // Community traits: top 3 dispositions among stationed men.
   {
-    const s = newGame({ mode: 'campaign', seed: 'community1' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'community1' });
     // No voyages yet → empty.
     ok('community: empty when no one stationed', communityTraits(s, 'goa').length === 0);
     // Fake an arrived voyage.
@@ -2933,8 +2944,8 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // deterministic: same seed, same candidates
   {
-    const a = newGame({ mode: 'campaign', seed: 'draft5' });
-    const b = newGame({ mode: 'campaign', seed: 'draft5' });
+    const a = newGameWithGalleons({ mode: 'campaign', seed: 'draft5' });
+    const b = newGameWithGalleons({ mode: 'campaign', seed: 'draft5' });
     ok('draft: deterministic',
       JSON.stringify(a.draft.regions) === JSON.stringify(b.draft.regions));
   }
@@ -2943,7 +2954,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 // --- 47. Provincial replacement ------------------------------------------------
 {
   const mkDrafted = (seed) => {
-    const s = newGame({ mode: 'campaign', seed });
+    const s = newGameWithGalleons({ mode: 'campaign', seed });
     for (const r of s.draft.regions) chooseProvincial(s, r.id, r.candidates[0].id);
     s.draft.regions.forEach((r) => { if (r.id !== 'europe') chooseProvinceHQ(s, r.id, hqOptionsForRegion(s, r.id)[0].id); });
     return s;
@@ -3043,7 +3054,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 {
   // death age seeded hidden in 65-70 for a young man
   {
-    const s = newGame({ mode: 'campaign', seed: 'mort1' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'mort1' });
     const rec = ensureRecord(s, 'hist-1');
     rec.status = 'active';
     resolveYear(s);
@@ -3052,7 +3063,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // no instant death for an old man at seeding
   {
-    const s = newGame({ mode: 'campaign', seed: 'mort2' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'mort2' });
     const rec = ensureRecord(s, 'old-man', true);
     rec.status = 'active'; rec.age = 69;
     resolveYear(s);
@@ -3060,7 +3071,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // old-age death fires at the hidden age
   {
-    const s = newGame({ mode: 'campaign', seed: 'mort3' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'mort3' });
     const rec = ensureRecord(s, 'doomed', true);
     rec.status = 'active'; rec.age = 40; rec.deathAge = 41;
     const deathsBefore = s.stats.deaths || 0;
@@ -3074,7 +3085,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // illness: the sick either recover or die (seeded; just verify no crash and resolution)
   {
-    const s = newGame({ mode: 'campaign', seed: 'mort4' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'mort4' });
     const rec = ensureRecord(s, 'sick-man', true);
     rec.status = 'active'; rec.age = 30; rec.deathAge = 70;
     if (!Array.isArray(s.europeanLabor)) s.europeanLabor = [];
@@ -3086,7 +3097,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // a provincial who dies vacates his region
   {
-    const s = newGame({ mode: 'campaign', seed: 'mort5' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'mort5' });
     for (const r of s.draft.regions) chooseProvincial(s, r.id, r.candidates[0].id);
     s.draft.regions.forEach((r) => { if (r.id !== 'europe') chooseProvinceHQ(s, r.id, hqOptionsForRegion(s, r.id)[0].id); });
     const rec = ensureRecord(s, 'hist-1'); rec.status = 'active';
@@ -3103,8 +3114,8 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   // determinism: same seed, same death ages
   {
-    const a = newGame({ mode: 'campaign', seed: 'mort6' });
-    const b = newGame({ mode: 'campaign', seed: 'mort6' });
+    const a = newGameWithGalleons({ mode: 'campaign', seed: 'mort6' });
+    const b = newGameWithGalleons({ mode: 'campaign', seed: 'mort6' });
     const ra = ensureRecord(a, 'hist-1'); ra.status = 'active';
     const rb = ensureRecord(b, 'hist-1'); rb.status = 'active';
     resolveYear(a); resolveYear(b);
@@ -3116,7 +3127,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 // --- 49. Provincial requests, asking, energy, treasury, society report -------
 {
   const setup = (seed) => {
-    const s = newGame({ mode: 'campaign', seed });
+    const s = newGameWithGalleons({ mode: 'campaign', seed });
     for (const r of s.draft.regions) chooseProvincial(s, r.id, r.candidates[0].id);
     s.draft.regions.forEach((r) => { if (r.id !== 'europe') chooseProvinceHQ(s, r.id, hqOptionsForRegion(s, r.id)[0].id); });
     return s;

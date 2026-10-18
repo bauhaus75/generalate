@@ -328,7 +328,8 @@ html, body {
   box-shadow: 0 6px 18px rgba(0,0,0,0.5);
 }
 #generalate-app .report-card h3 { margin: 0 0 0.7rem; font-size: 0.7rem; color: var(--wax-deep); }
-#generalate-app .report-card p { font-size: 1.02rem; line-height: 1.6; }
+#generalate-app .report-card p { font-size: 1.02rem; line-height: 1.6; color: #2a2118; }
+#generalate-app .report-card strong { color: #1a1410; }
 #generalate-app .delta { font-family: var(--px); font-size: 0.75rem; }
 #generalate-app .delta.pos { color: #2e6b34; }
 #generalate-app .delta.neg { color: var(--wax); }
@@ -673,3 +674,28 @@ body > .overlay .hist-loc, body > .overlay .hist-text { opacity: .75; }
   overflow-y: auto;
 }
 #gh-drawer-panel .gbtn { text-align: left; font-size: 1rem; padding: 0.7rem 1rem; position: relative; }
+
+/* Notification inbox */
+#gh-inbox { position: relative; }
+#gh-inbox-panel {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6); z-index: 110;
+  display: flex; justify-content: center; align-items: flex-start;
+  padding-top: 4rem;
+}
+#gh-inbox-panel[hidden] { display: none; }
+#gh-inbox-list {
+  width: 90%; max-width: 400px; max-height: 70vh; overflow-y: auto;
+  background: #2a1e13; border: 2px solid var(--gold); border-radius: 8px;
+  padding: 1rem;
+}
+.gh-inbox-item {
+  display: block; width: 100%; text-align: left;
+  background: #3a2a1c; border: 1px solid var(--parch-deep); border-radius: 4px;
+  padding: 0.8rem; margin-bottom: 0.6rem; cursor: pointer;
+  color: var(--parch);
+}
+.gh-inbox-item:hover { background: #4a3a28; }
+.gh-inbox-item .inbox-title { font-family: var(--px); font-size: 0.65rem; color: var(--gold); margin-bottom: 0.3rem; }
+.gh-inbox-item .inbox-blurb { font-size: 0.9rem; line-height: 1.4; }
+.gh-inbox-empty { text-align: center; color: var(--parch-deep); padding: 2rem; font-style: italic; }

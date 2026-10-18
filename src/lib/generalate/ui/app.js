@@ -230,6 +230,7 @@ function renderHeader() {
       </div>
       <button class="gbtn small ghost" id="gh-music" title="Allegri's Miserere (harp)">🎵</button>
       <button class="gbtn small ghost" id="gh-export" title="Export game state">📥</button>
+      <button class="gbtn small ghost" id="gh-inbox" title="Notifications">🔔<span class="gh-badge" id="gh-badge-inbox" hidden></span></button>
       <audio id="gh-audio" loop preload="auto">
         <source src="miserere-harp.mp3" type="audio/mpeg">
       </audio>
@@ -257,6 +258,9 @@ function renderHeader() {
           <button class="gbtn small ghost" id="gh-d-ledger">Ledger</button>
           <button class="gbtn small ghost" id="gh-d-treasury">Treasury</button>
         </div>
+      </div>
+      <div id="gh-inbox-panel" hidden>
+        <div id="gh-inbox-list"></div>
       </div>`;
     document.getElementById('generalate-app').prepend(h);
     h.querySelector('#gh-briefing').addEventListener('click', () => { app.sound('page'); app.go('briefing'); });
@@ -280,6 +284,66 @@ function renderHeader() {
     drawerGo('#gh-d-map', () => app.go('map', { from: app.ui.screen }));
     drawerGo('#gh-d-ledger', () => Screens.showLedgerOverlay(app));
     drawerGo('#gh-d-treasury', () => app.go('treasury'));
+    // Notification inbox
+    const inboxPanel = h.querySelector('#gh-inbox-panel');
+    const inboxList = h.querySelector('#gh-inbox-list');
+    const inboxBtn = h.querySelector('#gh-inbox');
+    const renderInbox = () => {
+      if (!inboxList || !app.state) return;
+      const items = [];
+      const cy = app.state.currentYear;
+      // Indipetae awaiting seal
+      if (cy && !cy.decided && (cy.terna || []).length) {
+        const n = (cy.terna || []).length;
+        items.push({
+          title: 'INDIPETAE AWAIT SEAL',
+          blurb: `${n} letter${n === 1 ? '' : 's'} need${n === 1 ? 's' : ''} your decision — approve or deny, then seal.`,
+          go: () => app.go('indipetae'),
+        });
+      }
+      // Provincial requests
+      try {
+        const reqs = Engine.provincesWithRequests ? Engine.provincesWithRequests(app.state) : [];
+        if (reqs.length) {
+          items.push({
+            title: 'PROVINCIAL REQUESTS',
+            blurb: `${reqs.length} province${reqs.length === 1 ? '' : 's'} ask${reqs.length === 1 ? 's' : ''} for men — review in Governance.`,
+            go: () => app.go('governance'),
+          });
+        }
+      } catch (e) {}
+      // Close the year
+      if (cy && cy.decided) {
+        items.push({
+          title: 'CLOSE THE YEAR',
+          blurb: 'The seal has fallen — close the year to turn to ' + (app.state.year + 1) + '.',
+          go: () => { closeInbox(); app.closeYear(); },
+        });
+      }
+      if (!items.length) {
+        inboxList.innerHTML = '<div class="gh-inbox-empty">No tasks — the Society rests.</div>';
+      } else {
+        inboxList.innerHTML = '';
+        for (const it of items) {
+          const b = document.createElement('button');
+          b.className = 'gh-inbox-item';
+          b.innerHTML = `<div class="inbox-title">${it.title}</div><div class="inbox-blurb">${it.blurb}</div>`;
+          b.addEventListener('click', () => { closeInbox(); app.sound('page'); it.go(); });
+          inboxList.appendChild(b);
+        }
+      }
+      // Update badge
+      const badge = h.querySelector('#gh-badge-inbox');
+      if (badge) { badge.hidden = !items.length; badge.textContent = items.length > 9 ? '9+' : String(items.length); }
+    };
+    const closeInbox = () => { if (inboxPanel) inboxPanel.hidden = true; };
+    if (inboxBtn) inboxBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (inboxPanel.hidden) renderInbox();
+      inboxPanel.hidden = !inboxPanel.hidden;
+    });
+    if (inboxPanel) inboxPanel.addEventListener('click', (e) => { if (e.target === inboxPanel) closeInbox(); });
+    app.renderInbox = renderInbox;
     h.querySelector('#gh-house').addEventListener('click', () => { app.sound('page'); app.ui.houseFrom = app.ui.screen; app.go('house'); });
     h.querySelector('#gh-missions').addEventListener('click', () => { app.sound('page'); app.ui.missionsFrom = app.ui.screen; app.go('missions'); });
     h.querySelector('#gh-indipetae').addEventListener('click', () => { app.sound('page'); app.go('desk'); });
@@ -360,7 +424,15 @@ app.syncHeader = function () {
     let n = 0;
     try { n = Engine.provincesWithRequests ? Engine.provincesWithRequests(app.state).length : 0; } catch (e) { n = 0; }
     setBadge('#gh-badge-governance', !!n, n > 9 ? '9+' : String(n));
-    setBadge('#gh-badge-briefing', !!(cy && cy.decided));
+    // Inbox badge: count of tasks
+    try {
+      let inboxN = 0;
+      if (cy && !cy.decided && (cy.terna || []).length) inboxN++;
+      if (n) inboxN++;
+      if (cy && cy.decided) inboxN++;
+      const ib = h.querySelector('#gh-badge-inbox');
+      if (ib) { ib.hidden = !inboxN; ib.textContent = inboxN > 9 ? '9+' : String(inboxN); }
+    } catch (e) {}
   } catch (e) { /* badges are garnish; never break the header */ }
 };
 app.bumpScore = function () {
@@ -499,8 +571,10 @@ app.confirmDecision = function (approvals) {
     alert(`The seal could not fall: ${e.message}`);
     return;
   }
+  app.ui.decisions = {};
   app.save();
   app.go('decision');
+  if (app.syncFooter) app.syncFooter();
 };
 
 app.closeYear = function () {

@@ -1229,7 +1229,13 @@ function renderProvincialPage(app, root, regionId) {
     ? E.REQUEST_GRADES.filter((c) => req[c] > 0).map((c) => plural(req[c], c === 'brothers' ? 'brother' : c.slice(0, -1), c)).join(', ')
     : '';
   const avail = {};
-  for (const c of E.REQUEST_GRADES) { try { avail[c] = E.requestGradeAvailable(app.state, c); } catch { avail[c] = 0; } }
+  for (const c of E.REQUEST_GRADES) {
+    try {
+      const specific = E.requestGradeAvailable(app.state, c);
+      const abstract = Math.max(0, app.state.available || 0);
+      avail[c] = specific + abstract;
+    } catch { avail[c] = 0; }
+  }
   const canAgree = req && E.REQUEST_GRADES.every((c) => (req[c] || 0) <= avail[c]);
 
   root.innerHTML = `

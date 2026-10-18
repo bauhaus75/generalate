@@ -310,7 +310,9 @@ function validateRequestMix(state, regionId, mix) {
     const v = mix[cat] ?? 0;
     if (!Number.isInteger(v) || v < 0) throw new Error(`"${cat}" must be a whole number ≥ 0.`);
     const pool = requestGradePool(state, cat);
-    if (v > pool.length) throw new Error(`only ${pool.length} ${cat} available in Europe.`);
+    // Specific named men first; the abstract European pool covers the rest (spawned on send).
+    const maxAvail = pool.length + Math.max(0, state.available || 0);
+    if (v > maxAvail) throw new Error(`only ${maxAvail} ${cat} available in Europe.`);
     n[cat] = v;
   }
   return n;

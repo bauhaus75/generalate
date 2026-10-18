@@ -127,6 +127,12 @@ function renderHeader() {
         <div class="gh-bar"><div class="gh-fill" id="gh-fill"></div></div>
         <span class="gh-num" id="gh-num">50</span>
       </div>
+      <div class="gh-coins" title="The mission chest">
+        <span class="gh-coins-label px">🪙</span><span class="gh-num" id="gh-funds">0</span>
+      </div>
+      <div class="gh-energy" title="The General's energy this year">
+        <span class="gh-energy-label px">⚡</span><span class="gh-num" id="gh-energy">5</span>
+      </div>
       <nav class="gh-nav">
         <button class="gbtn small ghost" id="gh-briefing">Briefing<span class="gh-badge" id="gh-badge-briefing" hidden></span></button>
         <button class="gbtn small ghost" id="gh-indipetae">Indipetae<span class="gh-badge" id="gh-badge-indipetae" hidden></span></button>
@@ -135,6 +141,7 @@ function renderHeader() {
         <button class="gbtn small ghost" id="gh-governance">Governance<span class="gh-badge" id="gh-badge-governance" hidden></span></button>
         <button class="gbtn small ghost" id="gh-map">Map</button>
         <button class="gbtn small ghost" id="gh-ledger">Ledger</button>
+        <button class="gbtn small ghost" id="gh-treasury">Treasury</button>
         <button class="gbtn small ghost" id="gh-sound" aria-label="Toggle sound">🔊</button>
         <button class="gbtn small ghost" id="gh-end" hidden>End office</button>
         <button class="gbtn small ghost" id="gh-debug" hidden>Debug</button>
@@ -171,6 +178,11 @@ app.syncHeader = function () {
   h.querySelector('#gh-end').hidden = !(app.state.mode === 'endless' && !app.state.ended);
   const s = Engine.getScore(app.state);
   h.querySelector('#gh-num').textContent = s;
+  try {
+    h.querySelector('#gh-funds').textContent = (app.state.resources?.funds ?? 0).toLocaleString('en-US');
+    const eMax = Engine.ENERGY_PER_YEAR || 5;
+    h.querySelector('#gh-energy').textContent = `${app.state.energy ?? eMax}/${eMax}`;
+  } catch (e) { /* garnish */ }
   h.querySelector('#gh-fill').style.width = Math.max(0, Math.min(100, s)) + '%';
   // notification badges: indipetae awaiting seal, pending reports, year ready to close
   try {

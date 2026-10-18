@@ -199,6 +199,10 @@ function renderHeader() {
       <div class="gh-energy" title="The General's energy this year">
         <span class="gh-energy-label px">⚡</span><span class="gh-num" id="gh-energy">5</span>
       </div>
+      <button class="gbtn small ghost" id="gh-music" title="Allegri's Miserere (harp)">🎵</button>
+      <audio id="gh-audio" loop preload="auto">
+        <source src="miserere-harp.mp3" type="audio/mpeg">
+      </audio>
       <nav class="gh-nav">
         <button class="gbtn small ghost" id="gh-briefing">Briefing<span class="gh-badge" id="gh-badge-briefing" hidden></span></button>
         <button class="gbtn small ghost" id="gh-indipetae">Indipetae<span class="gh-badge" id="gh-badge-indipetae" hidden></span></button>
@@ -221,6 +225,18 @@ function renderHeader() {
     h.querySelector('#gh-map').addEventListener('click', () => { app.sound('page'); app.go('map', { from: app.ui.screen }); });
     h.querySelector('#gh-ledger').addEventListener('click', () => Screens.showLedgerOverlay(app));
     h.querySelector('#gh-treasury').addEventListener('click', () => { app.sound('page'); app.go('treasury'); });
+    const musicBtn = h.querySelector('#gh-music');
+    const audio = h.querySelector('#gh-audio');
+    if (musicBtn && audio) {
+      musicBtn.addEventListener('click', () => {
+        if (audio.paused) {
+          audio.play().then(() => { musicBtn.textContent = '\U0001F3B6'; }).catch(() => {});
+        } else {
+          audio.pause();
+          musicBtn.textContent = '\U0001F3B5';
+        }
+      });
+    }
     h.querySelector('#gh-sound').addEventListener('click', (e) => {
       app.muted = !app.muted;
       localStorage.setItem(MUTE_KEY, app.muted ? '1' : '0');

@@ -740,6 +740,7 @@ function missionCardHTML(app, d, year) {
     <div class="cap-bar" aria-hidden="true"><div class="cap-fill" style="width:${pct}%"></div></div>
     <p class="mission-staff">${esc(gradeBits)} — <strong>${staffed}/${st.capacity}</strong></p>
     <p class="mission-meta">strength ${strength}${bonus > 0 ? ` → +${bonus} to voyages` : ''} · upkeep ${upkeep} scudi/yr</p>
+    ${(st.fruits || 0) > 0 ? `<p class="mission-fruits">Harvest: <strong>${(st.fruits || 0).toLocaleString('en-US')}</strong> souls</p>` : ''}
     ${(() => {
       // Named roster: thriving voyages not yet returned as veterans
       const stationed = (app.state.voyages || []).filter(v =>

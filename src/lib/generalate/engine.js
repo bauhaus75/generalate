@@ -132,9 +132,10 @@ export function missionStaff(state, destId) {
   if (!state.missions || typeof state.missions !== 'object') state.missions = initMissions();
   let st = state.missions[destId];
   if (!st) {
-    st = { fathers: 0, coadjutors: 0, brothers: 0, capacity: rules.MISSION_CAPACITY[destId] ?? 5 };
+    st = { fathers: 0, coadjutors: 0, brothers: 0, capacity: rules.MISSION_CAPACITY[destId] ?? 5, fruits: 0 };
     state.missions[destId] = st;
   }
+  if (typeof st.fruits !== 'number' || st.fruits < 0) st.fruits = 0;
   for (const gid of rules.MISSION_GRADE_IDS) if (typeof st[gid] !== 'number' || st[gid] < 0) st[gid] = 0;
   if (typeof st.capacity !== 'number' || st.capacity < 1) st.capacity = rules.MISSION_CAPACITY[destId] ?? 5;
   if (typeof st.fragileYears !== 'number' || st.fragileYears < 0) st.fragileYears = 0;
@@ -236,14 +237,48 @@ export function generateProvincialRequests(state, y) {
     if (!prov || prov.vacant) continue;
     if (state.provincialRequests[r.id]) continue;
     const rng = streamFor(state, 'prov-request', r.id, String(y));
-    if (!rng.chance(0.65)) continue;
-    const req = {
-      regionId: r.id, year: y,
-      professed: rng.int(0, 2),
-      fathers: rng.int(1, 3),
-      brothers: rng.int(0, 2),
-    };
-    if (!req.professed && !req.fathers && !req.brothers) req.fathers = 1;
+    // Patience: patient provincials wait (50%), impatient demand (80%).
+    const pd = prov.petitionerId ? ensureDisposition(state, prov.petitionerId).current : null;
+    const patience = pd ? (pd.patience || 3) : 3;
+    const reqChance = patience === 5 ? 0.40 : patience === 4 ? 0.50 : patience === 2 ? 0.80 : patience === 1 ? 0.90 : 0.65;
+    if (!rng.chance(reqChance)) continue;
+    const prudence = pd ? (pd.prudence || 3) : 3;
+    const humility = pd ? (pd.humility || 3) : 3;
+    let req;
+    if (prudence >= 4) {
+      // Prudent: requests match actual regional capacity gaps.
+      req = { regionId: r.id, year: y, professed: 0, fathers: 0, brothers: 0 };
+      const g = getGameData();
+      for (const d of (g.destinations || [])) {
+        const dr = d.region;
+        if ((DEST_REGION_TO_PROVINCE[dr] || 'europe') !== r.id) continue;
+        const st = missionStaff(state, d.id);
+        const gap = Math.max(0, st.capacity - ((st.fathers || 0) + (st.coadjutors || 0) + (st.brothers || 0)));
+        req.fathers = Math.min(3, req.fathers + gap);
+      }
+      if (!req.professed && !req.fathers && !req.brothers) req.fathers = 1;
+    } else {
+      req = {
+        regionId: r.id, year: y,
+        professed: rng.int(0, 2),
+        fathers: rng.int(1, 3),
+        brothers: rng.int(0, 2),
+      };
+      if (!req.professed && !req.fathers && !req.brothers) req.fathers = 1;
+    }
+    // Humility: humble provincials don't presume to ask for professed.
+    if (humility >= 4 && req.professed > 0) {
+      req.fathers += req.professed;
+      req.professed = 0;
+    }
+    // Low prudence: imprudent provincials over-request (+1 to each).
+    // Low humility: proud provincials demand professed (+1).
+    if (prudence <= 2) {
+      req.professed += 1; req.fathers += 1; req.brothers += 1;
+    }
+    if (humility <= 2) {
+      req.professed += 1;
+    }
     state.provincialRequests[r.id] = req;
   }
 }
@@ -1145,6 +1180,36 @@ function dieOf(state, petitionerId, cause, text) {
       v.veteranReturned = true;
     }
   }
+  // Witnesses: men stationed at the same mission are shaped by the death.
+  // Find the destination from voyages.
+  let deathDest = null;
+  for (const v of state.voyages || []) {
+    if (v.petitionerId === petitionerId && v.destination) { deathDest = v.destination; break; }
+  }
+  if (deathDest) {
+    const witnesses = missionCommunity(state, deathDest).filter(
+      (id) => id !== petitionerId && !isProvincial(state, id));
+    for (const wid of witnesses) {
+      const d = ensureDisposition(state, wid);
+      const stab = d.current.stability || 3;
+      const hum = d.current.humility || 3;
+      if (stab >= 4 && d.current.patience < 5) {
+        d.current.patience += 1;
+        recordHistory(state, wid, { kind: 'formation', event: 'witness',
+          text: `Witnessed ${name}'s death; his patience is deepened by grief.` });
+      } else if (stab <= 2 && d.current.zeal > 1) {
+        // Humility shields zeal: the humble are not shaken.
+        if (hum >= 4) {
+          recordHistory(state, wid, { kind: 'formation', event: 'witness',
+            text: `Witnessed ${name}'s death; his humility steadies him.` });
+        } else {
+          d.current.zeal -= 1;
+          recordHistory(state, wid, { kind: 'formation', event: 'witness',
+            text: `Witnessed ${name}'s death; his zeal is shaken.` });
+        }
+      }
+    }
+  }
   addLedger(state, { year: state.year, type: 'death', decision: cause, petitionerId,
     text: `${name}: ${text}` });
   recordHistory(state, petitionerId, { kind: 'formation', event: 'death', text });
@@ -1175,8 +1240,19 @@ function advanceMortality(state, years = 1) {
         const r = streamFor(state, 'illness', id, String(state.year)).int(1, 6);
         if (r <= 3) {
           labor.ill = false;
+          // Suffering purifies the humble, embitters the proud.
+          const d = ensureDisposition(state, id);
+          const hum = d.current.humility || 3;
+          let traitNote = '';
+          if (hum >= 4 && d.current.zeal < 5) {
+            d.current.zeal += 1;
+            traitNote = ' His zeal is deepened by suffering.';
+          } else if (hum <= 2 && d.current.zeal > 1) {
+            d.current.zeal -= 1;
+            traitNote = ' The trial has diminished his zeal.';
+          }
           recordHistory(state, id, { kind: 'formation', event: 'recovered',
-            text: 'Recovers from his illness and may labor again.' });
+            text: 'Recovers from his illness and may labor again.' + traitNote });
         } else if (r === 6) {
           dieOf(state, id, 'illness', 'Succumbs to his illness in Europe.');
           continue;
@@ -2075,6 +2151,14 @@ export function resolveProvincialReplacement(state, regionId, choiceId, outgoing
     let postingText = '';
     if (prov.petitionerId && state.petitioners[prov.petitionerId]) {
       const orec = state.petitioners[prov.petitionerId];
+      // Governance matures a man: +1 prudence for having borne the office.
+      // He returns to the labor force more effective than he left it.
+      const od = ensureDisposition(state, prov.petitionerId);
+      if (od.current.prudence < 5) {
+        od.current.prudence += 1;
+        recordHistory(state, prov.petitionerId, { kind: 'formation', event: 'provincial',
+          text: 'His years governing the province have matured his prudence.' });
+      }
       if (outgoingTo === 'europe') {
         addEuropeanLabor(state, prov.petitionerId, prov.name, 'recalled');
         postingText = ` ${prov.name} returns to labor in Europe.`;
@@ -3499,15 +3583,26 @@ function deliverNews(state, g, voyage, outcomes) {
   }
   state.score = rules.addScore(state.score, fruitDelta);
   trackScoreDelta(state, fruitDelta);
+  let returnNote = '';
   if (voyage.outcome === 'returned') {
     addEuropeanLabor(state, voyage.petitionerId, petName, 'returned');
+    // A failed voyage humbles or discourages, per the man's humility.
+    const d = ensureDisposition(state, voyage.petitionerId);
+    const hum = d.current.humility || 3;
+    if (hum >= 4 && d.current.prudence < 5) {
+      d.current.prudence += 1;
+      returnNote = ' The failure has taught him caution.';
+    } else if (hum <= 2 && d.current.zeal > 1) {
+      d.current.zeal -= 1;
+      returnNote = ' The failure has cooled his zeal.';
+    }
   }
   const entry = addLedger(state, {
     year: state.year, type: 'outcome',
     petitionerId: voyage.petitionerId, destination: voyage.destination,
     decision: 'approved', status: voyage.outcome,
     counterfactual: true, delta: fruitDelta,
-    note: note + diminishNote,
+    note: note + diminishNote + returnNote,
   });
   outcomes.push({
     voyageId: voyage.id,
@@ -3555,7 +3650,141 @@ function archiveVoyages(state) {
 // ---------------------------------------------------------------------------
 
 /** Build and store the year's state-of-the-Society report. */
-export function buildSocietyReport(state, y, outcomes, statsBefore) {
+/**
+ * Is this man currently serving as a provincial? Provincials are
+ * administrators, not field laborers — they don't harvest fruits.
+ */
+export function isProvincial(state, petitionerId) {
+  for (const prov of Object.values(state.provincials || {})) {
+    if (prov && !prov.vacant && prov.petitionerId === petitionerId) return true;
+  }
+  return false;
+}
+
+/**
+ * A man's fruit capacity from his disposition: 25 × (zeal + prudence).
+ * Range: 50 (zeal 1, prudence 1) to 250 (zeal 5, prudence 5).
+ * To whom much is given, much is expected.
+ */
+export function fruitCapacity(state, petitionerId) {
+  const cur = ensureDisposition(state, petitionerId).current;
+  const zeal = cur.zeal || 3;
+  const prudence = cur.prudence || 3;
+  return 25 * (zeal + prudence);
+}
+
+/**
+ * Yearly fruit production. Each man's output = capacity × yearly variance
+ * (60%-100%, seeded). Quota = 75% of capacity per man. Scale bonus for
+ * larger missions. Miss quota after 2-year grace → -2 score.
+ */
+/**
+ * The provincial governing a destination's region, if any.
+ */
+function provincialForDest(state, destId) {
+  const g = getGameData();
+  const dest = g ? (g.destinations || []).find((d) => d.id === destId) : null;
+  if (!dest) return null;
+  const regionId = DEST_REGION_TO_PROVINCE[dest.region] || 'europe';
+  const prov = (state.provincials || {})[regionId];
+  return (prov && !prov.vacant) ? prov : null;
+}
+
+export function produceFruits(state) {
+  const byMission = {};
+  let totalNew = 0;
+  let quotaPenalty = 0;
+  const GRACE_YEARS = 2;
+  const PENALTY_PER_MISS = 2;
+  const QUOTA_RATIO = 0.75;
+  for (const destId of Object.keys(state.missions || {})) {
+    const st = missionStaff(state, destId);
+    // Provincials administer; they don't labor in the harvest.
+    const men = missionCommunity(state, destId).filter((id) => !isProvincial(state, id));
+    // Provincial execution virtues: zeal inspires (+10%), stability preserves (-5% decay),
+    // adaptability boosts frontier (+15%).
+    const prov = provincialForDest(state, destId);
+    const pdis = prov && prov.petitionerId ? ensureDisposition(state, prov.petitionerId).current : null;
+    const provZeal = pdis ? (pdis.zeal || 3) : 3;
+    const provStab = pdis ? (pdis.stability || 3) : 3;
+    const provAdapt = pdis ? (pdis.adaptability || 3) : 3;
+    const g = getGameData();
+    const dest = g ? (g.destinations || []).find((d) => d.id === destId) : null;
+    const isFrontier = dest && dest.frontier;
+    if (typeof st.foundedYear !== 'number') st.foundedYear = state.year;
+    const age = state.year - st.foundedYear;
+    if (!men.length) {
+      if (age >= GRACE_YEARS) {
+        quotaPenalty += PENALTY_PER_MISS;
+        byMission[destId] = { harvest: 0, decayed: 0, total: st.fruits, missedQuota: true };
+      }
+      continue;
+    }
+    let harvest = 0;
+    let expected = 0;
+    let prudenceSum = 0;
+    for (const id of men) {
+      const cap = fruitCapacity(state, id);
+      const variance = 0.6 + streamFor(state, 'fruits', id, String(state.year)).float() * 0.4;
+      harvest += Math.round(cap * variance);
+      expected += Math.round(cap * QUOTA_RATIO);
+      const dcur = ensureDisposition(state, id).current;
+      prudenceSum += dcur.prudence || 3;
+      // Long field service: 5+ years at the mission tests patience.
+      // Provincials administer; the field does not test them the same way.
+      const v = (state.voyages || []).filter((x) => x.petitionerId === id).pop();
+      const yearsInField = v && v.arriveYear ? state.year - v.arriveYear : 0;
+      if (yearsInField >= 5 && !dcur._fieldTested && !isProvincial(state, id)) {
+        dcur._fieldTested = true; // once per man, not yearly
+        const pat = dcur.patience || 3;
+        if (pat >= 4 && dcur.humility < 5) {
+          dcur.humility += 1;
+          recordHistory(state, id, { kind: 'formation', event: 'field',
+            text: 'Five years in the field have humbled him.' });
+        } else if (pat <= 2 && dcur.zeal > 1) {
+          // Humility shields zeal from burnout.
+          const fhum = dcur.humility || 3;
+          if (fhum >= 4) {
+            recordHistory(state, id, { kind: 'formation', event: 'field',
+              text: 'Five years in the field have tested him; his humility sustains him.' });
+          } else {
+            dcur.zeal -= 1;
+            recordHistory(state, id, { kind: 'formation', event: 'field',
+              text: 'Five years in the field have worn down his zeal.' });
+          }
+        }
+      }
+    }
+    const scaleMult = men.length >= 6 ? 1.5 : men.length >= 3 ? 1.2 : 1.0;
+    harvest = Math.round(harvest * scaleMult);
+    // Zeal: graduated — 5 inspires most, 1 demoralizes most.
+    if (provZeal === 5) harvest = Math.round(harvest * 1.15);
+    else if (provZeal === 4) harvest = Math.round(harvest * 1.10);
+    else if (provZeal === 2) harvest = Math.round(harvest * 0.90);
+    else if (provZeal === 1) harvest = Math.round(harvest * 0.85);
+    // Adaptability: graduated frontier impact.
+    if (isFrontier && provAdapt === 5) harvest = Math.round(harvest * 1.22);
+    else if (isFrontier && provAdapt === 4) harvest = Math.round(harvest * 1.15);
+    else if (isFrontier && provAdapt === 2) harvest = Math.round(harvest * 0.85);
+    else if (isFrontier && provAdapt === 1) harvest = Math.round(harvest * 0.78);
+    const avgPrudence = prudenceSum / men.length;
+    let decayRate = avgPrudence >= 4 ? 0.05 : avgPrudence <= 2 ? 0.20 : 0.10;
+    // Stability: graduated preservation.
+    if (provStab === 5) decayRate = Math.max(0, decayRate - 0.075);
+    else if (provStab === 4) decayRate = Math.max(0, decayRate - 0.05);
+    else if (provStab === 2) decayRate = Math.min(1, decayRate + 0.05);
+    else if (provStab === 1) decayRate = Math.min(1, decayRate + 0.075);
+    const decayed = Math.round(st.fruits * decayRate);
+    st.fruits = Math.max(0, st.fruits - decayed + harvest);
+    const missedQuota = age >= GRACE_YEARS && harvest < expected;
+    if (missedQuota) quotaPenalty += PENALTY_PER_MISS;
+    byMission[destId] = { harvest, decayed, total: st.fruits, missedQuota, expected };
+    totalNew += harvest;
+  }
+  return { totalNew, byMission, quotaPenalty };
+}
+
+export function buildSocietyReport(state, y, outcomes, statsBefore, fruits = null) {
   const deaths = (state.stats?.deaths || 0) - (statsBefore.deaths || 0);
   const illnesses = (state.stats?.illnesses || 0) - (statsBefore.illnesses || 0);
   const voyageOutcomes = {};
@@ -3997,7 +4226,17 @@ export function resolveYear(state) {
   // Mortality: aging, illness, old age.
   advanceMortality(state, 1);
   resetEnergy(state);
-  buildSocietyReport(state, y, outcomes, statsBefore);
+  const fruits = produceFruits(state);
+  const fruitScore = Math.floor(fruits.totalNew / 500);
+  if (fruitScore > 0) {
+    state.score = rules.addScore(state.score, fruitScore);
+    trackScoreDelta(state, fruitScore);
+  }
+  if (fruits.quotaPenalty > 0) {
+    state.score = rules.addScore(state.score, -fruits.quotaPenalty);
+    trackScoreDelta(state, -fruits.quotaPenalty);
+  }
+  buildSocietyReport(state, y, outcomes, statsBefore, fruits);
   state.year = y + 1;
   if (state.mode === 'campaign' && state.year > CAMPAIGN_END) state.ended = true;
   if (state.mode === 'endless' && state.year > CAMPAIGN_END && !state.diverged) {

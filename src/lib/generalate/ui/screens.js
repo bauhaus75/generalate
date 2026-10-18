@@ -2089,6 +2089,35 @@ export function renderYearReport(app, root, res) {
   root.querySelector('#next-year').addEventListener('click', () => { app.sound('page'); app.nextYear(); });
 }
 
+function renderQueueAssignment(app, ships, tiers) {
+  const queue = (app.state.queue || []).filter((q) => q.status === 'awaiting');
+  if (!queue.length) return '<p class="disp-mini">No men awaiting departure.</p>';
+  
+  const freeShips = ships.filter((s) => (s.freeYear || 0) <= app.state.year);
+  const destName = (id) => app.Engine.DESTINATIONS?.[id]?.name || id;
+  
+  const rows = queue.map((q) => {
+    const assignedShip = q.shipId ? ships.find((s) => s.id === q.shipId) : null;
+    const options = freeShips.map((s) => {
+      const ti = tiers[s.tier || 'carrack'] || { label: 'Carrack' };
+      const sel = q.shipId === s.id ? ' selected' : '';
+      return `<option value="${s.id}"${sel}>${esc(s.name)} (${ti.label})</option>`;
+    }).join('');
+    return `<div class="queue-row">
+      <span class="queue-name">${esc(q.petitionerName || q.petitionerId)}</span>
+      <span class="queue-dest">→ ${esc(destName(q.destination))}</span>
+      <select class="queue-ship" data-pid="${esc(q.petitionerId)}" aria-label="Assign ship">
+        <option value="">Auto</option>
+        ${options}
+      </select>
+      ${assignedShip ? `<span class="queue-assigned">on ${esc(assignedShip.name)}</span>` : ''}
+    </div>`;
+  }).join('');
+  
+  return `<div class="queue-list">${rows}</div>
+    <p class="disp-mini">Assign men to ships, or leave on Auto. If a ship is full at departure, excess men wait.</p>`;
+}
+
 /* ---------------- map screen ---------------- */
 export function renderLogistics(app, root) {
   const ships = app.state.resources?.ships || [];
@@ -2130,11 +2159,35 @@ export function renderLogistics(app, root) {
       <p class="disp-mini">Commission +1 berth for 400 scudi and 1 energy (Governance).</p>
     </div>
     <div class="logi-section">
-      <h3 class="px">HULLS (${ships.length})</h3>
+      <h3 class="px">SHIPS (${ships.length})</h3>
       <div class="logi-ships">${shipCards || '<p class="disp-mini">No ships.</p>'}</div>
       <p class="disp-mini">Caravel: 4 men · Carrack: 8 men · Galleon: 12 men. Charter in Governance (1 energy).</p>
     </div>
+    <div class="logi-section">
+      <h3 class="px">DEPARTURE QUEUE</h3>
+      ${renderQueueAssignment(app, ships, tiers)}
+    </div>
   </section>`;
+  
+  // Ship assignment handlers
+  root.querySelectorAll('.queue-ship').forEach((sel) => {
+    sel.addEventListener('change', () => {
+      const pid = sel.dataset.pid;
+      const shipId = sel.value;
+      try {
+        if (shipId) {
+          app.Engine.assignToShip(app.state, pid, shipId);
+        } else {
+          app.Engine.unassignFromShip(app.state, pid);
+        }
+        app.save();
+        app.go('logistics'); // refresh
+      } catch (e) {
+        app.toast(e.message);
+        app.go('logistics'); // refresh to reset the select
+      }
+    });
+  });
 }
 
 export function renderMapScreen(app, root, from) {

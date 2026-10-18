@@ -3561,6 +3561,45 @@ export function charterShip(state, tier = 'carrack') {
 }
 
 /**
+ * Assign a queued man to a specific ship for departure.
+ * The ship must be free (in port) and have range for the man's destination.
+ * If the ship is over capacity at departure, excess men (by assignment order)
+ * stay in the queue. Assignment is just a preference, not a guarantee.
+ * @param {object} state
+ * @param {string} petitionerId
+ * @param {string} shipId
+ */
+export function assignToShip(state, petitionerId, shipId) {
+  const q = (state.queue || []).find((x) => x.petitionerId === petitionerId && x.status === 'awaiting');
+  if (!q) throw new Error('Man is not in the departure queue.');
+  const ship = (state.resources.ships || []).find((s) => s.id === shipId);
+  if (!ship) throw new Error(`No ship with id "${shipId}".`);
+  if ((ship.freeYear || 0) > state.year) throw new Error(`${ship.name} is at sea.`);
+  // Check range
+  const g = getGameData();
+  const dest = g.destinations.find((d) => d.id === q.destination);
+  const travel = dest?.travelYears ?? 2;
+  const tierInfo = rules.RESOURCES.SHIP_TIERS[ship.tier || 'carrack'] || rules.RESOURCES.SHIP_TIERS.carrack;
+  if (tierInfo.range < travel) {
+    throw new Error(`${ship.name} (${tierInfo.label}, range ${tierInfo.range}) cannot reach ${dest?.name || q.destination} (needs range ${travel}).`);
+  }
+  q.shipId = shipId;
+  q.assignedAt = state.year;
+  return { petitionerId, shipId, shipName: ship.name };
+}
+
+/**
+ * Remove a man's ship assignment (returns to auto-pack pool).
+ */
+export function unassignFromShip(state, petitionerId) {
+  const q = (state.queue || []).find((x) => x.petitionerId === petitionerId && x.status === 'awaiting');
+  if (!q) throw new Error('Man is not in the departure queue.');
+  delete q.shipId;
+  delete q.assignedAt;
+  return { petitionerId };
+}
+
+/**
  * Found a novitiate — a house of formation — at an open mission.
  * A costly foundation, but formation steadies the mission: its danger
  * falls by one (never below 0). The foundation honors the General
@@ -4021,11 +4060,32 @@ export function resolveYear(state) {
           for (; idx < men.length; idx++) men[idx].note = 'delayed: no berths free';
           break;
         }
-        // Select a hull not already packed this year. Using !packed.has(s)
-        // (not s !== ship) prevents re-selecting a hull that was already
+        // If the man has a ship assignment, try that ship first.
+        // (If it doesn't fit, the man stays in queue — assignment is a preference.)
+        if (q.shipId) {
+          const assigned = ships.find((s) => s.id === q.shipId && (s.freeYear || 0) <= y && !packed.has(s) && shipRange(s) >= travel);
+          if (assigned && (assigned.used || 0) + party <= shipCap(assigned)) {
+            ship = assigned;
+            if (!packed.has(ship)) {
+              ship.used = 0;
+              packed.add(ship);
+              berths -= 1;
+            }
+          } else if (assigned) {
+            // Assigned ship doesn't have room — man stays in queue
+            q.note = `delayed: ${assigned.name} full`;
+            idx += 1;
+            continue;
+          }
+          // If assigned ship not available, fall through to auto-pack
+        }
+        // Select a ship not already packed this year. Using !packed.has(s)
+        // (not s !== ship) prevents re-selecting a ship that was already
         // filled earlier in this packing operation, which would reset its
         // used counter and exceed capacity.
-        ship = ships.find((s) => (s.freeYear || 0) <= y && !packed.has(s) && shipRange(s) >= travel);
+        if (!ship || (ship.used || 0) + party > shipCap(ship)) {
+          ship = ships.find((s) => (s.freeYear || 0) <= y && !packed.has(s) && shipRange(s) >= travel);
+        }
         if (!ship) {
           // Check if it's a range issue vs no hulls
           const anyFree = ships.some((s) => (s.freeYear || 0) <= y && !packed.has(s));

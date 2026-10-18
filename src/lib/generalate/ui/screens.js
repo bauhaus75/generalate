@@ -831,14 +831,14 @@ function deploymentConstraintsHTML(app, count) {
   const row = (label, text, binding) =>
     `<div class="dc-row${binding ? ' binding' : ''}"><span class="dc-label">${label}</span><span class="dc-val">${text}</span>${binding ? '<span class="dc-flag">binding</span>' : ''}</div>`;
   const hullText = c.hullMen <= c.hullCapacity
-    ? `${c.hullMen} men — fits in one hull (capacity ${c.hullCapacity})`
-    : `${c.hullMen} men — needs ${Math.ceil(c.hullMen / c.hullCapacity)} hulls (capacity ${c.hullCapacity} each)`;
+    ? `${c.hullMen} men — fits in one ship (capacity ${c.hullCapacity})`
+    : `${c.hullMen} men — needs ${Math.ceil(c.hullMen / c.hullCapacity)} ships (capacity ${c.hullCapacity} each)`;
   const berthText = c.berths >= c.berthsNeeded
     ? `${c.shipsNeeded} ship${c.shipsNeeded === 1 ? '' : 's'} needed · ${c.berths} berths in port — sails this year`
     : `${c.shipsNeeded} ship${c.shipsNeeded === 1 ? '' : 's'} needed · only ${c.berths} berths in port — delayed`;
   let html = `<div class="dc-rows">`
     + row('Berths', berthText, c.bottleneck === 'berths')
-    + row('Hulls', `${hullText} · ${c.hullsFree} free now`, c.bottleneck === 'hulls')
+    + row('Ships', `${hullText} · ${c.hullsFree} free now`, c.bottleneck === 'hulls')
     + row('Men to spare', `${c.menNeeded} from the pool · ${c.menAvailable} to spare`, c.bottleneck === 'men')
     + row('Funds', `${c.fundsNeeded} scudi to embark · ${c.funds} in the chest`, c.bottleneck === 'funds')
     + `</div>`;
@@ -874,7 +874,7 @@ function deploymentPreviewHTML(app) {
       <button class="gbtn ghost" id="deploy-clear">Disband</button>
       <button class="gbtn primary" id="deploy-order">Order the deployment</button>
     </div>
-    <p class="howto-note">The order is irreversible — there is no recall in Stage 1. The men enter the departure queue and sail as berths, men to spare, funds, and hulls allow, oldest first alongside indipetae approvals.</p>
+    <p class="howto-note">The order is irreversible — there is no recall in Stage 1. The men enter the departure queue and sail as berths, men to spare, funds, and ships allow, oldest first alongside indipetae approvals.</p>
   </div>`;
 }
 
@@ -995,7 +995,7 @@ function wireDeploymentPanel(app, root) {
       try {
         const names = dp.mustered.map(m => m.name).join(', ');
         const dest = (E.DESTINATIONS || {})[dp.destId] || {};
-        if (!confirm(`Order ${dp.mustered.length} men — ${names} — to ${dest.name || dp.destId}? This cannot be recalled; they will sail as berths, men to spare, funds, and hulls allow.`)) return;
+        if (!confirm(`Order ${dp.mustered.length} men — ${names} — to ${dest.name || dp.destId}? This cannot be recalled; they will sail as berths, men to spare, funds, and ships allow.`)) return;
         const dep = E.orderDeployment(app.state, {
           destId: dp.destId, purpose: dp.purpose,
           memberIds: dp.mustered.map(m => m.petitionerId),
@@ -1611,7 +1611,7 @@ function cardHTML(app, c) {
       <select class="card-dest-select" data-id="${esc(c.id)}" aria-label="Destination for ${esc(c.name)}"></select>
     </label>
     <div class="companion-row" data-id="${esc(c.id)}" hidden>
-      <span class="companion-label">Companions <span class="companion-cost">(professed/father 120 · scholastic 80 · brother 50 · ${(app.state.available || 0).toLocaleString('en-US')} to spare · +1 voyage each up to +3 · hull-limited)</span>:</span>
+      <span class="companion-label">Companions <span class="companion-cost">(professed/father 120 · scholastic 80 · brother 50 · ${(app.state.available || 0).toLocaleString('en-US')} to spare · +1 voyage each up to +3 · ship-limited)</span>:</span>
       ${['professed', 'father', 'scholastic', 'brother'].map((g) => `
       <span class="comp-grade"><span class="comp-grade-name">${g}</span>
         <button class="gbtn small ghost comp-dec" data-id="${esc(c.id)}" data-grade="${g}" aria-label="Fewer ${g} companions">−</button>
@@ -2130,8 +2130,8 @@ export function renderLogistics(app, root) {
     </div>
     <div class="logi-section">
       <h3 class="px">HULLS (${ships.length})</h3>
-      <div class="logi-ships">${shipCards || '<p class="disp-mini">No hulls.</p>'}</div>
-      <p class="disp-mini">Each hull carries up to ${capacity} men. Charter another for 300 scudi and 1 energy (Governance).</p>
+      <div class="logi-ships">${shipCards || '<p class="disp-mini">No ships.</p>'}</div>
+      <p class="disp-mini">Each ship carries up to ${capacity} men. Charter another for 300 scudi and 1 energy (Governance).</p>
     </div>
   </section>`;
 }

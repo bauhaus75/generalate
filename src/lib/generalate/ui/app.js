@@ -241,8 +241,8 @@ function renderHeader() {
       <div class="gh-stat" title="Berths in port">
         <span class="gh-stat-label">Berths</span><span class="gh-num" id="gh-berths">3</span>
       </div>
-      <div class="gh-stat" title="Hulls free">
-        <span class="gh-stat-label">Hulls</span><span class="gh-num" id="gh-hulls">3/3</span>
+      <div class="gh-stat" title="Ships free">
+        <span class="gh-stat-label">Ships</span><span class="gh-num" id="gh-hulls">3/3</span>
       </div>
       <div class="gh-stat" title="Men available for mission">
         <span class="gh-stat-label">Men</span><span class="gh-num" id="gh-men">131</span>

@@ -2855,13 +2855,17 @@ function resolveVocations(state, y) {
   state.novices = state.novices.filter((n) => n.readyYear > y);
 }
 
-/** Yearly funds from domestic assignments. Called during resolveYear. */
+/** Yearly funds from domestic assignments. Called during resolveYear.
+ *  Income depends on the man's grade (six-grade system), not the role.
+ *  The role is the type of work; the grade determines how much it yields. */
 function domesticYearlyFunds(state) {
+  // Grade-based income: P > S* > S > F > nS/nF
+  const GRADE_INCOME = { 'P': 15, 'S*': 12, 'S': 10, 'F': 8, 'nS': 5, 'nF': 5 };
   let total = 0;
   for (const e of state.europeanLabor || []) {
     if (!e.assignment) continue;
-    const role = rules.DOMESTIC_ROLES[e.assignment];
-    if (role && role.fundsPerYear) total += role.fundsPerYear;
+    const dg = detailedGradeFor(state, e.petitionerId);
+    total += GRADE_INCOME[dg] ?? 5;
   }
   return total;
 }

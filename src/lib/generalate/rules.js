@@ -52,6 +52,7 @@ export const FRUIT_MULTIPLIER = Object.freeze({
   // Americas: 1.0x (baseline)
   peru: 1.0, brazil: 1.0, paraguay: 1.0, chile: 1.0, 'west-indies': 1.0,
   'new-granada': 1.0, quito: 1.0, mexico: 1.0, goa: 1.0,
+  huronia: 1.0, guatemala: 1.0,
   // Europe: 0.7x — safe but small harvest
   england: 0.7,
 });
@@ -267,8 +268,10 @@ export const MISSION_CAPACITY = Object.freeze({
   england: 3,
   'west-indies': 6,
   peru: 6,
-  asia: 4,
   chile: 5,
+  philippines: 8,
+  huronia: 3,
+  guatemala: 5,
 });
 
 /** +1 voyage bonus per this much mission strength, up to MISSION_BONUS_MAX. */

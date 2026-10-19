@@ -349,5 +349,60 @@
     "travelYears": 2,
     "blurb": "New Spain: Mexico City and the northern frontier. The great province of the north.",
     "frontier": true
+  },
+  "huronia": {
+    "name": "Huronia (New France)",
+    "blurb": "The Huron country, north of the St. Lawrence. The French have a foothold at Quebec (1608); the Jesuits will come in 1626. A harsh frontier.",
+    "frontier": true,
+    "region": "Americas",
+    "travelYears": 2,
+    "ports": [
+      [
+        "Bordeaux",
+        "Quebec"
+      ],
+      [
+        "Quebec",
+        "Huronia"
+      ]
+    ]
+  },
+  "philippines": {
+    "name": "Philippines",
+    "blurb": "The Spanish Philippines. Jesuits arrived in 1581; Manila is a thriving entrep\u00f4t. Reachable via New Spain or the Indian Ocean.",
+    "frontier": true,
+    "region": "Far East",
+    "travelYears": 3,
+    "ports": [
+      [
+        "Acapulco",
+        "Manila"
+      ],
+      [
+        "Goa",
+        "Malacca"
+      ],
+      [
+        "Malacca",
+        "Manila"
+      ]
+    ]
+  },
+  "guatemala": {
+    "name": "Guatemala",
+    "blurb": "The Captaincy General of Guatemala. Jesuits arrived in 1607; Antigua is the center. A Spanish colonial frontier.",
+    "frontier": true,
+    "region": "Americas",
+    "travelYears": 2,
+    "ports": [
+      [
+        "Seville",
+        "Veracruz"
+      ],
+      [
+        "Veracruz",
+        "Antigua"
+      ]
+    ]
   }
 }

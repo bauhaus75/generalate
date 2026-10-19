@@ -2300,8 +2300,11 @@ export function renderCrewReview(app, root) {
           travel = dest?.travelYears ?? 2;
         }
         if (ti.range < travel) {
-          app.toast(`${ship.name} cannot reach ${destName(approval.destination)} (needs ${rangeLabel(travel)}, ship is ${rangeLabel(ti.range)}).`);
-          return;
+          const over = travel - ti.range;
+          const penalty = over * 3;
+          if (!confirm(`${ship.name} is punching above its range to reach ${destName(approval.destination)}. Voyage roll takes -${penalty}. Proceed?`)) {
+            return;
+          }
         }
         approval.shipId = shipId;
         app.sound('tick');

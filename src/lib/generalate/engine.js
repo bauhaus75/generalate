@@ -4132,7 +4132,7 @@ export function resolveYear(state) {
         // If the man has a ship assignment, try that ship first.
         // (If it doesn't fit, the man stays in queue — assignment is a preference.)
         if (q.shipId) {
-          const assigned = ships.find((s) => s.id === q.shipId && (s.freeYear || 0) <= y && !packed.has(s) && shipRange(s) >= travel);
+          const assigned = ships.find((s) => s.id === q.shipId && (s.freeYear || 0) <= y && !packed.has(s)); // range not checked: punching up allowed (penalty at voyage)
           if (assigned && (assigned.used || 0) + party <= shipCap(assigned)) {
             ship = assigned;
             if (!packed.has(ship)) {
@@ -4213,6 +4213,7 @@ export function resolveYear(state) {
           companions: comps,
           shipId: hull.id,
           shipName: hull.name,
+          shipTier: hull.tier || 'carrack',
           deploymentId: q.deploymentId || null, // collective deployment lineage, if any
         };
         state.voyages.push(voyage);
@@ -4255,9 +4256,21 @@ export function resolveYear(state) {
     const staffBonus = missionVoyageBonus(state, v.destination);
     const staffStrength = staffBonus > 0 ? missionStrength(missionStaff(state, v.destination)) : 0;
     // Isolated stream: resolving this voyage can never perturb any other roll.
+    // Punching up: ship going beyond its range takes a penalty
+    let punchUpMod = 0;
+    if (v.shipTier) {
+      const tierRange = (rules.RESOURCES.SHIP_TIERS[v.shipTier] || {}).range || 2;
+      const dest = g.destinations.find ? g.destinations.find((d) => d.id === v.destination) : g.destinations[v.destination];
+      const travel = dest?.travelYears ?? 2;
+      const over = travel - tierRange;
+      if (over > 0) {
+        punchUpMod = over * -3; // -3 per range step over
+      }
+    }
     const check = dice.d20check(streamFor(state, 'voyage', v.id), {
       dc: rules.VOYAGE_DC,
       modifiers: [
+        ...(punchUpMod < 0 ? [{ label: `punching above range (${v.shipTier})`, value: punchUpMod }] : []),
         ...(danger > 0 ? [{ label: `peril of ${destName(g, v.destination)} (${danger})`, value: danger * rules.VOYAGE_DANGER_MOD }] : []),
         ...(inCompany ? [{ label: 'sailing in company', value: rules.VOYAGE_TEAM_MOD }] : []),
         ...((state.zealUntil || 0) >= y ? [{ label: 'zeal of the missions', value: rules.VETERAN.ZEAL_MOD }] : []),

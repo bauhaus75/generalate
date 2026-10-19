@@ -4301,6 +4301,21 @@ export function resolveYear(state) {
     if (outcome === 'deceased') {
       state.stats.deaths += 1;
       state.society = Math.max(0, (state.society || 0) - 1);
+      // Ship sinks if it was punching above its range
+      if (punchUpMod < 0 && v.shipId) {
+        const shipIdx = (state.resources.ships || []).findIndex((s) => s.id === v.shipId);
+        if (shipIdx >= 0) {
+          const sunk = state.resources.ships[shipIdx];
+          sunk.sunk = true;
+          sunk.sunkYear = y;
+          // Remove from active fleet (keep record)
+          state.resources.ships.splice(shipIdx, 1);
+          v.shipSunk = true;
+          // Add to news/log
+          if (!state.sunkenShips) state.sunkenShips = [];
+          state.sunkenShips.push({ name: sunk.name, tier: sunk.tier, year: y, destination: v.destination });
+        }
+      }
     }
     if (outcome === 'returned') {
       state.stats.returns += 1;

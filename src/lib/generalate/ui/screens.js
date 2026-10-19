@@ -2302,7 +2302,7 @@ export function renderCrewReview(app, root) {
         if (ti.range < travel) {
           const over = travel - ti.range;
           const penalty = over * 3;
-          if (!confirm(`${ship.name} is punching above its range to reach ${destName(approval.destination)}. Voyage roll takes -${penalty}. Proceed?`)) {
+          if (!confirm(`${ship.name} is punching above its range to reach ${destName(approval.destination)}. Voyage roll takes -${penalty}, and the ship will be lost if the voyage ends in death. Proceed?`)) {
             return;
           }
         }

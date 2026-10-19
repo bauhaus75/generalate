@@ -2153,6 +2153,12 @@ function renderQueueAssignment(app, ships, tiers) {
 }
 
 /* ---------------- map screen ---------------- */
+function rangeLabel(range) {
+  if (range >= 3) return 'Far East';
+  if (range >= 2) return 'Ocean';
+  return 'Coastal';
+}
+
 export function renderCrewReview(app, root) {
   const ships = (app.state.resources?.ships || []).filter((s) => (s.freeYear || 0) <= app.state.year);
   const tiers = app.Engine.RESOURCES?.SHIP_TIERS || {};
@@ -2212,10 +2218,11 @@ export function renderCrewReview(app, root) {
       <button class="crew-man" data-pid="${esc(a.id)}" data-ship="${s.id}">
         ${esc(getName(a))} → ${esc(destName(a.destination))} (${partySize(a)})
       </button>`).join('');
-    return `<div class="crew-ship" data-ship-id="${s.id}">
-      <div class="crew-ship-head">${esc(s.name)} <span class="logi-tier">${esc(ti.label)} (range ${ti.range})</span></div>
-      <div class="logi-cap-bar"><div class="logi-cap-fill" style="width:${pct}%"></div></div>
-      <div class="logi-cap-text">${used}/${ti.capacity} men</div>
+    const overbooked = used > ti.capacity;
+    return `<div class="crew-ship${overbooked ? ' overbooked' : ''}" data-ship-id="${s.id}">
+      <div class="crew-ship-head">${esc(s.name)} <span class="logi-tier">${esc(ti.label)} · ${rangeLabel(ti.range)}</span></div>
+      <div class="logi-cap-bar"><div class="logi-cap-fill" style="width:${Math.min(100, pct)}%;${overbooked ? 'background:#c0392b;' : ''}"></div></div>
+      <div class="logi-cap-text">${used}/${ti.capacity} men${overbooked ? ' — OVERBOOKED (excess will wait)' : ''}</div>
       <div class="crew-men">${menHtml || '<span class="disp-mini">Empty</span>'}</div>
     </div>`;
   }).join('');
@@ -2265,9 +2272,23 @@ export function renderCrewReview(app, root) {
       if (e.target.closest('.crew-man')) return;
       if (!selectedPid) return;
       const shipId = shipEl.dataset.shipId;
-      // Update the staged approval directly
+      const ship = ships.find((s) => s.id === shipId);
       const approval = staged.find((a) => a.id === selectedPid);
-      if (approval) {
+      if (approval && ship) {
+        // Validate range
+        const ti = tiers[ship.tier || 'carrack'] || tiers.carrack;
+        const g = app.Engine.getGameData ? app.Engine.getGameData() : null;
+        let travel = 2;
+        if (g?.destinations) {
+          const dest = Array.isArray(g.destinations)
+            ? g.destinations.find((d) => d.id === approval.destination)
+            : g.destinations[approval.destination];
+          travel = dest?.travelYears ?? 2;
+        }
+        if (ti.range < travel) {
+          app.toast(`${ship.name} cannot reach ${destName(approval.destination)} (needs ${rangeLabel(travel)}, ship is ${rangeLabel(ti.range)}).`);
+          return;
+        }
         approval.shipId = shipId;
         app.sound('tick');
         app.go('crew'); // refresh
@@ -2311,7 +2332,7 @@ export function renderLogistics(app, root) {
     return `
     <div class="logi-ship">
       <div class="logi-ship-info">
-        <div class="logi-ship-name">${esc(s.name)} <span class="logi-tier">${esc(tierInfo.label)} (range ${tierInfo.range})</span></div>
+        <div class="logi-ship-name">${esc(s.name)} <span class="logi-tier">${esc(tierInfo.label)} · ${rangeLabel(tierInfo.range)}</span></div>
         <div class="logi-ship-status">${isFree ? '<span class="logi-free">In port</span>' : `<span class="logi-away">At sea → ${esc(destName || 'unknown')}</span>`}</div>
         <div class="logi-cap-bar"><div class="logi-cap-fill" style="width:${pct}%"></div></div>
         <div class="logi-cap-text">${used}/${capacity} men${!isFree && s.freeYear ? ` · returns ${s.freeYear}` : ''}</div>

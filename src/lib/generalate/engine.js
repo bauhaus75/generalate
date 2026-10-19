@@ -92,7 +92,7 @@ export function streamFor(state, ...parts) {
 
 function initDestState(destinations) {
   const ds = {};
-  for (const d of destinations) ds[d.id] = { danger: 1, access: d.frontier ? 'closed' : 'open' };
+  for (const d of destinations) ds[d.id] = { danger: d.danger ?? 1, access: d.frontier ? 'closed' : 'open' };
   return ds;
 }
 
@@ -4591,6 +4591,116 @@ export function resolveYear(state) {
   // Mission fragility (informational only): track accumulated years each mission
   // spends below 40% staffing. 40-60% pauses the counter; 60%+ resets it.
 /**
+ * Annual martyrdom and disease rolls for stationed men.
+ * Martyrdom: d20 vs danger (0=safe, 1=die on 1, 2=die on 1-2, 3=die on 1-3).
+ * Disease: separate d20, die on 1 (5%), or 1-2 (10%) in tropics.
+ * When a martyrdom occurs, survivors react based on Zeal:
+ *   Zeal 4+: private vow (+2 Zeal, immune to flee)
+ *   Zeal 1-2: flees (joins return ship queue)
+ *   Else: stays neutral
+ * All survivors get +1 Zeal (martyrs inspire).
+ */
+function resolveMartyrdomAndDisease(state, rng) {
+  const g = ensureData();
+  for (const destId of Object.keys(state.missions || {})) {
+    const st = missionStaff(state, destId);
+    const dst = state.destState[destId] || {};
+    if (dst.collapsed || dst.access === 'closed') continue;
+    if (!st.staffIds || !st.staffIds.length) continue;
+    
+    const dest = g.destinations.find((d) => d.id === destId);
+    const danger = dst.danger ?? dest?.danger ?? 1;
+    const tropical = !!dest?.tropical;
+    const destName = dest?.name || destId;
+    
+    const martyred = [];
+    const diseased = [];
+    
+    for (const pid of [...st.staffIds]) {
+      // Martyrdom roll
+      let died = false;
+      let martyr = false;
+      if (danger > 0) {
+        const roll = rng.int(1, 20);
+        if (roll <= danger) {
+          martyred.push(pid);
+          died = true;
+          martyr = true;
+        }
+      }
+      
+      // Disease roll (separate)
+      if (!died) {
+        const roll = rng.int(1, 20);
+        const threshold = tropical ? 2 : 1;
+        if (roll <= threshold) {
+          diseased.push(pid);
+          died = true;
+        }
+      }
+      
+      if (died) {
+        // Remove from mission
+        const idx = st.staffIds.indexOf(pid);
+        if (idx >= 0) st.staffIds.splice(idx, 1);
+        // Decrement bucket (simplified: try each)
+        if (st.fathers > 0) st.fathers--;
+        else if (st.coadjutors > 0) st.coadjutors--;
+        else if (st.brothers > 0) st.brothers--;
+        
+        const name = personName(state, pid);
+        if (martyr) {
+          state.stats.martyrs = (state.stats.martyrs || 0) + 1;
+          addLedger(state, {
+            year: state.year, type: 'martyrdom', destination: destId,
+            text: `${name} was martyred at ${destName}.`,
+          });
+        } else {
+          state.stats.deaths = (state.stats.deaths || 0) + 1;
+          addLedger(state, {
+            year: state.year, type: 'death', destination: destId,
+            text: `${name} died of disease at ${destName}.`,
+          });
+        }
+      }
+    }
+    
+    // Survivors react to martyrdom
+    if (martyred.length > 0) {
+      for (const pid of st.staffIds) {
+        const d = ensureDisposition(state, pid);
+        if (!d || !d.current) continue;
+        const zeal = d.current.zeal || 3;
+        const name = personName(state, pid);
+        if (zeal >= 4) {
+          // Private vow
+          d.current.zeal = Math.min(6, zeal + 2);
+          recordHistory(state, pid, { kind: 'vow', event: 'martyr-vow',
+            text: `Took a private vow accepting martyrdom after witnessing death at ${destName}.` });
+        } else if (zeal <= 2) {
+          // Flees
+          const idx = st.staffIds.indexOf(pid);
+          if (idx >= 0) st.staffIds.splice(idx, 1);
+          if (st.fathers > 0) st.fathers--;
+          else if (st.coadjutors > 0) st.coadjutors--;
+          else if (st.brothers > 0) st.brothers--;
+          if (!state.returnTransit) state.returnTransit = {};
+          if (!state.returnTransit[destId]) state.returnTransit[destId] = [];
+          state.returnTransit[destId].push(pid);
+          addLedger(state, {
+            year: state.year, type: 'fled', destination: destId,
+            text: `${name} fled ${destName} after the martyrdom.`,
+          });
+        } else {
+          // Inspired: +1 Zeal
+          d.current.zeal = Math.min(6, zeal + 1);
+        }
+      }
+    }
+  }
+}
+
+/**
  * Collapse a mission: sustained understaffing destroys it.
  * All stationed men are lost. -20 score. Mission can be re-founded.
  */
@@ -4615,6 +4725,9 @@ function collapseMission(state, destId) {
     text: `The mission at ${destName} has collapsed. ${lost} men lost. (-20 score)`,
   });
 }
+
+  // Martyrdom and disease: annual rolls for stationed men.
+  resolveMartyrdomAndDisease(state, rng);
 
   // Sustained understaffing destroys missions. Below 25% staffing for 3 years,
   // the mission collapses: all men lost, -20 score. It can be re-founded.

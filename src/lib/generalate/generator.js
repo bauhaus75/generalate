@@ -43,6 +43,7 @@ const LAST_NAMES = Object.freeze({
 
 const CULTURES = ['italian', 'spanish', 'portuguese'];
 const NATIVE_CULTURES = ['japanese', 'chinese', 'indian', 'brazilian'];
+const NATIVE_TERRITORY = { japanese: 'japan', chinese: 'china', indian: 'india', brazilian: 'brazil' };
 // 80% European, 20% Native vocations
 const PLACES = ['Rome', 'Lisbon', 'Seville', 'Naples', 'Milan', 'Coimbra', 'Genoa', 'Evora'];
 const SKILLS = ['Latin', 'Greek', 'preaching', 'teaching', 'medicine', 'music', 'astronomy', 'languages', 'rhetoric', 'mathematics'];
@@ -76,10 +77,17 @@ const CLOSINGS = [
  * @param {number} genYear the game year this petitioner enters the pool
  * @returns {object} petitioner record in the petitioners.json shape (fictional:true)
  */
-export function fictionalPetitioner(seedBase, n, destIds, destNames, genYear, usedNames) {
+export function fictionalPetitioner(seedBase, n, destIds, destNames, genYear, usedNames, openDestIds) {
   const rng = makeRng(`${seedBase}:fic:${n}`);
   // 80% European, 20% Native (native vocations are rarer)
-  const culture = rng.float() < 0.8 ? rng.pick(CULTURES) : rng.pick(NATIVE_CULTURES);
+  let culture;
+  if (rng.float() < 0.8) {
+    culture = rng.pick(CULTURES);
+  } else {
+    const native = rng.pick(NATIVE_CULTURES);
+    const territory = NATIVE_TERRITORY[native];
+    culture = (!openDestIds || openDestIds.has(territory)) ? native : rng.pick(CULTURES);
+  }
   let name = `${rng.pick(FIRST_NAMES[culture])} ${rng.pick(LAST_NAMES[culture])}`;
   // Ensure uniqueness: if name is taken, try alternatives deterministically
   if (usedNames && usedNames.has(name)) {

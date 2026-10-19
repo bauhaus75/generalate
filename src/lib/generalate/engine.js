@@ -3200,7 +3200,12 @@ function fictionalData(state, g, rec) {
   if (g2 && g2.petitioners) {
     for (const p of g2.petitioners) if (p.name) usedNames.add(p.name);
   }
-  return fictionalPetitioner(state.seed, rec.ficNum, ids, names, rec.genYear, usedNames);
+  // Open missions for native territory restriction
+  const openDestIds = new Set();
+  for (const [did, ds] of Object.entries(state.destState || {})) {
+    if (ds.access === 'open' && !ds.collapsed) openDestIds.add(did);
+  }
+  return fictionalPetitioner(state.seed, rec.ficNum, ids, names, rec.genYear, usedNames, openDestIds);
 }
 
 /**

@@ -108,7 +108,6 @@ function initDestState(destinations) {
 function initMissions(destinations, petitioners) {
   const ms = {};
   const list = destinations || Object.keys(rules.MISSION_CAPACITY).map((id) => ({ id }));
-  // Pool of available hist IDs for initial staffing
   const histPool = (petitioners || []).map((p) => p.id).filter((id) => id && String(id).startsWith('hist-'));
   let poolIdx = 0;
   for (const d of list) {
@@ -117,8 +116,6 @@ function initMissions(destinations, petitioners) {
     const total = Math.floor(capacity * 0.35);
     const fathers = Math.round(total * 0.2);
     const coadjutors = Math.round(total * 0.3);
-    const brothers = Math.max(0, total - fathers - coadjutors);
-    // Assign real petitioner IDs to the staff
     const staffIds = [];
     for (let i = 0; i < total && poolIdx < histPool.length; i++) {
       staffIds.push(histPool[poolIdx++]);
@@ -126,8 +123,8 @@ function initMissions(destinations, petitioners) {
     ms[id] = {
       fathers,
       coadjutors,
-      brothers,
-      staffIds, // array of petitioner IDs — the actual people
+      brothers: Math.max(0, total - fathers - coadjutors),
+      staffIds,
       capacity,
       fragileYears: 0,
       fragile: false,
@@ -573,15 +570,6 @@ export function dispatchMission(state, destId, counts = {}) {
   spendEnergy(state, 1, 'dispatching men');
   const st = missionStaff(state, destId);
   for (const gid of rules.MISSION_GRADE_IDS) st[gid] += n[gid];
-  // Track IDs: generate deterministic placeholders for abstract dispatches
-  if (!st.staffIds) st.staffIds = [];
-  if (!state._dispatchSeq) state._dispatchSeq = 0;
-  for (const gid of rules.MISSION_GRADE_IDS) {
-    for (let i = 0; i < (n[gid] || 0); i++) {
-      state._dispatchSeq += 1;
-      st.staffIds.push(`dispatched-${destId}-${state.year}-${state._dispatchSeq}`);
-    }
-  }
   // Report-card instrumentation (additive only): record mission-strengthening
   // investments for the end-of-generalate report. Never affects rules.
   if (!state.stats) state.stats = {};
@@ -658,7 +646,7 @@ export function disbandMission(state, destId) {
   spendEnergy(state, 1, 'disbanding a mission');
   state.available = (state.available || 0) + total;
   st.fathers = 0; st.coadjutors = 0; st.brothers = 0;
-  st.staffIds = []; // clear the roster
+  st.staffIds = [];
   if (!state.destState[destId]) state.destState[destId] = {};
   state.destState[destId].access = 'closed';
   addLedger(state, { year: state.year, type: 'disband',
@@ -671,9 +659,6 @@ export function disbandMission(state, destId) {
  * Fictional and unattested grades land with the brothers (honest default).
  */
 export function staffGradeFor(state, petitionerId) {
-  // Ordination override takes precedence (man was ordained via UI)
-  const rec0 = state.petitioners[petitionerId];
-  if (rec0 && rec0.ordainedOverride === true) return 'fathers';
   // Vows stage takes precedence: it reflects the man's actual rank in the formation system.
   const entry = (state.europeanLabor || []).find((e) => e.petitionerId === petitionerId);
   if (entry && entry.vows && entry.vows.stage) {
@@ -698,11 +683,8 @@ function staffArrival(state, v) {
   const sg = staffGradeFor(state, v.petitionerId);
   const mst = missionStaff(state, v.destination);
   mst[sg] += 1;
-  // Track the actual person in staffIds
   if (!mst.staffIds) mst.staffIds = [];
-  if (!mst.staffIds.includes(v.petitionerId)) {
-    mst.staffIds.push(v.petitionerId);
-  }
+  if (!mst.staffIds.includes(v.petitionerId)) mst.staffIds.push(v.petitionerId);
   const comps = Math.max(0, v.companions || 0);
   if (comps > 0) mst.brothers += comps;
   v.staffGrade = sg;
@@ -1328,8 +1310,7 @@ export function ordainPriest(state, petitionerId) {
   if (!ordinationEligible(state, petitionerId)) {
     throw new Error('Ordination requires an eligible scholastic (12+ years in the Society).');
   }
-  // No energy cost: ordination is a personal milestone, not a governance action.
-  // (Also prevents spam-draining: eligibility check now blocks re-ordaining.)
+  spendEnergy(state, 1, 'ordaining a priest');
   const entry = (state.europeanLabor || []).find((e) => e.petitionerId === petitionerId);
   const name = entry ? entry.name : petitionerId;
   const rec = ensureRecord(state, petitionerId, false);
@@ -1448,9 +1429,9 @@ export function assignFormation(state, petitionerId, focusId) {
   const entry = (state.europeanLabor || []).find((e) => e.petitionerId === petitionerId);
   if (!entry) throw new Error('Formation is for men laboring in Europe.');
   if (entry.formation && entry.formation.until >= state.year) {
-    throw new Error(`${entry.name} is already in formation until ${entry.formation.until}.`);
+    throw new Error(`${entry.name} is already in formation until
+  spendEnergy(state, 1, 'assigning formation'); ${entry.formation.until}.`);
   }
-  // No energy cost: formation is personal development, not a governance action.
   if (entry.assignment) {
     throw new Error(`${entry.name} holds a domestic assignment (${entry.assignment}); release him first or interrupt it explicitly.`);
   }
@@ -2924,7 +2905,7 @@ export function newGame({ mode = 'campaign', seed = 'generalate', data = null } 
       })),
     },
     destState: initDestState(g.destinations),
-    missions: initMissions(g.destinations, g.petitioners), // per-mission staffing with real staff IDs
+    missions: initMissions(g.destinations, g.petitioners), // per-mission staffing with staffIds
     missionTransit: {}, // destId -> [{arrivalYear, grades:{fathers,coadjutors,brothers}}] — men at sea
     novitiates: [],   // {destination, foundedYear} — houses of formation at missions
     europeanLabor: [], // men working in Europe: {petitionerId, name, year, via:'denied'|'returned'|'veteran'}
@@ -4552,41 +4533,27 @@ export function resolveYear(state) {
  */
 export function personName(state, petitionerId) {
   const pid = String(petitionerId);
-  // Dispatched placeholders: show as "A missionary"
-  if (pid.startsWith('dispatched-')) {
-    return 'A missionary';
-  }
+  if (pid.startsWith('dispatched-')) return 'A missionary';
   const g = getGameData();
   if (!g) return 'A petitioner';
   const name = cardName(state, g, petitionerId);
-  // If cardName returned the raw ID, it's unknown
-  if (name === petitionerId && pid.startsWith('hist-')) {
-    return 'A petitioner';
-  }
+  if (name === petitionerId && pid.startsWith('hist-')) return 'A petitioner';
   return name;
 }
 
 /**
- * Generate a one-line "deeds" summary for a person — what associates them
- * with feats of greatness. Used in rosters to make names meaningful.
+ * Generate a one-line "deeds" summary for a person.
  */
 export function personDeeds(state, petitionerId) {
   const pid = String(petitionerId);
   if (pid.startsWith('dispatched-')) return 'Dispatched from Rome';
-  
   const deeds = [];
   const g = getGameData();
-  
-  // Grade
   const grade = staffGradeFor(state, petitionerId);
   const gradeLabel = grade === 'fathers' ? 'Father' : grade === 'brothers' ? 'Brother' : 'Scholastic';
   deeds.push(gradeLabel);
-  
-  // Years in Society
   const yrs = yearsInSociety(state, petitionerId);
   if (yrs > 0) deeds.push(`${yrs} yrs in Society`);
-  
-  // Missions served (from voyage history)
   const voyages = (state.voyages || []).filter((v) => v.petitionerId === petitionerId && v.outcome === 'thriving');
   if (voyages.length > 0) {
     const dests = [...new Set(voyages.map((v) => {
@@ -4597,16 +4564,51 @@ export function personDeeds(state, petitionerId) {
       deeds.push(`served in ${dests.slice(0, 2).join(', ')}${dests.length > 2 ? ` +${dests.length - 2} more` : ''}`);
     }
   }
+  if (voyages.length >= 3) deeds.push('veteran of 3+ voyages');
+  else if (voyages.length >= 2) deeds.push('veteran of 2 voyages');
+  return deeds.join(' · ');
+}
+
+/**
+ * Get a person's detailed grade for display (six grades).
+ * Returns: 'P', 'S*', 'S', 'F', 'nS', 'nF'
+ */
+export function detailedGradeFor(state, petitionerId) {
+  const pid = String(petitionerId);
+  if (pid.startsWith('dispatched-')) return 'F'; // default to Brother for placeholders
   
-  // Notable: survived punching up
-  const punched = voyages.filter((v) => v.shipTier && v.destination);
-  if (punched.length > 0) {
-    // Check if any voyage was punching up (we'd need to store this, for now just count voyages)
-    if (voyages.length >= 3) deeds.push('veteran of 3+ voyages');
-    else if (voyages.length >= 2) deeds.push('veteran of 2 voyages');
+  const rec = state.petitioners[petitionerId];
+  // Check if professed
+  if (isProfessedPriest(state, petitionerId)) return 'P';
+  
+  // Check ordination
+  const gr = gradeFor(state, petitionerId);
+  const grade = String(gr.grade || '').toLowerCase();
+  
+  // Novice check
+  const entry = (state.europeanLabor || []).find((e) => e.petitionerId === petitionerId);
+  if (entry?.vows?.stage === 'novice') {
+    const track = rec?.noviceTrack || 'scholastic';
+    return track === 'brother' ? 'nF' : 'nS';
+  }
+  if (grade === 'novice') {
+    return 'nS'; // default novice to scholastic track
   }
   
-  return deeds.join(' · ');
+  // Ordained scholastic
+  if (gr.ordained === true || grade === 'father') return 'S*';
+  
+  // Scholastic
+  if (grade === 'scholastic') return 'S';
+  
+  // Brother
+  if (grade === 'brother') return 'F';
+  
+  // Default based on staffGradeFor
+  const sg = staffGradeFor(state, petitionerId);
+  if (sg === 'fathers') return 'S*'; // ordained but not professed
+  if (sg === 'coadjutors') return 'S';
+  return 'F';
 }
 
 export function cardName(state, g, id) {

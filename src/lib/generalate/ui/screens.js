@@ -22,6 +22,27 @@ function esc(s) {
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+/**
+ * Renders a clickable person name that opens their profile (inspector).
+ * Use this for EVERY mention of a person's name in the UI.
+ */
+function nameLink(app, petitionerId, name) {
+  const displayName = name || (app.Engine.personName ? app.Engine.personName(app.state, petitionerId) : null) || petitionerId;
+  // Don't show raw hist- IDs; fall back to a generic label
+  const clean = String(displayName).startsWith('hist-') ? 'A petitioner' : displayName;
+  return `<button class="name-link" data-pid="${esc(petitionerId)}" data-name="${esc(clean)}">${esc(clean)}</button>`;
+}
+
+// Attach name-link handlers (call after rendering any screen with names)
+function attachNameLinks(app, root) {
+  root.querySelectorAll('.name-link').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      showInspector(app, btn.dataset.pid, btn.dataset.name || 'The petitioner');
+    });
+  });
+}
+
 /* ---------------- dispositions (Phase 2) ---------------- */
 function dispDots(v) {
   v = Math.max(1, Math.min(5, v || 3));
@@ -486,8 +507,15 @@ export function renderBriefing(app, root, start) {
     ${(app.state.zealUntil || 0) >= start.year ? `
     <p class="howto-note">🔥 Zeal for the missions burns — a veteran's testimony aids every voyage (+1) through ${app.state.zealUntil}.</p>` : ''}
     ${requests.length ? `
-    <h3 class="sect">The missions ask for men</h3>
-    <ul class="news-list">${requests.slice(0, 4).map(r => `<li>✉️ <strong>${esc(r.name)}</strong> (${r.staffed}/${r.capacity}) asks for ${r.want === 1 ? 'one more man' : r.want + ' more men'} — send them by the <button class="linklike" data-goto="desk">terna</button> or from the <button class="linklike" data-goto="missions">Missions</button> tab.</li>`).join('')}</ul>
+    <h3 class="sect">Mission alerts</h3>
+    <ul class="news-list">${requests.slice(0, 4).map(r => {
+      const st = app.state.destState[r.destId];
+      const isFragile = st && st.fragile;
+      const alertText = isFragile
+        ? `⚠️ <strong>${esc(r.name)}</strong> is fragile (${r.staffed}/${r.capacity})`
+        : `⚠️ <strong>${esc(r.name)}</strong> is understaffed (${r.staffed}/${r.capacity})`;
+      return `<li>${alertText}</li>`;
+    }).join('')}</ul>
     ${requests.length > 4 ? `<p class="howto-note">…and ${requests.length - 4} more. See the Missions tab.</p>` : ''}` : ''}
     ${(b.novitiates && b.novitiates.length) ? `
     <h3 class="sect">Novitiates</h3>
@@ -803,7 +831,13 @@ function missionCardHTML(app, d, year) {
         : staffed < st.capacity ? `<span class="mflag want-flag">asks for ${st.capacity - staffed} more</span>`
         : '<span class="mflag full-flag">at strength</span>'}${fragFlag}</div>
     <div class="cap-bar" aria-hidden="true"><div class="cap-fill" style="width:${pct}%"></div></div>
-    <p class="mission-staff">${esc(gradeBits)} — <strong>${staffed}/${st.capacity}</strong></p>
+    <p class="mission-staff">${esc(gradeBits)} — <button class="staff-toggle" data-dest="${esc(d.id)}"><strong>${staffed}/${st.capacity}</strong> (tap for roster)</button></p>
+    <div class="mission-roster" data-roster="${esc(d.id)}" hidden>
+      ${(st.staffIds || []).map((pid) => {
+        const name = app.Engine.personName ? app.Engine.personName(app.state, pid) : pid;
+        return `<div>${nameLink(app, pid, name)}</div>`;
+      }).join('') || '<p class="disp-mini">No staff records.</p>'}
+    </div>
     <p class="mission-meta">strength ${strength}${bonus > 0 ? ` → +${bonus} to voyages` : ''} · upkeep ${upkeep} scudi/yr</p>
     ${(st.fruits || 0) > 0 ? `<p class="mission-fruits">Harvest: <strong>${(st.fruits || 0).toLocaleString('en-US')}</strong> souls</p>` : ''}
     ${(() => {
@@ -1610,6 +1644,20 @@ export function renderMissions(app, root) {
     app.sound('page');
     app.go(app.ui.missionsFrom && app.ui.missionsFrom !== 'missions' ? app.ui.missionsFrom : 'briefing');
   });
+  // Staff roster toggles
+  root.querySelectorAll('.staff-toggle').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const destId = btn.dataset.dest;
+      const roster = root.querySelector(`[data-roster="${destId}"]`);
+      if (roster) {
+        roster.hidden = !roster.hidden;
+        app.sound('tick');
+      }
+    });
+  });
+  // Attach name links for roster
+  attachNameLinks(app, root);
 }
 
 /* ---------------- terna desk ---------------- */

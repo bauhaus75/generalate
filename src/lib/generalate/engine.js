@@ -105,19 +105,29 @@ function initDestState(destinations) {
  * begins at roughly half its capacity, split across the three grades in a
  * fixed deterministic ratio. The General's task is to bring them to strength.
  */
-function initMissions(destinations) {
+function initMissions(destinations, petitioners) {
   const ms = {};
   const list = destinations || Object.keys(rules.MISSION_CAPACITY).map((id) => ({ id }));
+  // Pool of available hist IDs for initial staffing
+  const histPool = (petitioners || []).map((p) => p.id).filter((id) => id && String(id).startsWith('hist-'));
+  let poolIdx = 0;
   for (const d of list) {
     const id = d.id || d;
     const capacity = rules.MISSION_CAPACITY[id] ?? 5;
     const total = Math.floor(capacity * 0.35);
     const fathers = Math.round(total * 0.2);
     const coadjutors = Math.round(total * 0.3);
+    const brothers = Math.max(0, total - fathers - coadjutors);
+    // Assign real petitioner IDs to the staff
+    const staffIds = [];
+    for (let i = 0; i < total && poolIdx < histPool.length; i++) {
+      staffIds.push(histPool[poolIdx++]);
+    }
     ms[id] = {
       fathers,
       coadjutors,
-      brothers: Math.max(0, total - fathers - coadjutors),
+      brothers,
+      staffIds, // array of petitioner IDs — the actual people
       capacity,
       fragileYears: 0,
       fragile: false,
@@ -2899,7 +2909,7 @@ export function newGame({ mode = 'campaign', seed = 'generalate', data = null } 
       })),
     },
     destState: initDestState(g.destinations),
-    missions: initMissions(g.destinations), // per-mission staffing: {fathers, coadjutors, brothers, capacity}
+    missions: initMissions(g.destinations, g.petitioners), // per-mission staffing with real staff IDs
     missionTransit: {}, // destId -> [{arrivalYear, grades:{fathers,coadjutors,brothers}}] — men at sea
     novitiates: [],   // {destination, foundedYear} — houses of formation at missions
     europeanLabor: [], // men working in Europe: {petitionerId, name, year, via:'denied'|'returned'|'veteran'}
@@ -4522,6 +4532,20 @@ export function resolveYear(state) {
 }
 
 /** Best-effort display name for a petitioner id (historical data or regenerated fictional). */
+/**
+ * Get a person's display name from their ID. Never returns a raw hist- ID.
+ */
+export function personName(state, petitionerId) {
+  const g = getGameData();
+  if (!g) return 'A petitioner';
+  const name = cardName(state, g, petitionerId);
+  // If cardName returned the raw ID, it's unknown
+  if (name === petitionerId && String(petitionerId).startsWith('hist-')) {
+    return 'A petitioner';
+  }
+  return name;
+}
+
 export function cardName(state, g, id) {
   const hist = g.petitioners.find((p) => p.id === id);
   if (hist) return hist.name;

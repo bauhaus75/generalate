@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GENERALATE — Map Layout Mockup</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Georgia, serif;
+    background: #1a120b;
+    color: #e8d5a3;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  /* Top resource bar */
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 0.5rem 1rem;
+    background: #2a1e12;
+    border-bottom: 2px solid #8b6914;
+    font-size: 0.9rem;
+  }
+  .topbar .res { display: flex; align-items: center; gap: 0.4rem; }
+  .topbar .res strong { color: #ffd700; font-size: 1.1rem; }
+  .topbar .date { margin-left: auto; text-align: right; }
+  .topbar .date .month { font-size: 1.1rem; color: #ffd700; }
+  .topbar .date .year { font-size: 0.8rem; opacity: 0.7; }
+  /* Main layout */
+  .main { display: flex; flex: 1; overflow: hidden; }
+  /* Left sidebar */
+  .sidebar {
+    width: 220px;
+    background: #241a0e;
+    border-right: 1px solid #8b6914;
+    padding: 1rem;
+    overflow-y: auto;
+  }
+  .sidebar .portrait {
+    width: 80px; height: 80px; border-radius: 50%;
+    background: #3a2c1a; border: 2px solid #8b6914;
+    margin: 0 auto 0.5rem; display: flex; align-items: center; justify-content: center;
+    font-size: 2rem;
+  }
+  .sidebar h3 { text-align: center; font-size: 1rem; margin-bottom: 0.2rem; }
+  .sidebar .title { text-align: center; font-size: 0.8rem; opacity: 0.7; margin-bottom: 1rem; }
+  .sidebar nav a {
+    display: block; padding: 0.5rem; color: #e8d5a3; text-decoration: none;
+    border-radius: 0.25rem; margin-bottom: 0.2rem; font-size: 0.9rem;
+  }
+  .sidebar nav a:hover, .sidebar nav a.active { background: #3a2c1a; }
+  .sidebar nav a .badge {
+    float: right; background: #8b0000; color: white;
+    border-radius: 1rem; padding: 0 0.4rem; font-size: 0.8rem;
+  }
+  /* Map area */
+  .map-area {
+    flex: 1; position: relative;
+    background: #2d4a5e;
+    background-image:
+      radial-gradient(ellipse at 30% 40%, #3d5a3a 0%, transparent 50%),
+      radial-gradient(ellipse at 70% 60%, #4a5a3a 0%, transparent 40%),
+      radial-gradient(ellipse at 50% 20%, #3a4a5a 0%, transparent 30%);
+    overflow: hidden;
+  }
+  .map-area .ocean-label {
+    position: absolute; color: rgba(255,255,255,0.3);
+    font-style: italic; font-size: 1.2rem;
+  }
+  .mission-dot {
+    position: absolute; width: 24px; height: 24px;
+    border-radius: 50%; border: 2px solid #ffd700;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.7rem; cursor: pointer;
+    transform: translate(-50%, -50%);
+  }
+  .mission-dot.core { background: #8b0000; }
+  .mission-dot.established { background: #2a6b2a; }
+  .mission-dot.frontier { background: #8b6914; }
+  .mission-dot:hover { transform: translate(-50%, -50%) scale(1.2); }
+  .map-tooltip {
+    position: absolute; background: #1a120b; border: 1px solid #8b6914;
+    padding: 0.5rem; border-radius: 0.25rem; font-size: 0.85rem;
+    pointer-events: none; z-index: 10;
+  }
+  /* Right missions panel */
+  .missions-panel {
+    width: 200px; background: #241a0e;
+    border-left: 1px solid #8b6914; padding: 1rem;
+  }
+  .missions-panel h3 { margin-bottom: 0.8rem; font-size: 1rem; }
+  .mission-tier {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.6rem; margin-bottom: 0.5rem;
+    background: #2a1e12; border-radius: 0.25rem; cursor: pointer;
+  }
+  .mission-tier:hover { background: #3a2c1a; }
+  .mission-tier .icon { font-size: 1.5rem; }
+  .mission-tier .info { flex: 1; }
+  .mission-tier .info .label { font-weight: bold; }
+  .mission-tier .info .desc { font-size: 0.75rem; opacity: 0.7; }
+  .mission-tier .count { font-size: 1.2rem; color: #ffd700; }
+  /* Bottom indipetae bar */
+  .indipetae-bar {
+    height: 160px; background: #241a0e;
+    border-top: 2px solid #8b6914; padding: 0.5rem 1rem;
+    overflow-x: auto; overflow-y: hidden;
+  }
+  .indipetae-bar h4 { margin-bottom: 0.5rem; font-size: 0.9rem; }
+  .indipetae-cards { display: flex; gap: 0.8rem; }
+  .pet-card {
+    min-width: 120px; background: #2a1e12; border: 1px solid #8b6914;
+    border-radius: 0.25rem; padding: 0.5rem; cursor: pointer;
+  }
+  .pet-card:hover { border-color: #ffd700; }
+  .pet-card .p-portrait {
+    width: 60px; height: 60px; border-radius: 50%;
+    background: #3a2c1a; margin: 0 auto 0.4rem;
+    display: flex; align-items: center; justify-content: center; font-size: 1.5rem;
+  }
+  .pet-card .p-name { font-size: 0.85rem; font-weight: bold; text-align: center; }
+  .pet-card .p-meta { font-size: 0.75rem; opacity: 0.7; text-align: center; }
+  /* Letter popup */
+  .letter-popup {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 500px; max-width: 90%;
+    background: #f5e6c8; color: #2a1e12;
+    border-radius: 0.5rem; padding: 1.5rem;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+    z-index: 20;
+  }
+  .letter-popup h3 { margin-bottom: 1rem; font-size: 1.2rem; }
+  .letter-popup .letter-body { font-style: italic; margin-bottom: 1.5rem; line-height: 1.6; }
+  .letter-popup .letter-actions {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;
+  }
+  .letter-popup button {
+    padding: 0.7rem; background: #2a1e12; color: #e8d5a3;
+    border: none; border-radius: 0.25rem; cursor: pointer; font-size: 0.9rem;
+  }
+  .letter-popup button:hover { background: #3a2c1a; }
+  /* Event feed */
+  .event-feed {
+    position: absolute; right: 210px; top: 60px; width: 220px;
+    background: rgba(26,18,11,0.95); border: 1px solid #8b6914;
+    border-radius: 0.25rem; padding: 0.8rem; z-index: 5;
+  }
+  .event-feed h4 { margin-bottom: 0.6rem; font-size: 0.9rem; }
+  .event-item {
+    padding: 0.5rem; margin-bottom: 0.4rem;
+    background: #2a1e12; border-radius: 0.25rem; font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .event-item:hover { background: #3a2c1a; }
+  .event-item .e-title { font-weight: bold; }
+  .event-item .e-desc { opacity: 0.7; font-size: 0.8rem; }
+  .mockup-note {
+    position: absolute; bottom: 170px; left: 230px;
+    background: #8b0000; color: white; padding: 0.5rem 1rem;
+    border-radius: 0.25rem; font-size: 0.9rem; z-index: 30;
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="res">👥 <strong>612</strong> Men</div>
+  <div class="res">📿 <strong>142</strong> Novices</div>
+  <div class="res">📚 <strong>318</strong> Scholastics</div>
+  <div class="res">✝️ <strong>96</strong> Professed</div>
+  <div class="res">🪙 <strong>52,340</strong> Treasury</div>
+  <div class="res" style="color: #7cfc7c;">+12,780 /yr</div>
+  <div class="res" style="color: #ff7c7c;">-9,460 /yr</div>
+  <div class="date">
+    <div class="month">January 1615</div>
+    <div class="year">Year 1</div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="sidebar">
+    <div class="portrait">👤</div>
+    <h3>Mutio Vitelleschi</h3>
+    <div class="title">Superior General<br>Society of Jesus</div>
+    <nav>
+      <a href="#" class="active">📊 Overview</a>
+      <a href="#">✉️ Letters <span class="badge">24</span></a>
+      <a href="#">👥 Personnel</a>
+      <a href="#">⛪ Missions</a>
+      <a href="#">🗺️ Provinces</a>
+      <a href="#">💰 Finances</a>
+      <a href="#">📖 Formation</a>
+      <a href="#">👔 Council</a>
+      <a href="#">📅 Events</a>
+      <a href="#">⚔️ Obedience</a>
+    </nav>
+  </div>
+
+  <div class="map-area" id="mapArea">
+    <div class="ocean-label" style="top: 40%; left: 20%;">Atlantic Ocean</div>
+    <div class="ocean-label" style="top: 70%; left: 60%;">Indian Ocean</div>
+    <!-- Mission dots positioned roughly geographically -->
+    <div class="mission-dot core" style="top: 35%; left: 48%;" title="Rome">⛪</div>
+    <div class="mission-dot established" style="top: 45%; left: 30%;" title="Lima">⛪</div>
+    <div class="mission-dot frontier" style="top: 60%; left: 75%;" title="Goa">⛪</div>
+    <div class="mission-dot core" style="top: 40%; left: 80%;" title="Macao">⛪</div>
+    <div class="mission-dot established" style="top: 55%; left: 70%;" title="Malacca">⛪</div>
+    <div class="mission-dot frontier" style="top: 30%; left: 55%;" title="Poland">⛪</div>
+    
+    <div class="map-tooltip" id="mapTooltip" style="display: none;">
+      <strong>Lima</strong><br>
+      Province: Peru<br>
+      Status: Established<br>
+      Men: 18
+    </div>
+
+    <div class="event-feed">
+      <h4>Recent Events</h4>
+      <div class="event-item">
+        <div class="e-title">College Completed</div>
+        <div class="e-desc">Mexico City — A new college is ready.</div>
+      </div>
+      <div class="event-item">
+        <div class="e-title">Province Report</div>
+        <div class="e-desc">Bengal — Increased local vocations.</div>
+      </div>
+      <div class="event-item">
+        <div class="e-title">Natural Disaster</div>
+        <div class="e-desc">Philippines — Typhoon damaged mission.</div>
+      </div>
+      <div class="event-item">
+        <div class="e-title">Royal Audience</div>
+        <div class="e-desc">Spain — Request for more Jesuits.</div>
+      </div>
+    </div>
+
+    <div class="letter-popup" id="letterPopup">
+      <h3>A Letter from Rome</h3>
+      <div class="letter-body">
+        Most Reverend Father,<br><br>
+        I beg humbly to be sent to the Indies, where I may labor for the greater glory of God among those who have not yet heard the name of Our Lord...<br><br>
+        Your unworthy son in Christ,<br>
+        Giovanni Rossi
+      </div>
+      <div class="letter-actions">
+        <button>Assign to Mission...</button>
+        <button>Send to Studies</button>
+        <button>Request More Information</button>
+        <button>Decline</button>
+      </div>
+    </div>
+
+    <div class="mockup-note">
+      MOCKUP — Layout only, not functional
+    </div>
+  </div>
+
+  <div class="missions-panel">
+    <h3>Missions</h3>
+    <div class="mission-tier">
+      <div class="icon">⛪</div>
+      <div class="info">
+        <div class="label">Core</div>
+        <div class="desc">Romes, major colleges, stable works</div>
+      </div>
+      <div class="count">24</div>
+    </div>
+    <div class="mission-tier">
+      <div class="icon">⛪</div>
+      <div class="info">
+        <div class="label">Established</div>
+        <div class="desc">Self-sustaining, local vocations</div>
+      </div>
+      <div class="count">38</div>
+    </div>
+    <div class="mission-tier">
+      <div class="icon">⛪</div>
+      <div class="info">
+        <div class="label">Frontier</div>
+        <div class="desc">New, fragile, high risk</div>
+      </div>
+      <div class="count">27</div>
+    </div>
+  </div>
+</div>
+
+<div class="indipetae-bar">
+  <h4>New Indipetae (24)</h4>
+  <div class="indipetae-cards">
+    <div class="pet-card">
+      <div class="p-portrait">👤</div>
+      <div class="p-name">Giovanni Rossi</div>
+      <div class="p-meta">Age 19 · Venice<br>Studies</div>
+    </div>
+    <div class="pet-card">
+      <div class="p-portrait">👤</div>
+      <div class="p-name">Mateo de Torres</div>
+      <div class="p-meta">Age 22 · Castile<br>Missions (Frontier)</div>
+    </div>
+    <div class="pet-card">
+      <div class="p-portrait">👤</div>
+      <div class="p-name">Pierre Leclerc</div>
+      <div class="p-meta">Age 20 · France<br>Mission (Established)</div>
+    </div>
+    <div class="pet-card">
+      <div class="p-portrait">👤</div>
+      <div class="p-name">Hirota Takashi</div>
+      <div class="p-meta">Age 24 · Japan<br>Missions (Frontier)</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Simple interactivity for mockup
+  document.querySelectorAll('.mission-dot').forEach(dot => {
+    dot.addEventListener('click', (e) => {
+      const tooltip = document.getElementById('mapTooltip');
+      tooltip.style.display = 'block';
+      tooltip.style.left = (e.pageX - 200) + 'px';
+      tooltip.style.top = (e.pageY - 100) + 'px';
+      setTimeout(() => tooltip.style.display = 'none', 3000);
+    });
+  });
+  // Close letter popup on button click (mockup)
+  document.querySelectorAll('.letter-popup button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById('letterPopup').style.display = 'none';
+    });
+  });
+</script>
+
+</body>
+</html>

@@ -1447,17 +1447,20 @@ export function renderGovernance(app, root) {
     ${(() => {
       const E2 = app.Engine;
       const destList = E2.DESTINATIONS ? Object.values(E2.DESTINATIONS) : [];
-      const frontier = destList.filter((d) =>
-        d.frontier && (app.state.destState[d.id] || {}).access !== 'open');
+      const frontier = destList.filter((d) => {
+        const ds = app.state.destState[d.id] || {};
+        // Show frontier not yet founded, OR collapsed missions (re-foundable)
+        return (d.frontier && ds.access !== 'open') || ds.collapsed;
+      });
       if (!frontier.length) return '';
       return `<h3 class="sect">Found a mission</h3>
-      <p class="howto-note">Frontier fields await the Society — 1000 scudi, 3 energy, and men to send.</p>
+      <p class="howto-note">Frontier fields await the Society — 1000 scudi, 3 energy, and men to send. Collapsed missions can be rebuilt.</p>
       <div class="frontier-list">
         ${frontier.map((d) => `
         <div class="frontier-item">
           <strong>${esc(d.name)}</strong>
           <span class="disp-mini">${esc(d.blurb || '')}</span>
-          <button class="gbtn small primary frontier-found" data-id="${esc(d.id)}" data-energy="1">Found — 1000 scudi</button>
+          <button class="gbtn small primary frontier-found" data-id="${esc(d.id)}" data-energy="1">${(app.state.destState[d.id] || {}).collapsed ? 'Rebuild' : 'Found'} — 1000 scudi</button>
         </div>`).join('')}
       </div>`;
     })()}

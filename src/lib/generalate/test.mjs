@@ -994,27 +994,32 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 {
   const s = newGameWithGalleons({ mode: 'campaign', seed: 'frag-test' });
   const st = missionStaff(s, 'japan'); // capacity 12
-  // Start: 35% (4/12) -> below 40%, counter should increment each year
+  // Force below 25% threshold: set to 2 men (16.7%)
+  st.fathers = 1; st.coadjutors = 1; st.brothers = 0;
+  st.staffIds = st.staffIds.slice(0, 2);
+  // Start: 16.7% (2/12) -> below 25%, counter should increment each year
   ok('fragility counter initializes to 0', st.fragileYears === 0 && st.fragile === false);
-  // Year 1: 4/12 = 33% < 40% -> counter 1
+  // Year 1: 2/12 = 16.7% < 25% -> counter 1
   let { terna } = startYear(s);
   decide(s, []);
   resolveYear(s);
-  ok('counter increments below 40%', missionStaff(s, 'japan').fragileYears === 1,
+  ok('counter increments below 25%', missionStaff(s, 'japan').fragileYears === 1,
     `fragileYears=${missionStaff(s, 'japan').fragileYears}`);
-  // Year 2: still 33% -> counter 2
+  // Year 2: still 16.7% -> counter 2
   ({ terna } = startYear(s));
   decide(s, []);
   resolveYear(s);
-  ok('counter increments again below 40%', missionStaff(s, 'japan').fragileYears === 2);
+  ok('counter increments again below 25%', missionStaff(s, 'japan').fragileYears === 2);
   ok('not fragile at 2 years', missionStaff(s, 'japan').fragile === false);
-  // Year 3: counter 3 -> FRAGILE
+  // Year 3: counter 3 -> COLLAPSE (not just fragile)
   ({ terna } = startYear(s));
   decide(s, []);
   resolveYear(s);
   const st3 = missionStaff(s, 'japan');
-  ok('fragile at 3 accumulated years', st3.fragileYears === 3 && st3.fragile === true,
-    `fragileYears=${st3.fragileYears}, fragile=${st3.fragile}`);
+  // At 3 years below 25%, the mission COLLAPSES (not just fragile)
+  ok('mission collapses at 3 years below 25%', (s.destState.japan || {}).collapsed === true,
+    `collapsed=${(s.destState.japan || {}).collapsed}`);
+  ok('staffing cleared on collapse', missionStaffed(st3) === 0);
   // Staff up to 60%+: 8/12 = 67% -> reset
   const sj = missionStaff(s, 'japan');
   sj.fathers = 4; sj.coadjutors = 2; sj.brothers = 2; // 8/12

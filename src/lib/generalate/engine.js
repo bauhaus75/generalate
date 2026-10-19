@@ -596,9 +596,10 @@ export function foundMission(state, destId, counts = {}) {
   const g = ensureData();
   const dest = g.destinations.find((d) => d.id === destId);
   if (!dest) throw new Error(`foundMission: unknown destination "${destId}"`);
-  if (!dest.frontier) throw new Error(`foundMission: ${dest.name || destId} is not a frontier mission`);
   const dst = state.destState[destId] || {};
-  if (dst.access === 'open') throw new Error(`foundMission: ${dest.name || destId} is already founded`);
+  const isRebuild = !!dst.collapsed;
+  if (!dest.frontier && !isRebuild) throw new Error(`foundMission: ${dest.name || destId} is not a frontier mission`);
+  if (dst.access === 'open' && !isRebuild) throw new Error(`foundMission: ${dest.name || destId} is already founded`);
   const FOUND_COST = 1000;
   const FOUND_ENERGY = 3;
   if (state.resources.funds < FOUND_COST) {
@@ -618,6 +619,10 @@ export function foundMission(state, destId, counts = {}) {
   }
   spendFunds(state, FOUND_COST, 'foundations');
   spendEnergy(state, FOUND_ENERGY, 'founding a mission');
+  // Clear collapsed flag if rebuilding
+  if (state.destState[destId]) {
+    delete state.destState[destId].collapsed;
+  }
   state.available -= total;
   if (!state.destState[destId]) state.destState[destId] = {};
   state.destState[destId].access = 'open';
@@ -4585,20 +4590,50 @@ export function resolveYear(state) {
 
   // Mission fragility (informational only): track accumulated years each mission
   // spends below 40% staffing. 40-60% pauses the counter; 60%+ resets it.
-  // At 3 accumulated years, the mission is marked FRAGILE. This affects no
-  // mechanics — it is a warning that the Society's institutional presence
-  // (not the local Christian community) is at risk from sustained understaffing.
+/**
+ * Collapse a mission: sustained understaffing destroys it.
+ * All stationed men are lost. -20 score. Mission can be re-founded.
+ */
+function collapseMission(state, destId) {
+  const st = missionStaff(state, destId);
+  const g = ensureData();
+  const destName = g.destinations.find((d) => d.id === destId)?.name || destId;
+  const lost = missionStaffed(st);
+  st.fathers = 0;
+  st.coadjutors = 0;
+  st.brothers = 0;
+  st.staffIds = [];
+  st.fragileYears = 0;
+  st.fragile = false;
+  if (!state.destState[destId]) state.destState[destId] = {};
+  state.destState[destId].access = 'closed';
+  state.destState[destId].collapsed = true;
+  state.score = Math.max(0, (state.score || 0) - 20);
+  if (state.scoreUncapped != null) state.scoreUncapped -= 20;
+  addLedger(state, {
+    year: state.year, type: 'collapse', destination: destId,
+    text: `The mission at ${destName} has collapsed. ${lost} men lost. (-20 score)`,
+  });
+}
+
+  // Sustained understaffing destroys missions. Below 25% staffing for 3 years,
+  // the mission collapses: all men lost, -20 score. It can be re-founded.
   for (const destId of Object.keys(state.missions || {})) {
     const st = missionStaff(state, destId);
+    const dst = state.destState[destId] || {};
+    if (dst.collapsed) continue;
     const ratio = missionStaffed(st) / (st.capacity || 5);
-    if (ratio < 0.4) {
+    if (ratio < 0.25) {
       st.fragileYears += 1;
-      if (st.fragileYears >= 3) st.fragile = true;
+      if (st.fragileYears >= 3) {
+        st.fragile = true;
+        collapseMission(state, destId);
+      }
     } else if (ratio >= 0.6) {
       st.fragileYears = 0;
       st.fragile = false;
     }
-    // 40%-60%: pause (counter unchanged)
+    // 25%-60%: pause (counter unchanged)
   }
 
   // Resolve instructions arriving this year.

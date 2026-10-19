@@ -6,6 +6,9 @@ html, body {
   background: #1a120b;
   margin: 0;
   padding: 0;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
 }
 #generalate-app {
   padding-bottom: 4.5rem;

@@ -148,7 +148,28 @@ html, body {
   min-height: 70vh;
   padding: 2rem 1.25rem 4rem;
 }
-#generalate-app .gscreen { max-width: 1080px; margin: 0 auto; }
+#generalate-app .gscreen {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+/* Desktop: use more width */
+@media (min-width: 1200px) {
+  #generalate-app .gscreen { max-width: 1200px; }
+}
+/* Ensure the app root fills the viewport */
+#generalate-app {
+  width: 100%;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+#gscreen-root {
+  width: 100%;
+  box-sizing: border-box;
+}
 #generalate-app .kicker {
   font-size: 0.6rem; letter-spacing: 0.22em; color: var(--gold);
   text-transform: uppercase; margin: 0 0 0.6rem;

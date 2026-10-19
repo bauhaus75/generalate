@@ -258,6 +258,7 @@ function renderHeader() {
         <button class="gbtn small ghost" id="gh-briefing">Briefing<span class="gh-badge" id="gh-badge-briefing" hidden></span></button>
         <button class="gbtn small ghost" id="gh-indipetae">Indipetae<span class="gh-badge" id="gh-badge-indipetae" hidden></span></button>
         <button class="gbtn small ghost" id="gh-house">Formation</button>
+        <button class="gbtn small ghost" id="gh-domestic">Domestic</button>
         <button class="gbtn small ghost" id="gh-missions">Missions</button>
         <button class="gbtn small ghost" id="gh-governance">Governance<span class="gh-badge" id="gh-badge-governance" hidden></span></button>
         <button class="gbtn small ghost" id="gh-map">Map</button>

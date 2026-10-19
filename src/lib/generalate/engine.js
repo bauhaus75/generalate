@@ -573,6 +573,15 @@ export function dispatchMission(state, destId, counts = {}) {
   spendEnergy(state, 1, 'dispatching men');
   const st = missionStaff(state, destId);
   for (const gid of rules.MISSION_GRADE_IDS) st[gid] += n[gid];
+  // Track IDs: generate deterministic placeholders for abstract dispatches
+  if (!st.staffIds) st.staffIds = [];
+  if (!state._dispatchSeq) state._dispatchSeq = 0;
+  for (const gid of rules.MISSION_GRADE_IDS) {
+    for (let i = 0; i < (n[gid] || 0); i++) {
+      state._dispatchSeq += 1;
+      st.staffIds.push(`dispatched-${destId}-${state.year}-${state._dispatchSeq}`);
+    }
+  }
   // Report-card instrumentation (additive only): record mission-strengthening
   // investments for the end-of-generalate report. Never affects rules.
   if (!state.stats) state.stats = {};
@@ -649,6 +658,7 @@ export function disbandMission(state, destId) {
   spendEnergy(state, 1, 'disbanding a mission');
   state.available = (state.available || 0) + total;
   st.fathers = 0; st.coadjutors = 0; st.brothers = 0;
+  st.staffIds = []; // clear the roster
   if (!state.destState[destId]) state.destState[destId] = {};
   state.destState[destId].access = 'closed';
   addLedger(state, { year: state.year, type: 'disband',
@@ -688,6 +698,11 @@ function staffArrival(state, v) {
   const sg = staffGradeFor(state, v.petitionerId);
   const mst = missionStaff(state, v.destination);
   mst[sg] += 1;
+  // Track the actual person in staffIds
+  if (!mst.staffIds) mst.staffIds = [];
+  if (!mst.staffIds.includes(v.petitionerId)) {
+    mst.staffIds.push(v.petitionerId);
+  }
   const comps = Math.max(0, v.companions || 0);
   if (comps > 0) mst.brothers += comps;
   v.staffGrade = sg;
@@ -4536,11 +4551,16 @@ export function resolveYear(state) {
  * Get a person's display name from their ID. Never returns a raw hist- ID.
  */
 export function personName(state, petitionerId) {
+  const pid = String(petitionerId);
+  // Dispatched placeholders: show as "A missionary"
+  if (pid.startsWith('dispatched-')) {
+    return 'A missionary';
+  }
   const g = getGameData();
   if (!g) return 'A petitioner';
   const name = cardName(state, g, petitionerId);
   // If cardName returned the raw ID, it's unknown
-  if (name === petitionerId && String(petitionerId).startsWith('hist-')) {
+  if (name === petitionerId && pid.startsWith('hist-')) {
     return 'A petitioner';
   }
   return name;

@@ -1,365 +1,353 @@
 {
- "east-indies": {
-  "name": "The East Indies",
-  "region": "Asia",
-  "ports": [
-   [
-    "Lisbon",
-    "Goa"
-   ],
-   [
-    "Goa",
-    "Macao"
-   ]
-  ],
-  "travelYears": 2,
-  "blurb": "The Portuguese Estado da India: Goa, the Malabar coast, and the road onward to Macao and the Far East. The classic destination of the petitions."
- },
- "china": {
-  "name": "China",
-  "region": "Asia",
-  "ports": [
-   [
-    "Lisbon",
-    "Goa"
-   ],
-   [
-    "Goa",
-    "Macao"
-   ],
-   [
-    "Macao",
-    "Canton"
-   ]
-  ],
-  "travelYears": 3,
-  "blurb": "The scholar-mission of Ricci's successors: slow, learned, and comparatively open. A favored destination in the petitions."
- },
- "japan": {
-  "name": "Japan",
-  "region": "Asia",
-  "ports": [
-   [
-    "Lisbon",
-    "Goa"
-   ],
-   [
-    "Goa",
-    "Macao"
-   ],
-   [
-    "Macao",
-    "Nagasaki"
-   ]
-  ],
-  "travelYears": 3,
-  "blurb": "A forbidden mission under the Tokugawa persecution. Petitioners ask for Japan knowing entry means hiding and likely martyrdom."
- },
- "india": {
-  "name": "India",
-  "region": "Asia",
-  "ports": [
-   [
-    "Lisbon",
-    "Goa"
-   ]
-  ],
-  "travelYears": 2,
-  "blurb": "The Malabar and Fishery coasts, Madurai and the Mughal court: the working heart of the Portuguese Asian missions."
- },
- "paraguay": {
-  "name": "Paraguay",
-  "region": "South America",
-  "ports": [
-   [
-    "Seville",
-    "Buenos Aires"
-   ],
-   [
-    "Buenos Aires",
-    "Asuncion"
-   ]
-  ],
-  "travelYears": 2,
-  "blurb": "The reductions of Paraguay: frontier missions among the Guarani, far up the rivers of South America."
- },
- "brazil": {
-  "name": "Brazil",
-  "region": "South America",
-  "ports": [
-   [
-    "Lisbon",
-    "Bahia"
-   ]
-  ],
-  "travelYears": 1,
-  "blurb": "Portuguese Brazil: coastal colleges at Bahia and the aldeia missions of the interior."
- },
- "aethiopia": {
-  "name": "Aethiopia",
-  "region": "Africa",
-  "ports": [
-   [
-    "Lisbon",
-    "Goa"
-   ],
-   [
-    "Goa",
-    "Massawa"
-   ]
-  ],
-  "travelYears": 2,
-  "blurb": "The highlands of Ethiopia, where Jesuits labored at the court of the negus in the 1620s before their expulsion in 1633."
- },
- "england": {
-  "name": "England",
-  "region": "Europe",
-  "ports": [
-   [
-    "Calais",
-    "Dover"
-   ]
-  ],
-  "travelYears": 1,
-  "blurb": "A hidden mission under penal laws: priests cross covertly from the continent to serve recusant Catholics."
- },
- "west-indies": {
-  "name": "The West Indies",
-  "region": "Americas",
-  "ports": [
-   [
-    "Seville",
-    "Santo Domingo"
-   ]
-  ],
-  "travelYears": 1,
-  "blurb": "The Spanish Caribbean: early missions and colleges on the islands and the mainland coast."
- },
- "peru": {
-  "name": "Peru",
-  "region": "South America",
-  "ports": [
-   [
-    "Seville",
-    "Cartagena"
-   ],
-   [
-    "Cartagena",
-    "Lima"
-   ]
-  ],
-  "travelYears": 2,
-  "blurb": "The viceroyalty of Peru: Lima's colleges and the Andean missions beyond."
- },
- "asia": {
-  "name": "Asia",
-  "region": "Asia",
-  "ports": [
-   [
-    "Lisbon",
-    "Goa"
-   ]
-  ],
-  "travelYears": 3,
-  "blurb": "The Indies in general: petitioners who name no single province but the whole East."
- },
- "chile": {
-  "name": "Chile",
-  "region": "South America",
-  "ports": [
-   [
-    "Seville",
-    "Lima"
-   ],
-   [
-    "Lima",
-    "Santiago"
-   ]
-  ],
-  "travelYears": 2,
-  "blurb": "The far southern frontier: missions among the Mapuche on the edge of the Spanish empire."
- },
- "vietnam": {
-  "name": "Vietnam (Cochinchina)",
-  "region": "Asia",
-  "ports": [
-   [
-    "Lisbon",
-    "Goa"
-   ],
-   [
-    "Goa",
-    "Macao"
-   ],
-   [
-    "Macao",
-    "Hoi An"
-   ]
-  ],
-  "travelYears": 3,
-  "blurb": "Cochinchina: the southern Vietnamese kingdom. Jesuits arrived in the 1610s; Alexandre de Rhodes will come in 1624.",
-  "frontier": true
- },
- "tonkin": {
-  "name": "Tonkin",
-  "region": "Asia",
-  "ports": [
-   [
-    "Lisbon",
-    "Goa"
-   ],
-   [
-    "Goa",
-    "Macao"
-   ],
-   [
-    "Macao",
-    "Hanoi"
-   ]
-  ],
-  "travelYears": 3,
-  "blurb": "Tonkin: the northern Vietnamese kingdom. A harder field than Cochinchina, opened later.",
-  "frontier": true
- },
- "siam": {
-  "name": "Siam",
-  "region": "Asia",
-  "ports": [
-   [
-    "Lisbon",
-    "Goa"
-   ],
-   [
-    "Goa",
-    "Ayutthaya"
-   ]
-  ],
-  "travelYears": 3,
-  "blurb": "Siam: the kingdom of Ayutthaya. Portuguese traders know it; no Jesuit mission yet.",
-  "frontier": true
- },
- "cambodia": {
-  "name": "Cambodia",
-  "region": "Asia",
-  "ports": [
-   [
-    "Lisbon",
-    "Goa"
-   ],
-   [
-    "Goa",
-    "Macao"
-   ],
-   [
-    "Macao",
-    "Phnom Penh"
-   ]
-  ],
-  "travelYears": 3,
-  "blurb": "Cambodia: the Khmer kingdom at Lovek. A brief Jesuit presence; a frontier for the bold.",
-  "frontier": true
- },
- "congo": {
-  "name": "Congo",
-  "region": "Africa",
-  "ports": [
-   [
-    "Lisbon",
-    "Luanda"
-   ],
-   [
-    "Luanda",
-    "Mbanza Kongo"
-   ]
-  ],
-  "travelYears": 2,
-  "blurb": "The Kongo kingdom: an old Christian kingdom, its Jesuit mission struggles.",
-  "frontier": true
- },
- "angola": {
-  "name": "Angola",
-  "region": "Africa",
-  "ports": [
-   [
-    "Lisbon",
-    "Luanda"
-   ]
-  ],
-  "travelYears": 2,
-  "blurb": "Luanda: Portugal's African stronghold. A Jesuit college stands; the interior awaits.",
-  "frontier": true
- },
- "mozambique": {
-  "name": "Mozambique",
-  "region": "Africa",
-  "ports": [
-   [
-    "Lisbon",
-    "Mozambique Island"
-   ]
-  ],
-  "travelYears": 2,
-  "blurb": "Mozambique Island: gateway to the Zambezi. Fever country; few survive long.",
-  "frontier": true
- },
- "madagascar": {
-  "name": "Madagascar",
-  "region": "Africa",
-  "ports": [
-   [
-    "Lisbon",
-    "Goa"
-   ],
-   [
-    "Goa",
-    "Madagascar"
-   ]
-  ],
-  "travelYears": 3,
-  "blurb": "Madagascar: the great island. Brief attempts; no lasting mission yet.",
-  "frontier": true
- },
- "new-granada": {
-  "name": "New Granada",
-  "region": "South America",
-  "ports": [
-   [
-    "Seville",
-    "Cartagena"
-   ]
-  ],
-  "travelYears": 2,
-  "blurb": "New Granada: Cartagena and the interior. Jesuits arrived; the mission is young.",
-  "frontier": true
- },
- "quito": {
-  "name": "Quito",
-  "region": "South America",
-  "ports": [
-   [
-    "Seville",
-    "Callao"
-   ],
-   [
-    "Callao",
-    "Quito"
-   ]
-  ],
-  "travelYears": 2,
-  "blurb": "Quito: high in the Andes. A province will be erected in the 1620s.",
-  "frontier": true
- },
- "mexico": {
-  "name": "Mexico",
-  "region": "Americas",
-  "ports": [
-   [
-    "Seville",
-    "Veracruz"
-   ]
-  ],
-  "travelYears": 2,
-  "blurb": "New Spain: Mexico City and the northern frontier. The great province of the north.",
-  "frontier": true
- }
+  "east-indies": {
+    "name": "The East Indies",
+    "region": "Asia",
+    "ports": [
+      [
+        "Lisbon",
+        "Goa"
+      ],
+      [
+        "Goa",
+        "Macao"
+      ]
+    ],
+    "travelYears": 2,
+    "blurb": "The Portuguese Estado da India: Goa, the Malabar coast, and the road onward to Macao and the Far East. The classic destination of the petitions."
+  },
+  "china": {
+    "name": "China",
+    "region": "Asia",
+    "ports": [
+      [
+        "Lisbon",
+        "Goa"
+      ],
+      [
+        "Goa",
+        "Macao"
+      ],
+      [
+        "Macao",
+        "Canton"
+      ]
+    ],
+    "travelYears": 3,
+    "blurb": "The scholar-mission of Ricci's successors: slow, learned, and comparatively open. A favored destination in the petitions."
+  },
+  "japan": {
+    "name": "Japan",
+    "region": "Asia",
+    "ports": [
+      [
+        "Lisbon",
+        "Goa"
+      ],
+      [
+        "Goa",
+        "Macao"
+      ],
+      [
+        "Macao",
+        "Nagasaki"
+      ]
+    ],
+    "travelYears": 3,
+    "blurb": "A forbidden mission under the Tokugawa persecution. Petitioners ask for Japan knowing entry means hiding and likely martyrdom."
+  },
+  "india": {
+    "name": "India",
+    "region": "Asia",
+    "ports": [
+      [
+        "Lisbon",
+        "Goa"
+      ]
+    ],
+    "travelYears": 2,
+    "blurb": "The Malabar and Fishery coasts, Madurai and the Mughal court: the working heart of the Portuguese Asian missions."
+  },
+  "paraguay": {
+    "name": "Paraguay",
+    "region": "South America",
+    "ports": [
+      [
+        "Seville",
+        "Buenos Aires"
+      ],
+      [
+        "Buenos Aires",
+        "Asuncion"
+      ]
+    ],
+    "travelYears": 2,
+    "blurb": "The reductions of Paraguay: frontier missions among the Guarani, far up the rivers of South America."
+  },
+  "brazil": {
+    "name": "Brazil",
+    "region": "South America",
+    "ports": [
+      [
+        "Lisbon",
+        "Bahia"
+      ]
+    ],
+    "travelYears": 1,
+    "blurb": "Portuguese Brazil: coastal colleges at Bahia and the aldeia missions of the interior."
+  },
+  "aethiopia": {
+    "name": "Aethiopia",
+    "region": "Africa",
+    "ports": [
+      [
+        "Lisbon",
+        "Goa"
+      ],
+      [
+        "Goa",
+        "Massawa"
+      ]
+    ],
+    "travelYears": 2,
+    "blurb": "The highlands of Ethiopia, where Jesuits labored at the court of the negus in the 1620s before their expulsion in 1633."
+  },
+  "england": {
+    "name": "England",
+    "region": "Europe",
+    "ports": [
+      [
+        "Calais",
+        "Dover"
+      ]
+    ],
+    "travelYears": 1,
+    "blurb": "A hidden mission under penal laws: priests cross covertly from the continent to serve recusant Catholics."
+  },
+  "west-indies": {
+    "name": "The West Indies",
+    "region": "Americas",
+    "ports": [
+      [
+        "Seville",
+        "Santo Domingo"
+      ]
+    ],
+    "travelYears": 1,
+    "blurb": "The Spanish Caribbean: early missions and colleges on the islands and the mainland coast."
+  },
+  "peru": {
+    "name": "Peru",
+    "region": "South America",
+    "ports": [
+      [
+        "Seville",
+        "Cartagena"
+      ],
+      [
+        "Cartagena",
+        "Lima"
+      ]
+    ],
+    "travelYears": 2,
+    "blurb": "The viceroyalty of Peru: Lima's colleges and the Andean missions beyond."
+  },
+  "chile": {
+    "name": "Chile",
+    "region": "South America",
+    "ports": [
+      [
+        "Seville",
+        "Lima"
+      ],
+      [
+        "Lima",
+        "Santiago"
+      ]
+    ],
+    "travelYears": 2,
+    "blurb": "The far southern frontier: missions among the Mapuche on the edge of the Spanish empire."
+  },
+  "vietnam": {
+    "name": "Vietnam (Cochinchina)",
+    "region": "Asia",
+    "ports": [
+      [
+        "Lisbon",
+        "Goa"
+      ],
+      [
+        "Goa",
+        "Macao"
+      ],
+      [
+        "Macao",
+        "Hoi An"
+      ]
+    ],
+    "travelYears": 3,
+    "blurb": "Cochinchina: the southern Vietnamese kingdom. Jesuits arrived in the 1610s; Alexandre de Rhodes will come in 1624.",
+    "frontier": true
+  },
+  "tonkin": {
+    "name": "Tonkin",
+    "region": "Asia",
+    "ports": [
+      [
+        "Lisbon",
+        "Goa"
+      ],
+      [
+        "Goa",
+        "Macao"
+      ],
+      [
+        "Macao",
+        "Hanoi"
+      ]
+    ],
+    "travelYears": 3,
+    "blurb": "Tonkin: the northern Vietnamese kingdom. A harder field than Cochinchina, opened later.",
+    "frontier": true
+  },
+  "siam": {
+    "name": "Siam",
+    "region": "Asia",
+    "ports": [
+      [
+        "Lisbon",
+        "Goa"
+      ],
+      [
+        "Goa",
+        "Ayutthaya"
+      ]
+    ],
+    "travelYears": 3,
+    "blurb": "Siam: the kingdom of Ayutthaya. Portuguese traders know it; no Jesuit mission yet.",
+    "frontier": true
+  },
+  "cambodia": {
+    "name": "Cambodia",
+    "region": "Asia",
+    "ports": [
+      [
+        "Lisbon",
+        "Goa"
+      ],
+      [
+        "Goa",
+        "Macao"
+      ],
+      [
+        "Macao",
+        "Phnom Penh"
+      ]
+    ],
+    "travelYears": 3,
+    "blurb": "Cambodia: the Khmer kingdom at Lovek. A brief Jesuit presence; a frontier for the bold.",
+    "frontier": true
+  },
+  "congo": {
+    "name": "Congo",
+    "region": "Africa",
+    "ports": [
+      [
+        "Lisbon",
+        "Luanda"
+      ],
+      [
+        "Luanda",
+        "Mbanza Kongo"
+      ]
+    ],
+    "travelYears": 2,
+    "blurb": "The Kongo kingdom: an old Christian kingdom, its Jesuit mission struggles.",
+    "frontier": true
+  },
+  "angola": {
+    "name": "Angola",
+    "region": "Africa",
+    "ports": [
+      [
+        "Lisbon",
+        "Luanda"
+      ]
+    ],
+    "travelYears": 2,
+    "blurb": "Luanda: Portugal's African stronghold. A Jesuit college stands; the interior awaits.",
+    "frontier": true
+  },
+  "mozambique": {
+    "name": "Mozambique",
+    "region": "Africa",
+    "ports": [
+      [
+        "Lisbon",
+        "Mozambique Island"
+      ]
+    ],
+    "travelYears": 2,
+    "blurb": "Mozambique Island: gateway to the Zambezi. Fever country; few survive long.",
+    "frontier": true
+  },
+  "madagascar": {
+    "name": "Madagascar",
+    "region": "Africa",
+    "ports": [
+      [
+        "Lisbon",
+        "Goa"
+      ],
+      [
+        "Goa",
+        "Madagascar"
+      ]
+    ],
+    "travelYears": 3,
+    "blurb": "Madagascar: the great island. Brief attempts; no lasting mission yet.",
+    "frontier": true
+  },
+  "new-granada": {
+    "name": "New Granada",
+    "region": "South America",
+    "ports": [
+      [
+        "Seville",
+        "Cartagena"
+      ]
+    ],
+    "travelYears": 2,
+    "blurb": "New Granada: Cartagena and the interior. Jesuits arrived; the mission is young.",
+    "frontier": true
+  },
+  "quito": {
+    "name": "Quito",
+    "region": "South America",
+    "ports": [
+      [
+        "Seville",
+        "Callao"
+      ],
+      [
+        "Callao",
+        "Quito"
+      ]
+    ],
+    "travelYears": 2,
+    "blurb": "Quito: high in the Andes. A province will be erected in the 1620s.",
+    "frontier": true
+  },
+  "mexico": {
+    "name": "Mexico",
+    "region": "Americas",
+    "ports": [
+      [
+        "Seville",
+        "Veracruz"
+      ]
+    ],
+    "travelYears": 2,
+    "blurb": "New Spain: Mexico City and the northern frontier. The great province of the north.",
+    "frontier": true
+  }
 }

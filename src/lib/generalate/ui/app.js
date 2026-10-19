@@ -273,6 +273,7 @@ function renderHeader() {
           <button class="gbtn small ghost" id="gh-d-briefing">Briefing<span class="gh-badge" id="gh-d-badge-briefing" hidden></span></button>
           <button class="gbtn small ghost" id="gh-d-indipetae">Indipetae<span class="gh-badge" id="gh-d-badge-indipetae" hidden></span></button>
           <button class="gbtn small ghost" id="gh-d-house">Formation</button>
+          <button class="gbtn small ghost" id="gh-d-domestic">Domestic</button>
           <button class="gbtn small ghost" id="gh-d-missions">Missions</button>
           <button class="gbtn small ghost" id="gh-d-governance">Governance<span class="gh-badge" id="gh-d-badge-governance" hidden></span></button>
           <button class="gbtn small ghost" id="gh-d-map">Map</button>
@@ -307,6 +308,7 @@ function renderHeader() {
     drawerGo('#gh-d-briefing', () => app.go('briefing'));
     drawerGo('#gh-d-indipetae', () => app.go('indipetae'));
     drawerGo('#gh-d-house', () => { app.ui.houseFrom = app.ui.screen; app.go('house'); });
+    drawerGo('#gh-d-domestic', () => app.go('domestic'));
     drawerGo('#gh-d-missions', () => { app.ui.missionsFrom = app.ui.screen; app.go('missions'); });
     drawerGo('#gh-d-governance', () => app.go('governance'));
     drawerGo('#gh-d-map', () => app.go('map', { from: app.ui.screen }));

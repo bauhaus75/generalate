@@ -2222,14 +2222,8 @@ export function renderCrewReview(app, root) {
   for (const a of staged) {
     // Auto-assign if no ship picked (smallest ship with range and capacity)
     if (!a.shipId) {
-      const g = app.Engine.getGameData ? app.Engine.getGameData() : null;
-      let travel = 2;
-      if (g?.destinations) {
-        const dest = Array.isArray(g.destinations)
-          ? g.destinations.find((d) => d.id === a.destination)
-          : g.destinations[a.destination];
-        travel = dest?.travelYears ?? 2;
-      }
+      const destInfo = app.Engine.DESTINATIONS?.[a.destination];
+      const travel = destInfo?.travelYears ?? 2;
       // Track used capacity
       const used = {};
       for (const s of ships) used[s.id] = 0;
@@ -2328,14 +2322,8 @@ export function renderCrewReview(app, root) {
       if (approval && ship) {
         // Validate range
         const ti = tiers[ship.tier || 'carrack'] || tiers.carrack;
-        const g = app.Engine.getGameData ? app.Engine.getGameData() : null;
-        let travel = 2;
-        if (g?.destinations) {
-          const dest = Array.isArray(g.destinations)
-            ? g.destinations.find((d) => d.id === approval.destination)
-            : g.destinations[approval.destination];
-          travel = dest?.travelYears ?? 2;
-        }
+        const destInfo = app.Engine.DESTINATIONS?.[approval.destination];
+        const travel = destInfo?.travelYears ?? 2;
         if (ti.range < travel) {
           const over = travel - ti.range;
           const penalty = over * 3;

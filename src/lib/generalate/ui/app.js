@@ -257,7 +257,7 @@ function renderHeader() {
       <nav class="gh-nav">
         <button class="gbtn small ghost" id="gh-briefing">Briefing<span class="gh-badge" id="gh-badge-briefing" hidden></span></button>
         <button class="gbtn small ghost" id="gh-indipetae">Indipetae<span class="gh-badge" id="gh-badge-indipetae" hidden></span></button>
-        <button class="gbtn small ghost" id="gh-house">House</button>
+        <button class="gbtn small ghost" id="gh-house">Formation</button>
         <button class="gbtn small ghost" id="gh-missions">Missions</button>
         <button class="gbtn small ghost" id="gh-governance">Governance<span class="gh-badge" id="gh-badge-governance" hidden></span></button>
         <button class="gbtn small ghost" id="gh-map">Map</button>
@@ -271,7 +271,7 @@ function renderHeader() {
         <div id="gh-drawer-panel">
           <button class="gbtn small ghost" id="gh-d-briefing">Briefing<span class="gh-badge" id="gh-d-badge-briefing" hidden></span></button>
           <button class="gbtn small ghost" id="gh-d-indipetae">Indipetae<span class="gh-badge" id="gh-d-badge-indipetae" hidden></span></button>
-          <button class="gbtn small ghost" id="gh-d-house">House</button>
+          <button class="gbtn small ghost" id="gh-d-house">Formation</button>
           <button class="gbtn small ghost" id="gh-d-missions">Missions</button>
           <button class="gbtn small ghost" id="gh-d-governance">Governance<span class="gh-badge" id="gh-d-badge-governance" hidden></span></button>
           <button class="gbtn small ghost" id="gh-d-map">Map</button>

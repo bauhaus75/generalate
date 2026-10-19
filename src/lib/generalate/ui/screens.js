@@ -2428,6 +2428,17 @@ export function renderLogistics(app, root) {
       <h3 class="px">DEPARTURE QUEUE</h3>
       ${renderQueueAssignment(app, ships, tiers)}
     </div>
+    <div class="logi-section">
+      <h3 class="px">RESERVED FOR MISSIONS</h3>
+      ${(() => {
+        const reserved = (app.state.europeanLabor || []).filter((e) => e.reservedFor);
+        if (!reserved.length) return '<p class="disp-mini">No men reserved. Unassign men from ships in Crew Review to reserve them.</p>';
+        return `<ul class="formation-list">${reserved.map((e) => {
+          const name = app.Engine.personName ? app.Engine.personName(app.state, e.petitionerId) : e.name;
+          return `<li class="formation-row"><strong>${esc(name)}</strong> <span class="disp-mini reserve-badge">reserved: ${esc(e.reservedForName || e.reservedFor)}</span></li>`;
+        }).join('')}</ul>`;
+      })()}
+    </div>
   </section>`;
   
   // Ship assignment handlers

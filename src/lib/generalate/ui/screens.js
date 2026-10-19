@@ -2666,7 +2666,7 @@ export function showMassOverlay(app, onContinue) {
     <h2 class="px">MASS OF THE HOLY SPIRIT</h2>
     <p class="mass-sub">Anno ${app.state.year} — The Generalate opens the year in prayer at the Gesù.</p>
     <div class="mass-image">
-      <p class="mass-image-placeholder">[Altar of the Gesù]</p>
+      <img src="images/altar-red.jpg" alt="High altar in red for the Mass of the Holy Spirit" class="mass-altar-img">
     </div>
     <blockquote class="mass-verse">
       <p>"${esc(yv.verse)}"</p>

@@ -782,9 +782,10 @@ body > .overlay .hist-loc, body > .overlay .hist-text { opacity: .75; }
   background: #1a1a1a;
   border: 1px solid var(--gold-dim);
 }
-#generalate-app .mass-image-placeholder {
-  color: var(--gold-dim);
-  font-style: italic;
+#generalate-app .mass-altar-img {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--gold-dim);
 }
 #generalate-app .mass-verse {
   margin: 1.5rem 0;

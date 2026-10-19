@@ -83,9 +83,11 @@ export function historyPanelHTML(app, petitionerId) {
   const h = app.Engine.personHistory(app.state, petitionerId);
   const sm = h.summary;
   const yrs = (n) => `${n} ${n === 1 ? 'year' : 'years'}`;
+  // Backwards math: true entry year = 1615 - years in Society
+  const trueEntryYear = sm.totalYearsInSociety > 0 ? 1615 - sm.totalYearsInSociety : sm.entryYear;
   const summary = `<p class="hist-summary">${esc(yrs(sm.totalYearsInSociety))} in the Society · age in religion ${esc(String(sm.ageInReligion))}` +
     `${sm.paused ? ' <em>(paused: deferred)</em>' : ''}${sm.pausedYears ? ` · ${esc(yrs(sm.pausedYears))} paused by deferral` : ''}` +
-    `${sm.entryYear != null ? ` · on the rolls since ${esc(String(sm.entryYear))}` : ''}<br>Now: ${esc(sm.location)}</p>`;
+    `${trueEntryYear != null ? ` · in the Society since ${esc(String(trueEntryYear))}` : ''}<br>Now: ${esc(sm.location)}</p>`;
   const list = (kind) => {
     const evs = h.events.filter((e) => e.kind === kind);
     if (!evs.length) return '<p class="insp-noev">Nothing recorded yet.</p>';
@@ -1514,31 +1516,10 @@ export function renderMissions(app, root) {
   <section class="gscreen">
     <p class="kicker px">THE MISSIONS</p>
     <h2 class="year-head px">ANNO ${year}</h2>
-    <p class="howto-note">Each mission keeps a stationed strength, by grade. Below capacity, a mission asks the General for more men — answer with the indipetae, or dispatch them straight from Rome. A strengthened mission steadies new arrivals (+1 to their voyage for every 6 strength, up to +3). A great station costs scudi every year to sustain.</p>
-    <h3 class="sect">Dispatch from Rome</h3>
-    <div class="dispatch-panel">
-      <label class="dest-redirect">Mission:
-        <select id="dispatch-dest" aria-label="Mission to reinforce">
-          ${openDests.map(d => `<option value="${d.id}"${d.id === disp.destId ? ' selected' : ''}>${esc(d.name || d.id)}</option>`).join('')}
-        </select>
-      </label>
-      ${grades.map(gid => { const gr = E.MISSION_GRADES[gid]; return `
-      <div class="dispatch-grade">
-        <div class="dg-info"><strong>${esc(gr.name)}</strong>
-          <span class="dg-meta">${gr.cost} scudi to send · strength ${gr.strength}</span></div>
-        <div class="dg-step">
-          <button class="gbtn small ghost dg-dec" data-gid="${gid}" aria-label="Fewer ${esc(gr.short)}">−</button>
-          <span class="dg-count" data-gid="${gid}">${disp[gid] || 0}</span>
-          <button class="gbtn small ghost dg-inc" data-gid="${gid}" aria-label="More ${esc(gr.short)}">+</button>
-        </div>
-      </div>`; }).join('')}
-      <div class="dispatch-foot">
-        <span id="dispatch-summary">${dispatchTotal()} men · ${dispatchCost()} scudi · ${(app.state.available || 0).toLocaleString('en-US')} to spare</span>
-        <button class="gbtn primary" id="dispatch-send" data-energy="1" ${dispatchTotal() > 0 && disp.destId ? '' : 'disabled'}>Dispatch</button>
-      </div>
-      <p class="howto-note">Professed fathers are ordained men of the fourth vow — costly, and the strongest pillars of a mission. Spiritual coadjutors are ordained priests of simple vows. Brothers sustain the mission by labor.</p>
-    </div>
-    <!-- Collective deployment REMOVED per Tran 2026-10-19 -->
+    <p class="howto-note">Each mission keeps a stationed strength, by grade. Below capacity, a mission is understaffed — answer with the indipetae, or send men from the House of Formation. A strengthened mission steadies new arrivals (+1 to their voyage for every 6 strength, up to +3). A great station costs scudi every year to sustain.</p>
+    <!-- Dispatch from Rome REMOVED per Tran 2026-10-19 -->
+    <!-- Direct dispatch teleported men; use the terna or House to send men via ships. -->
+    <!-- Collective deployment REMOVED per Tran 2026-10-19 -->    <!-- Collective deployment REMOVED per Tran 2026-10-19 -->
     ${(() => {
       const g = app.data;
       const destList = Array.isArray(g.destinations) ? g.destinations : Object.values(g.destinations || {});

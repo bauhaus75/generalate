@@ -648,9 +648,11 @@ function formationListHTML(app, year) {
     const asg = e.assignment ? roles[e.assignment] : null;
     const stage = app.Engine.careerStage ? app.Engine.careerStage(app.state, e.petitionerId) : '';
     const ordElig = app.Engine.ordinationEligible ? app.Engine.ordinationEligible(app.state, e.petitionerId) : false;
+    const reserveTag = e.reservedFor ? `<span class="disp-mini reserve-badge" title="Reserved for ${esc(e.reservedForName || e.reservedFor)}">reserved: ${esc(e.reservedForName || e.reservedFor)}</span>` : '';
     return `<li class="formation-row">
       <strong>${esc(e.name)}</strong> ${gradeChip(app, e.petitionerId)}
       <span class="form-via">${esc(e.via)} ${e.year}</span>
+      ${reserveTag}
       ${e.ill ? `<span class="disp-mini ill-badge" title="Recovering from illness suffered on voyage. Not available for assignment or dispatch.">🤒 recovering (ill ${e.illYear})</span>` : ''}
       ${stage ? `<span class="disp-mini">${esc(stage)}</span>` : ''}
       <span class="disp-mini">${dispLine(app, e.petitionerId)}</span>

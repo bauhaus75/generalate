@@ -38,6 +38,11 @@ html, body {
   font-size: 0.85rem; color: var(--parch-deep); font-style: italic;
   margin-left: 0.5rem;
 }
+#generalate-app .reserve-badge {
+  background: var(--gold-dim); color: var(--ink);
+  padding: 0.1rem 0.4rem; border-radius: 0.25rem;
+  font-size: 0.8rem; margin-left: 0.5rem;
+}
 
 /* ---------- header ---------- */
 #gheader {

@@ -611,11 +611,18 @@ app.confirmDecision = function (approvals) {
 
 // Commit the staged approvals and sail. Called from crew review.
 app.sealAndSail = function () {
-  const approvals = app.ui.stagedApprovals;
+  let approvals = app.ui.stagedApprovals;
   if (!approvals) {
     app.toast('No decisions to seal.');
     return;
   }
+  // Mark unassigned approvals as reserve (from Crew Review)
+  approvals = approvals.map((a) => {
+    if (!a.shipId) {
+      return { ...a, reserve: true };
+    }
+    return a;
+  });
   try {
     app.ui.decision = Engine.decide(app.state, approvals);
   } catch (e) {

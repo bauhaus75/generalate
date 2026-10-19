@@ -1441,6 +1441,23 @@ export function renderGovernance(app, root) {
     <p class="howto-note">The General governs through his provincials. Choose one to see his men, his requests, and to ask about a man.</p>
     ${provincialsHTML(app)}
     ${app.ui.provReplacement ? provincialReplacementHTML(app, app.ui.provReplacement) : ''}
+    ${(() => {
+      const E2 = app.Engine;
+      const destList = E2.DESTINATIONS ? Object.values(E2.DESTINATIONS) : [];
+      const frontier = destList.filter((d) =>
+        d.frontier && (app.state.destState[d.id] || {}).access !== 'open');
+      if (!frontier.length) return '';
+      return `<h3 class="sect">Found a mission</h3>
+      <p class="howto-note">Frontier fields await the Society — 1000 scudi, 3 energy, and men to send.</p>
+      <div class="frontier-list">
+        ${frontier.map((d) => `
+        <div class="frontier-item">
+          <strong>${esc(d.name)}</strong>
+          <span class="disp-mini">${esc(d.blurb || '')}</span>
+          <button class="gbtn small primary frontier-found" data-id="${esc(d.id)}" data-energy="1">Found — 1000 scudi</button>
+        </div>`).join('')}
+      </div>`;
+    })()}
   </section>`;
 
   root.querySelectorAll('.gov-provincial').forEach((el) => {
@@ -1466,6 +1483,21 @@ export function renderGovernance(app, root) {
     app.ui.provReplacement = null; app.ui.provChoice = null;
     app.sound('page'); renderGovernance(app, root);
   });
+  // Frontier founding
+  root.querySelectorAll('.frontier-found').forEach((btn) => btn.addEventListener('click', () => {
+    const destId = btn.dataset.id;
+    try {
+      const res = app.Engine.foundMission(app.state, destId, { fathers: 0, coadjutors: 0, brothers: 1 });
+      app.Engine.refreshBriefing(app.state);
+      app.save();
+      app.sound('coin');
+      app.ui.notice = `Mission founded.`;
+      app.go('governance');
+    } catch (e) {
+      app.sound('error');
+      alert(e.message);
+    }
+  }));
   const repKeep = root.querySelector('#rep-keep');
   if (repKeep) repKeep.addEventListener('click', () => {
     try { E2.resolveProvincialReplacement(app.state, app.ui.provReplacement, 'incumbent'); app.sound('seal'); }
@@ -1664,23 +1696,7 @@ export function renderMissions(app, root) {
     <!-- Dispatch from Rome REMOVED per Tran 2026-10-19 -->
     <!-- Direct dispatch teleported men; use the terna or House to send men via ships. -->
     <!-- Collective deployment REMOVED per Tran 2026-10-19 -->    <!-- Collective deployment REMOVED per Tran 2026-10-19 -->
-    ${(() => {
-      const g = app.data;
-      const destList = Array.isArray(g.destinations) ? g.destinations : Object.values(g.destinations || {});
-      const frontier = destList.filter((d) =>
-        d.frontier && (app.state.destState[d.id] || {}).access !== 'open');
-      if (!frontier.length) return '';
-      return `<h3 class="sect">Found a mission</h3>
-      <p class="howto-note">Frontier fields await the Society — 1000 scudi, 3 energy, and men to send.</p>
-      <div class="frontier-list">
-        ${frontier.map((d) => `
-        <div class="frontier-item">
-          <strong>${esc(d.name)}</strong>
-          <span class="disp-mini">${esc(d.blurb || '')}</span>
-          <button class="gbtn small primary frontier-found" data-id="${esc(d.id)}" data-energy="1">Found — 1000 scudi</button>
-        </div>`).join('')}
-      </div>`;
-    })()}
+    
     <h3 class="sect">The stations</h3>
     <div class="mission-list">
       ${dests.filter((d) => !d.frontier || (app.state.destState[d.id] || {}).access === 'open')
@@ -1693,21 +1709,7 @@ export function renderMissions(app, root) {
   </section>`;
 
   // ---- frontier founding ----
-  root.querySelectorAll('.frontier-found').forEach((btn) => btn.addEventListener('click', () => {
-    const destId = btn.dataset.id;
-    // For now: found with a single brother. A fuller founding-party picker can come later.
-    try {
-      const res = E.foundMission(app.state, destId, { fathers: 0, coadjutors: 0, brothers: 1 });
-      E.refreshBriefing(app.state);
-      app.save();
-      app.sound('coin');
-      app.ui.notice = `The ${res.destId} mission is founded — ${res.total} man sent with 1000 scudi.`;
-      app.go('missions');
-    } catch (e) {
-      app.sound('error');
-      alert(e.message);
-    }
-  }));
+
   // ---- disband ----
   root.querySelectorAll('.mission-disband').forEach((btn) => btn.addEventListener('click', () => {
     const destId = btn.dataset.id;

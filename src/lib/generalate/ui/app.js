@@ -259,6 +259,7 @@ function renderHeader() {
         <button class="gbtn small ghost" id="gh-indipetae">Indipetae<span class="gh-badge" id="gh-badge-indipetae" hidden></span></button>
         <button class="gbtn small ghost" id="gh-house">Formation</button>
         <button class="gbtn small ghost" id="gh-domestic">Domestic</button>
+        <button class="gbtn small ghost" id="gh-unassigned">Unassigned</button>
         <button class="gbtn small ghost" id="gh-missions">Missions</button>
         <button class="gbtn small ghost" id="gh-governance">Governance<span class="gh-badge" id="gh-badge-governance" hidden></span></button>
         <button class="gbtn small ghost" id="gh-map">Map</button>
@@ -274,6 +275,7 @@ function renderHeader() {
           <button class="gbtn small ghost" id="gh-d-indipetae">Indipetae<span class="gh-badge" id="gh-d-badge-indipetae" hidden></span></button>
           <button class="gbtn small ghost" id="gh-d-house">Formation</button>
           <button class="gbtn small ghost" id="gh-d-domestic">Domestic</button>
+          <button class="gbtn small ghost" id="gh-d-unassigned">Unassigned</button>
           <button class="gbtn small ghost" id="gh-d-missions">Missions</button>
           <button class="gbtn small ghost" id="gh-d-governance">Governance<span class="gh-badge" id="gh-d-badge-governance" hidden></span></button>
           <button class="gbtn small ghost" id="gh-d-map">Map</button>
@@ -309,6 +311,7 @@ function renderHeader() {
     drawerGo('#gh-d-indipetae', () => app.go('indipetae'));
     drawerGo('#gh-d-house', () => { app.ui.houseFrom = app.ui.screen; app.go('house'); });
     drawerGo('#gh-d-domestic', () => app.go('domestic'));
+    drawerGo('#gh-d-unassigned', () => app.go('unassigned'));
     drawerGo('#gh-d-missions', () => { app.ui.missionsFrom = app.ui.screen; app.go('missions'); });
     drawerGo('#gh-d-governance', () => app.go('governance'));
     drawerGo('#gh-d-map', () => app.go('map', { from: app.ui.screen }));
@@ -377,6 +380,7 @@ if (inboxBtn) inboxBtn.addEventListener('click', (e) => {
     app.renderInbox = renderInbox;
     h.querySelector('#gh-house').addEventListener('click', () => { app.sound('page'); app.ui.houseFrom = app.ui.screen; app.go('house'); });
     h.querySelector('#gh-domestic').addEventListener('click', () => { app.sound('page'); app.go('domestic'); });
+    h.querySelector('#gh-unassigned').addEventListener('click', () => { app.sound('page'); app.go('unassigned'); });
     h.querySelector('#gh-missions').addEventListener('click', () => { app.sound('page'); app.ui.missionsFrom = app.ui.screen; app.go('missions'); });
     h.querySelector('#gh-indipetae').addEventListener('click', () => { app.sound('page'); app.go('indipetae'); });
     h.querySelector('#gh-governance').addEventListener('click', () => { app.sound('page'); app.go('governance'); });
@@ -565,6 +569,7 @@ app.go = function (screen, params = {}) {
     }
     case 'house': app.syncHeader(); Screens.renderHouse(app, r); break;
     case 'domestic': app.syncHeader(); Screens.renderDomesticMissions(app, r); break;
+    case 'unassigned': app.syncHeader(); Screens.renderUnassigned(app, r); break;
     case 'missions': app.syncHeader(); Screens.renderMissions(app, r); break;
     case 'governance': app.syncHeader(); Screens.renderGovernance(app, r); break;
     case 'treasury': app.syncHeader(); Screens.renderTreasury(app, r); break;
@@ -575,7 +580,7 @@ app.go = function (screen, params = {}) {
     case 'map': app.syncHeader(); Screens.renderMapScreen(app, r, params.from || app.ui.mapFrom); break;
     case 'ending': { const hh = document.getElementById('gheader'); if (hh) hh.style.display = 'none'; Screens.renderEnding(app, r, app.ui.end); break; }
   }
-  if (['briefing', 'desk', 'decision', 'yearreport', 'map', 'house', 'domestic', 'missions', 'governance', 'treasury', 'logistics', 'draft'].includes(screen)) app.save();
+  if (['briefing', 'desk', 'decision', 'yearreport', 'map', 'house', 'domestic', 'unassigned', 'missions', 'governance', 'treasury', 'logistics', 'draft'].includes(screen)) app.save();
   // Energy gating: discretionary buttons go quiet at zero energy.
   try {
     const left = app.state ? (app.state.energy ?? Engine.ENERGY_PER_YEAR) : 0;

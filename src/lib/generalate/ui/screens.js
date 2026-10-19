@@ -683,6 +683,86 @@ function formationListHTML(app, year) {
   }).join('')}</ul>`;
 }
 
+export function renderUnassigned(app, root) {
+  const year = app.state.currentYear ? app.state.currentYear.year : app.state.year;
+  const list = (app.state.europeanLabor || []).filter((e) =>
+    !e.assignment && !(e.formation && e.formation.until > year) && !e.reservedFor && !e.ill);
+  const roles = DOMESTIC_ROLES;
+  const roleOpts = Object.values(roles).map(r =>
+    `<option value="${r.id}">${esc(r.name)}</option>`).join('');
+  const destOpts = (app.Engine.DESTINATIONS ? Object.values(app.Engine.DESTINATIONS) : [])
+    .filter(d => d && d.id && (app.state.destState[d.id] || {}).access !== 'closed')
+    .map(d => `<option value="${d.id}">${esc(d.name || d.id)}</option>`).join('');
+  const formOpts = (app.Engine.DISPOSITIONS ? Object.values(app.Engine.DISPOSITIONS) : [])
+    .map(d => `<option value="${d.id}">${esc(d.name)}</option>`).join('');
+  root.innerHTML = `
+  <section class="gscreen">
+    <p class="kicker px">UNASSIGNED MEN</p>
+    <h2 class="year-head px">ANNO ${year}</h2>
+    <p class="howto-note">Men in Europe with no posting. Send them to formation, give them domestic work, or reserve them for a foreign mission.</p>
+    <ul class="formation-list">${list.map((e) => `
+      <li class="formation-row">
+        <strong>${esc(e.name)}</strong> ${gradeChip(app, e.petitionerId)}
+        <span class="disp-mini">${dispLine(app, e.petitionerId)}</span>
+        <div class="unassigned-actions">
+          <label class="form-pick">Formation:
+            <select class="unassigned-form-focus" data-id="${esc(e.petitionerId)}">${formOpts}</select></label>
+          <button class="gbtn small ghost unassigned-to-formation" data-id="${esc(e.petitionerId)}">To Formation</button>
+          <label class="form-pick">Domestic:
+            <select class="unassigned-domestic-role" data-id="${esc(e.petitionerId)}">
+              <option value="">— choose —</option>${roleOpts}
+            </select></label>
+          <button class="gbtn small ghost unassigned-to-domestic" data-id="${esc(e.petitionerId)}">To Domestic</button>
+          <label class="form-pick">Reserve for:
+            <select class="unassigned-reserve-dest" data-id="${esc(e.petitionerId)}">
+              <option value="">— choose —</option>${destOpts}
+            </select></label>
+          <button class="gbtn small ghost unassigned-to-reserve" data-id="${esc(e.petitionerId)}">Reserve</button>
+        </div>
+        <button class="gbtn small ghost inspect-btn" data-id="${esc(e.petitionerId)}" data-name="${esc(e.name)}">Inspect</button>
+      </li>`).join('') || '<p class="disp-mini">No unassigned men. All are posted.</p>'}</ul>
+    <div class="btn-row">
+      <button class="gbtn ghost" id="unassigned-back">← Back</button>
+    </div>
+  </section>`;
+  root.querySelectorAll('.unassigned-to-formation').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sel = root.querySelector(`.unassigned-form-focus[data-id="${btn.dataset.id}"]`);
+      try {
+        app.Engine.assignFormation(app.state, btn.dataset.id, sel ? sel.value : 'exercises');
+        app.save(); app.go('unassigned');
+      } catch (e) { alert(e.message); }
+    });
+  });
+  root.querySelectorAll('.unassigned-to-domestic').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sel = root.querySelector(`.unassigned-domestic-role[data-id="${btn.dataset.id}"]`);
+      const roleId = sel ? sel.value : '';
+      if (!roleId) { app.toast('Choose a domestic role first.'); return; }
+      try {
+        app.Engine.assignDomestic(app.state, btn.dataset.id, roleId);
+        app.save(); app.go('unassigned');
+      } catch (e) { alert(e.message); }
+    });
+  });
+  root.querySelectorAll('.unassigned-to-reserve').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sel = root.querySelector(`.unassigned-reserve-dest[data-id="${btn.dataset.id}"]`);
+      const destId = sel ? sel.value : '';
+      if (!destId) { app.toast('Choose a mission first.'); return; }
+      try {
+        app.Engine.reserveForMission(app.state, btn.dataset.id, destId);
+        app.save(); app.go('unassigned');
+      } catch (e) { alert(e.message); }
+    });
+  });
+  root.querySelectorAll('.inspect-btn').forEach(btn => {
+    btn.addEventListener('click', () => app.showInspector(btn.dataset.id));
+  });
+  const back = root.querySelector('#unassigned-back');
+  if (back) back.addEventListener('click', () => app.go('briefing'));
+}
+
 export function renderDomesticMissions(app, root) {
   const year = app.state.currentYear ? app.state.currentYear.year : app.state.year;
   const list = (app.state.europeanLabor || []).filter(e => e.assignment || (!e.assignment && !e.formation));
@@ -730,7 +810,7 @@ export function renderDomesticMissions(app, root) {
   root.querySelectorAll('.domestic-release').forEach(btn => {
     btn.addEventListener('click', () => {
       try {
-        app.Engine.releaseDomestic(app.state, btn.dataset.id);
+        app.Engine.unassignDomestic(app.state, btn.dataset.id);
         app.save(); app.go('domestic');
       } catch (e) { alert(e.message); }
     });

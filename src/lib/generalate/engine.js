@@ -1552,6 +1552,45 @@ export function unassignDomestic(state, petitionerId) {
 }
 
 /**
+ * Reserve a man laboring in Europe for a foreign mission.
+ * He stays in European labor (visible in Logistics) until assigned to a ship.
+ */
+export function reserveForMission(state, petitionerId, destId) {
+  const entry = (state.europeanLabor || []).find((e) => e.petitionerId === petitionerId);
+  if (!entry) throw new Error('No such man laboring in Europe.');
+  if (entry.assignment) throw new Error(`${entry.name} holds a domestic assignment; release him first.`);
+  if (entry.formation && entry.formation.until >= state.year) {
+    throw new Error(`${entry.name} is in formation until ${entry.formation.until}.`);
+  }
+  const g = ensureData();
+  const destName = g.destinations.find((d) => d.id === destId)?.name || destId;
+  entry.reservedFor = destId;
+  entry.reservedForName = destName;
+  addLedger(state, {
+    year: state.year, type: 'decision', petitionerId, destination: destId,
+    decision: 'reserved',
+    note: `${entry.name} reserved for ${destName} — laboring in Europe until a ship is ready.`,
+  });
+  return true;
+}
+
+/**
+ * Clear a man's mission reservation (he returns to the unassigned pool).
+ */
+export function unreserve(state, petitionerId) {
+  const entry = (state.europeanLabor || []).find((e) => e.petitionerId === petitionerId);
+  if (!entry) throw new Error('No such man laboring in Europe.');
+  delete entry.reservedFor;
+  delete entry.reservedForName;
+  addLedger(state, {
+    year: state.year, type: 'decision', petitionerId,
+    decision: 'unreserved',
+    note: `${entry.name} released from mission reserve.`,
+  });
+  return true;
+}
+
+/**
  * Emergency dispatch: send a man directly from the formation house to a mission.
  * Interrupts his formation (forfeits the 20 scudi cost and any disposition gain;
  * formation is a fixed 1-year commitment with no partial progress).

@@ -101,6 +101,14 @@ export function showInspector(app, petitionerId, name) {
     <button class="overlay-close" aria-label="Close">✕</button>
     <h2 class="px">${esc(name)}</h2>
     <p class="insp-grade">${gradeChip(app, petitionerId)} <span class="insp-ord">${esc(ordNote)}</span></p>
+    <div class="insp-actions">
+      ${app.Engine.ordinationEligible(app.state, petitionerId) ? `<button class="gbtn small" id="insp-ordain">Ordain to priesthood</button>` : ''}
+      <label class="form-pick">Formation focus:
+        <select id="insp-form-focus">
+          ${Dispositions.FORMATIONS.map((f) => `<option value="${f.id}" title="${esc(f.blurb)}">${esc(f.name)}</option>`).join('')}
+        </select></label>
+      <button class="gbtn small" id="insp-formation">Assign formation</button>
+    </div>
     <div class="insp-tabs" role="tablist">
       <button class="insp-tab active" role="tab" aria-selected="true" data-tab="disp">Disposition</button>
       <button class="insp-tab" role="tab" aria-selected="false" data-tab="hist">Formation &amp; Mission history</button>
@@ -130,6 +138,39 @@ export function showInspector(app, petitionerId, name) {
     ov.querySelectorAll('.insp-pane').forEach((pn) => { pn.hidden = pn.dataset.pane !== tb.dataset.tab; });
     app.sound('page');
   }));
+  const ordBtn = ov.querySelector('#insp-ordain');
+  if (ordBtn) {
+    ordBtn.addEventListener('click', () => {
+      try {
+        if (!confirm(`Ordain ${name} to the priesthood? This is irreversible.`)) return;
+        app.Engine.ordainPriest(app.state, petitionerId);
+        app.save();
+        app.sound('coin');
+        ov.remove();
+        showInspector(app, petitionerId, name); // refresh
+      } catch (e) {
+        app.sound('error');
+        alert(e.message);
+      }
+    });
+  }
+  const formBtn = ov.querySelector('#insp-formation');
+  if (formBtn) {
+    formBtn.addEventListener('click', () => {
+      try {
+        const sel = ov.querySelector('#insp-form-focus');
+        const focusId = sel ? sel.value : 'exercises';
+        app.Engine.assignFormation(app.state, petitionerId, focusId);
+        app.save();
+        app.sound('coin');
+        ov.remove();
+        showInspector(app, petitionerId, name); // refresh
+      } catch (e) {
+        app.sound('error');
+        alert(e.message);
+      }
+    });
+  }
   ov.querySelector('.overlay-close').addEventListener('click', () => { app.sound('page'); ov.remove(); });
   ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); });
   document.body.appendChild(ov);
@@ -602,12 +643,8 @@ function formationListHTML(app, year) {
             <option value="">— available —</option>${roleOpts}
           </select></label>
           <button class="gbtn small domestic-assign" data-id="${esc(e.petitionerId)}">Assign</button>
-        ${ordElig ? `<button class="gbtn small warn ordain-btn" data-energy="1" data-id="${esc(e.petitionerId)}" title="Ordain this scholastic as a priest. Irreversible.">Ordain</button>` : ''}
-        <label class="form-pick">Focus:
-          <select class="form-focus" data-id="${esc(e.petitionerId)}" aria-label="Formation focus for ${esc(e.name)}">
-            ${Dispositions.FORMATIONS.map((f) => `<option value="${f.id}" title="${esc(f.blurb)}">${esc(f.name)}</option>`).join('')}
-          </select></label>
-          <button class="gbtn small form-assign" data-energy="1" data-id="${esc(e.petitionerId)}" data-name="${esc(e.name)}">Form (20)</button>`}
+
+        `}
       <button class="gbtn small ghost inspect-btn" data-id="${esc(e.petitionerId)}" data-name="${esc(e.name)}">Inspect</button>
     </li>`;
   }).join('')}</ul>`;

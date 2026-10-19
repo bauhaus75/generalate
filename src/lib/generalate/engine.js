@@ -651,6 +651,9 @@ export function disbandMission(state, destId) {
  * Fictional and unattested grades land with the brothers (honest default).
  */
 export function staffGradeFor(state, petitionerId) {
+  // Ordination override takes precedence (man was ordained via UI)
+  const rec0 = state.petitioners[petitionerId];
+  if (rec0 && rec0.ordainedOverride === true) return 'fathers';
   // Vows stage takes precedence: it reflects the man's actual rank in the formation system.
   const entry = (state.europeanLabor || []).find((e) => e.petitionerId === petitionerId);
   if (entry && entry.vows && entry.vows.stage) {
@@ -1300,7 +1303,8 @@ export function ordainPriest(state, petitionerId) {
   if (!ordinationEligible(state, petitionerId)) {
     throw new Error('Ordination requires an eligible scholastic (12+ years in the Society).');
   }
-  spendEnergy(state, 1, 'ordaining a priest');
+  // No energy cost: ordination is a personal milestone, not a governance action.
+  // (Also prevents spam-draining: eligibility check now blocks re-ordaining.)
   const entry = (state.europeanLabor || []).find((e) => e.petitionerId === petitionerId);
   const name = entry ? entry.name : petitionerId;
   const rec = ensureRecord(state, petitionerId, false);
@@ -1419,9 +1423,9 @@ export function assignFormation(state, petitionerId, focusId) {
   const entry = (state.europeanLabor || []).find((e) => e.petitionerId === petitionerId);
   if (!entry) throw new Error('Formation is for men laboring in Europe.');
   if (entry.formation && entry.formation.until >= state.year) {
-    throw new Error(`${entry.name} is already in formation until
-  spendEnergy(state, 1, 'assigning formation'); ${entry.formation.until}.`);
+    throw new Error(`${entry.name} is already in formation until ${entry.formation.until}.`);
   }
+  // No energy cost: formation is personal development, not a governance action.
   if (entry.assignment) {
     throw new Error(`${entry.name} holds a domestic assignment (${entry.assignment}); release him first or interrupt it explicitly.`);
   }

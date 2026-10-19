@@ -2166,11 +2166,24 @@ export function renderCrewReview(app, root) {
   const destName = (id) => app.Engine.DESTINATIONS?.[id]?.name || id;
   
   // Group staged approvals by ship (using the shipId in each approval)
-  // Auto-assign any without a ship
+  // Auto-assign any without a ship (smallest sufficient ship first)
   const byShip = {};
   const unassigned = [];
+  const partySize = (a) => {
+    let n = 1;
+    const comp = a.companions;
+    if (typeof comp === 'number') n += comp;
+    else if (comp && typeof comp === 'object') n += Object.values(comp).reduce((x, y) => x + (y || 0), 0);
+    return n;
+  };
+  // Sort ships by capacity (smallest first) for efficient packing
+  const sortedShips = [...ships].sort((a, b) => {
+    const ta = tiers[a.tier || 'carrack'] || tiers.carrack;
+    const tb = tiers[b.tier || 'carrack'] || tiers.carrack;
+    return ta.capacity - tb.capacity;
+  });
   for (const a of staged) {
-    // Auto-assign if no ship picked (simple: first ship with range)
+    // Auto-assign if no ship picked (smallest ship with range and capacity)
     if (!a.shipId) {
       const g = app.Engine.getGameData ? app.Engine.getGameData() : null;
       let travel = 2;
@@ -2180,9 +2193,17 @@ export function renderCrewReview(app, root) {
           : g.destinations[a.destination];
         travel = dest?.travelYears ?? 2;
       }
-      for (const s of ships) {
+      // Track used capacity
+      const used = {};
+      for (const s of ships) used[s.id] = 0;
+      for (const [sid, men] of Object.entries(byShip)) {
+        used[sid] = men.reduce((sum, m) => sum + partySize(m), 0);
+      }
+      const size = partySize(a);
+      for (const s of sortedShips) {
         const ti = tiers[s.tier || 'carrack'] || tiers.carrack;
-        if (ti.range >= travel) {
+        if (ti.range < travel) continue;
+        if ((used[s.id] || 0) + size <= ti.capacity) {
           a.shipId = s.id;
           break;
         }
@@ -2201,13 +2222,6 @@ export function renderCrewReview(app, root) {
     const terna = app.state.currentYear?.terna || [];
     const card = terna.find((c) => c.id === approval.id || c.petitionerId === approval.id);
     return card?.name || approval.id;
-  };
-  const partySize = (a) => {
-    let n = 1;
-    const comp = a.companions;
-    if (typeof comp === 'number') n += comp;
-    else if (comp && typeof comp === 'object') n += Object.values(comp).reduce((x, y) => x + (y || 0), 0);
-    return n;
   };
   const shipCards = ships.map((s) => {
     const ti = tiers[s.tier || 'carrack'] || { label: 'Carrack', range: 2, capacity: 8 };

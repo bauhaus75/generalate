@@ -766,3 +766,46 @@ body > .overlay .hist-loc, body > .overlay .hist-text { opacity: .75; }
 }
 .logi-cap-fill { height: 100%; background: var(--gold); transition: width 0.3s; }
 .logi-cap-text { font-size: 0.8rem; color: var(--parch-deep); }
+
+#generalate-app .mass-card {
+  max-width: 600px;
+  text-align: center;
+}
+#generalate-app .mass-sub {
+  color: var(--ink-dim);
+  font-style: italic;
+  margin-bottom: 1rem;
+}
+#generalate-app .mass-image {
+  margin: 1rem 0;
+  padding: 2rem;
+  background: #1a1a1a;
+  border: 1px solid var(--gold-dim);
+}
+#generalate-app .mass-image-placeholder {
+  color: var(--gold-dim);
+  font-style: italic;
+}
+#generalate-app .mass-verse {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  border-left: 3px solid var(--gold);
+  text-align: left;
+  font-style: italic;
+}
+#generalate-app .mass-verse cite {
+  display: block;
+  margin-top: 0.5rem;
+  font-style: normal;
+  color: var(--ink-dim);
+  font-size: 0.9rem;
+}
+#generalate-app .mass-hint {
+  color: var(--ink-dim);
+  font-size: 0.95rem;
+  margin-bottom: 1.5rem;
+}
+#generalate-app .mass-continue {
+  margin-top: 1rem;
+}
+

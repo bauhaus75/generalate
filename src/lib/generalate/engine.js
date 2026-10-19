@@ -7,6 +7,20 @@ import * as rules from './rules.js';
 import * as dice from './dice.js';
 import * as dispositions from './dispositions.js';
 import { fictionalPetitioner, archiveFictional, MAX_ACTIVE_FICTIONAL, FIRST_NAMES, LAST_NAMES } from './generator.js';
+import { VERSES, VIRTUE_IDS } from './verses.js';
+
+/**
+ * Select the year's virtue for the Mass of the Holy Spirit opening.
+ * Seeded deterministic: same (seed, year) → same virtue and verse.
+ * Returns { virtue, verse, ref }.
+ */
+export function yearVirtue(seed, year) {
+  const rng = makeRng(`${seed}:virtue:${year}`);
+  const virtue = rng.pick(VIRTUE_IDS);
+  const verses = VERSES[virtue];
+  const v = rng.pick(verses);
+  return { virtue, verse: v.text, ref: v.ref };
+}
 import {decideVows,inviteFinalVows,completeFinalVows,rankSuffix,checkVowsMilestones,ensureVows,purgeVowsState,vowsTrackFor,FORMATION_THRESHOLDS} from './vows.js';
 export {decideVows,inviteFinalVows,completeFinalVows,rankSuffix,purgeVowsState,vowsTrackFor,FORMATION_THRESHOLDS};
 
@@ -1463,6 +1477,14 @@ function dispositionVoyageMods(state, petitionerId) {
   else if (cur.zeal <= 2) mods.push({ label: 'faltering zeal', value: -1 });
   if (cur.prudence >= 4) mods.push({ label: 'prudent preparation', value: 1 });
   else if (cur.prudence <= 2) mods.push({ label: 'imprudent haste', value: -1 });
+  // Year's virtue (Mass of the Holy Spirit): +1 if man has 4+ in the year's virtue
+  try {
+    const yv = yearVirtue(state.seed, state.year);
+    if (yv && yv.virtue && cur[yv.virtue] >= 4) {
+      const vname = yv.virtue.charAt(0).toUpperCase() + yv.virtue.slice(1);
+      mods.push({ label: `Spirit's guidance (${vname})`, value: 1 });
+    }
+  } catch (e) { /* virtue unavailable */ }
   return mods;
 }
 

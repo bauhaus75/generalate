@@ -2656,6 +2656,34 @@ function destPanelHTML(app, mapState, port) {
     ${!enroute.length && !arrived.length ? `<p class="gmap-hint">No mission assigned yet.</p>` : ''}`;
 }
 
+/* ---------------- Mass of the Holy Spirit opening ---------------- */
+export function showMassOverlay(app, onContinue) {
+  const yv = app.Engine.yearVirtue(app.state.seed, app.state.year);
+  const ov = document.createElement('div');
+  ov.className = 'overlay';
+  ov.innerHTML = `
+  <div class="overlay-card mass-card" role="dialog" aria-modal="true" aria-label="Mass of the Holy Spirit">
+    <h2 class="px">MASS OF THE HOLY SPIRIT</h2>
+    <p class="mass-sub">Anno ${app.state.year} — The Generalate opens the year in prayer at the Gesù.</p>
+    <div class="mass-image">
+      <p class="mass-image-placeholder">[Altar of the Gesù]</p>
+    </div>
+    <blockquote class="mass-verse">
+      <p>"${esc(yv.verse)}"</p>
+      <cite>— ${esc(yv.ref)} (Douay-Rheims)</cite>
+    </blockquote>
+    <p class="mass-hint">The Spirit guides the year's governance. Discern the virtue He commends.</p>
+    <button class="btn primary mass-continue">Begin the Year</button>
+  </div>`;
+  ov.querySelector('.mass-continue').addEventListener('click', () => {
+    app.sound('page');
+    ov.remove();
+    if (onContinue) onContinue();
+  });
+  document.body.appendChild(ov);
+  app.sound('page');
+}
+
 /* ---------------- ledger overlay ---------------- */
 export function showLedgerOverlay(app) {
   const entries = app.Engine.getLedger(app.state, {});

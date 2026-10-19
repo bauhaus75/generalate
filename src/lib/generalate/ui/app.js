@@ -554,10 +554,19 @@ app.go = function (screen, params = {}) {
     case 'title': Screens.renderTitle(app, r); break;
     case 'draft': app.syncHeader(); Screens.renderDraft(app, r); break;
     case 'briefing': {
-      if (!app.state.currentYear) app.ui.brief = Engine.startYear(app.state);
+      const isNewYear = !app.state.currentYear;
+      if (isNewYear) app.ui.brief = Engine.startYear(app.state);
       else app.ui.brief = { year: app.state.currentYear.year, briefing: app.state.currentYear.briefing, terna: app.state.currentYear.terna };
       app.save(); app.syncHeader();
-      Screens.renderBriefing(app, r, app.ui.brief);
+      // Mass of the Holy Spirit opens each new year
+      if (isNewYear && !app.ui.massShownForYear) {
+        app.ui.massShownForYear = app.state.year;
+        Screens.showMassOverlay(app, () => {
+          Screens.renderBriefing(app, r, app.ui.brief);
+        });
+      } else {
+        Screens.renderBriefing(app, r, app.ui.brief);
+      }
       break;
     }
     case 'desk':

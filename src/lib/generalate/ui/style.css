@@ -33,6 +33,11 @@ html, body {
   font: inherit; text-align: left;
 }
 #generalate-app .name-link:hover { color: var(--parch); }
+#generalate-app .roster-person { margin-bottom: 0.5rem; }
+#generalate-app .roster-deeds {
+  font-size: 0.85rem; color: var(--parch-deep); font-style: italic;
+  margin-left: 0.5rem;
+}
 
 /* ---------- header ---------- */
 #gheader {

@@ -975,8 +975,11 @@ function missionCardHTML(app, d, year) {
   const fragFlag = st.fragile
     ? '<span class="mflag fragile-flag">FRAGILE</span>'
     : (st.fragileYears > 0 ? `<span class="mflag understaffed-flag">understaffed (${st.fragileYears}/3 years)</span>` : '');
+  // Mission tier: Frontier (0-10), Established (11-30), Core (31+)
+  const tier = staffed >= 31 ? 'Core' : staffed >= 11 ? 'Established' : 'Frontier';
+  const tierClass = tier.toLowerCase();
   return `<article class="mission-card${closed ? ' closed' : ''}${staffed < st.capacity && !closed ? ' wants-men' : ''}${st.fragile ? ' is-fragile' : ''}">
-    <div class="mission-head mission-toggle" data-dest="${esc(d.id)}" style="cursor:pointer;"><strong>${esc(d.name || d.id)}</strong> <span class="toggle-hint">(tap to expand)</span>
+    <div class="mission-head mission-toggle" data-dest="${esc(d.id)}" style="cursor:pointer;"><strong>${esc(d.name || d.id)}</strong> <span class="tier-badge tier-${tierClass}">${tier}</span> <span class="toggle-hint">(tap to expand)</span>
       ${closed ? '<span class="mflag closed-flag">closed</span>'
         : staffed < st.capacity ? `<span class="mflag want-flag">asks for ${st.capacity - staffed} more</span>`
         : '<span class="mflag full-flag">at strength</span>'}${fragFlag}</div>

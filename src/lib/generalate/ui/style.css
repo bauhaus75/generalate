@@ -43,6 +43,20 @@ html, body {
   padding: 0.1rem 0.4rem; border-radius: 0.25rem;
   font-size: 0.8rem; margin-left: 0.5rem;
 }
+#generalate-app .tier-badge {
+  padding: 0.15rem 0.5rem; border-radius: 0.25rem;
+  font-size: 0.75rem; font-weight: bold; margin-left: 0.5rem;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+#generalate-app .tier-frontier {
+  background: #5a4a2a; color: #e8d5a3; border: 1px solid #8b6914;
+}
+#generalate-app .tier-established {
+  background: #2a5a2a; color: #e8d5a3; border: 1px solid #4a8b4a;
+}
+#generalate-app .tier-core {
+  background: #8b0000; color: #ffd700; border: 1px solid #ffd700;
+}
 
 /* ---------- header ---------- */
 #gheader {

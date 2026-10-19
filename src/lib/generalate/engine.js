@@ -3591,6 +3591,71 @@ export function assignToShip(state, petitionerId, shipId) {
 }
 
 /**
+ * Auto-assign all unassigned queued men to ships.
+ * Groups by destination, assigns to the smallest ship with sufficient range
+ * that has capacity. Best-effort: men who don't fit stay unassigned.
+ */
+export function autoAssignShips(state) {
+  const queue = (state.queue || []).filter((q) => q.status === 'awaiting' && !q.shipId);
+  if (!queue.length) return;
+  const ships = (state.resources.ships || []).filter((s) => (s.freeYear || 0) <= state.year);
+  const g = getGameData();
+  const tiers = rules.RESOURCES.SHIP_TIERS;
+  
+  // Track used capacity per ship
+  const used = {};
+  for (const s of ships) used[s.id] = 0;
+  // Count already-assigned
+  for (const q of (state.queue || []).filter((x) => x.status === 'awaiting' && x.shipId)) {
+    const size = 1 + (q.companions || 0);
+    used[q.shipId] = (used[q.shipId] || 0) + size;
+  }
+  
+  const partySize = (q) => {
+    let n = 1;
+    if (q.companionGrades && typeof q.companionGrades === 'object') {
+      n += Object.values(q.companionGrades).reduce((a, b) => a + (b || 0), 0);
+    } else {
+      n += q.companions || 0;
+    }
+    return n;
+  };
+  
+  const getTravel = (destId) => {
+    let dest = null;
+    if (g?.destinations) {
+      dest = Array.isArray(g.destinations)
+        ? g.destinations.find((d) => d.id === destId)
+        : g.destinations[destId];
+    }
+    return dest?.travelYears ?? 2;
+  };
+  
+  // Sort ships by capacity (smallest first) for efficient packing
+  const sortedShips = [...ships].sort((a, b) => {
+    const ta = tiers[a.tier || 'carrack'] || tiers.carrack;
+    const tb = tiers[b.tier || 'carrack'] || tiers.carrack;
+    return ta.capacity - tb.capacity;
+  });
+  
+  for (const q of queue) {
+    const travel = getTravel(q.destination);
+    const size = partySize(q);
+    // Find smallest ship with range and capacity
+    for (const s of sortedShips) {
+      const ti = tiers[s.tier || 'carrack'] || tiers.carrack;
+      if (ti.range < travel) continue;
+      if ((used[s.id] || 0) + size <= ti.capacity) {
+        q.shipId = s.id;
+        used[s.id] = (used[s.id] || 0) + size;
+        break;
+      }
+    }
+    // If no ship fits, q.shipId stays null (unassigned)
+  }
+}
+
+/**
  * Remove a man's ship assignment (returns to auto-pack pool).
  */
 export function unassignFromShip(state, petitionerId) {

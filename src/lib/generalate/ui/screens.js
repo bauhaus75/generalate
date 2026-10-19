@@ -1799,11 +1799,6 @@ export function renderDesk(app, root, terna) {
     <div class="desk">
       ${terna.map(c => cardHTML(app, c)).join('')}
     </div>
-    <div class="ships-section" id="terna-ships">
-      <h3 class="px">SHIPS</h3>
-      <div id="terna-ship-list"></div>
-      <p class="disp-mini">Tap a ship to assign the selected man. Tap again to unassign.</p>
-    </div>
     <div class="review-bar" id="review-bar">
       <span class="review-text" id="review-summary">Mark each man approved or denied.</span>
       <span class="review-actions">
@@ -2006,93 +2001,10 @@ export function renderDesk(app, root, terna) {
       alert(`The seal could not fall: ${e.message}`);
     }
   });
-
-  // Ships section: tap a ship to assign the currently selected approved man
-  const renderTernaShips = () => {
-    const listEl = root.querySelector('#terna-ship-list');
-    if (!listEl) return;
-    const ships = (app.state.resources?.ships || []).filter((s) => (s.freeYear || 0) <= app.state.year);
-    const tiers = app.Engine.RESOURCES?.SHIP_TIERS || {};
-    const decisions = app.ui.decisions || {};
-    
-    // Count assigned per ship (from decisions with shipId), including companions
-    const assignedCount = {};
-    const assignedNames = {};
-    const partySize = (d) => {
-      let n = 1;
-      const comp = d.companions;
-      if (typeof comp === 'number') n += comp;
-      else if (comp && typeof comp === 'object') {
-        n += Object.values(comp).reduce((a, b) => a + (b || 0), 0);
-      }
-      return n;
-    };
-    for (const [pid, d] of Object.entries(decisions)) {
-      if (d.verdict === 'approve' && d.shipId) {
-        const size = partySize(d);
-        assignedCount[d.shipId] = (assignedCount[d.shipId] || 0) + size;
-        const card = terna.find((c) => c.id === pid);
-        if (!assignedNames[d.shipId]) assignedNames[d.shipId] = [];
-        assignedNames[d.shipId].push({ pid, name: card?.name || pid, size });
-      }
-    }
-    
-    listEl.innerHTML = ships.map((s) => {
-      const ti = tiers[s.tier || 'carrack'] || { label: 'Carrack', range: 2, capacity: 8 };
-      const used = assignedCount[s.id] || 0;
-      const pct = Math.round((used / ti.capacity) * 100);
-      const assigned = assignedNames[s.id] || [];
-      const namesHtml = assigned.map((a) => 
-        `<span class="assigned-man" data-pid="${esc(a.pid)}">${esc(a.name)} (${a.size}) <span class="unassign-x" data-pid="${esc(a.pid)}">✕</span></span>`
-      ).join(' ');
-      return `<div class="terna-ship" data-ship-id="${s.id}">
-        <div class="terna-ship-name">${esc(s.name)} <span class="logi-tier">${esc(ti.label)}</span></div>
-        <div class="logi-cap-bar"><div class="logi-cap-fill" style="width:${pct}%"></div></div>
-        <div class="logi-cap-text">${used}/${ti.capacity} men</div>
-        ${namesHtml ? `<div class="assigned-list">${namesHtml}</div>` : ''}
-        <button class="assign-btn" data-ship-id="${s.id}">Assign here</button>
-      </div>`;
-    }).join('');
-    
-    // Assign button: assigns the first unassigned approved man to this ship
-    listEl.querySelectorAll('.assign-btn').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const shipId = btn.dataset.shipId;
-        const unassigned = terna.filter((c) => {
-          const d = decisions[c.id];
-          return d && d.verdict === 'approve' && !d.shipId;
-        });
-        if (!unassigned.length) {
-          app.toast('No unassigned men — approve someone first.');
-          return;
-        }
-        const target = unassigned[0];
-        decisions[target.id].shipId = shipId;
-        app.sound('tick');
-        renderTernaShips();
-        refresh();
-      });
-    });
-    // X button: unassign a specific man
-    listEl.querySelectorAll('.unassign-x').forEach((x) => {
-      x.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const pid = x.dataset.pid;
-        if (decisions[pid]) {
-          decisions[pid].shipId = null;
-          app.sound('tick');
-          renderTernaShips();
-          refresh();
-        }
-      });
-    });
-  };
   
   // Restore any decisions made before stepping away to the House/Missions tabs.
   for (const c of terna) applyVerdictToCard(c.id);
   refresh();
-  renderTernaShips();
 
   // Formation vows decisions
   attachVowsHandlers(app, root);
@@ -2241,6 +2153,114 @@ function renderQueueAssignment(app, ships, tiers) {
 }
 
 /* ---------------- map screen ---------------- */
+export function renderCrewReview(app, root) {
+  const ships = (app.state.resources?.ships || []).filter((s) => (s.freeYear || 0) <= app.state.year);
+  const tiers = app.Engine.RESOURCES?.SHIP_TIERS || {};
+  const queue = (app.state.queue || []).filter((q) => q.status === 'awaiting');
+  const destName = (id) => app.Engine.DESTINATIONS?.[id]?.name || id;
+  
+  // Group queue by ship
+  const byShip = {};
+  const unassigned = [];
+  for (const q of queue) {
+    if (q.shipId) {
+      if (!byShip[q.shipId]) byShip[q.shipId] = [];
+      byShip[q.shipId].push(q);
+    } else {
+      unassigned.push(q);
+    }
+  }
+  
+  const partySize = (q) => {
+    let n = 1;
+    const comp = q.companions;
+    if (typeof comp === 'number') n += comp;
+    else if (comp && typeof comp === 'object') n += Object.values(comp).reduce((a, b) => a + (b || 0), 0);
+    // Also check companionGrades
+    if (q.companionGrades && typeof q.companionGrades === 'object') {
+      n = 1 + Object.values(q.companionGrades).reduce((a, b) => a + (b || 0), 0);
+    }
+    return n;
+  };
+  
+  const shipCards = ships.map((s) => {
+    const ti = tiers[s.tier || 'carrack'] || { label: 'Carrack', range: 2, capacity: 8 };
+    const men = byShip[s.id] || [];
+    const used = men.reduce((sum, q) => sum + partySize(q), 0);
+    const pct = Math.round((used / ti.capacity) * 100);
+    const menHtml = men.map((q) => `
+      <button class="crew-man" data-pid="${esc(q.petitionerId)}" data-ship="${s.id}">
+        ${esc(q.petitionerName || q.petitionerId)} → ${esc(destName(q.destination))} (${partySize(q)})
+      </button>`).join('');
+    return `<div class="crew-ship" data-ship-id="${s.id}">
+      <div class="crew-ship-head">${esc(s.name)} <span class="logi-tier">${esc(ti.label)} (range ${ti.range})</span></div>
+      <div class="logi-cap-bar"><div class="logi-cap-fill" style="width:${pct}%"></div></div>
+      <div class="logi-cap-text">${used}/${ti.capacity} men</div>
+      <div class="crew-men">${menHtml || '<span class="disp-mini">Empty</span>'}</div>
+    </div>`;
+  }).join('');
+  
+  const unassignedHtml = unassigned.length
+    ? `<div class="crew-section"><h3 class="px">UNASSIGNED</h3><div class="crew-men">` +
+      unassigned.map((q) => `
+        <button class="crew-man" data-pid="${esc(q.petitionerId)}" data-ship="">
+          ${esc(q.petitionerName || q.petitionerId)} → ${esc(destName(q.destination))} (${partySize(q)})
+        </button>`).join('') + `</div></div>`
+    : '';
+  
+  root.innerHTML = `
+  <section class="gscreen">
+    <p class="kicker px">CREW REVIEW · ANNO ${app.state.year}</p>
+    <h2 class="px">Review the crews</h2>
+    <p class="desk-instr">Tap a man, then tap a ship to move him. Tap again to deselect.</p>
+    <div class="crew-ships">${shipCards}</div>
+    ${unassignedHtml}
+    <div class="btn-row">
+      <button class="gbtn primary" id="crew-sail">Set sail →</button>
+    </div>
+  </section>`;
+  
+  // Selection and move logic
+  let selectedPid = null;
+  root.querySelectorAll('.crew-man').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const pid = btn.dataset.pid;
+      if (selectedPid === pid) {
+        // Deselect
+        selectedPid = null;
+        root.querySelectorAll('.crew-man').forEach((b) => b.classList.remove('selected'));
+      } else {
+        // Select
+        selectedPid = pid;
+        root.querySelectorAll('.crew-man').forEach((b) => b.classList.toggle('selected', b.dataset.pid === pid));
+        app.sound('tick');
+      }
+    });
+  });
+  
+  root.querySelectorAll('.crew-ship').forEach((shipEl) => {
+    shipEl.addEventListener('click', (e) => {
+      // Don't trigger if clicking a man button
+      if (e.target.closest('.crew-man')) return;
+      if (!selectedPid) return;
+      const shipId = shipEl.dataset.shipId;
+      try {
+        app.Engine.assignToShip(app.state, selectedPid, shipId);
+        app.save();
+        app.sound('tick');
+        app.go('crew'); // refresh
+      } catch (err) {
+        app.toast(err.message);
+      }
+    });
+  });
+  
+  root.querySelector('#crew-sail').addEventListener('click', () => {
+    app.sound('page');
+    app.go('briefing'); // return to briefing, then close year from there
+  });
+}
+
 export function renderLogistics(app, root) {
   const ships = app.state.resources?.ships || [];
   const berths = app.state.resources?.berths || 0;

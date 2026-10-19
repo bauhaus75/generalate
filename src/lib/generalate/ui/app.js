@@ -564,6 +564,7 @@ app.go = function (screen, params = {}) {
     case 'governance': app.syncHeader(); Screens.renderGovernance(app, r); break;
     case 'treasury': app.syncHeader(); Screens.renderTreasury(app, r); break;
     case 'logistics': app.syncHeader(); Screens.renderLogistics(app, r); break;
+    case 'crew': app.syncHeader(); Screens.renderCrewReview(app, r); break;
     case 'decision': app.syncHeader(); Screens.renderDecision(app, r, app.ui.decision); break;
     case 'yearreport': app.syncHeader(); Screens.renderYearReport(app, r, app.ui.yearRes); break;
     case 'map': app.syncHeader(); Screens.renderMapScreen(app, r, params.from || app.ui.mapFrom); break;
@@ -607,7 +608,12 @@ app.confirmDecision = function (approvals) {
   }
   app.ui.decisions = {};
   app.save();
-  app.go('decision');
+  // Auto-assign ships, then go to crew review
+  try {
+    if (Engine.autoAssignShips) Engine.autoAssignShips(app.state);
+  } catch (e) { /* auto-assign is best-effort */ }
+  app.save();
+  app.go('crew');
   if (app.syncFooter) app.syncFooter();
 };
 

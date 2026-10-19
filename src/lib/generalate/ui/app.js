@@ -597,8 +597,25 @@ app.newGame = function (mode, seed) {
   app.go('draft');
 };
 
+// Staged approvals (not yet committed via decide()). Set by confirmDecision,
+// consumed by sealAndSail(). Allows back-navigation from crew review.
 app.confirmDecision = function (approvals) {
   if (!app.state.currentYear || !Array.isArray(approvals)) return;
+  // Validate without committing: check energy/funds via dry-run
+  // (decide() will do the real validation on seal)
+  app.ui.stagedApprovals = approvals;
+  app.save();
+  app.go('crew');
+  if (app.syncFooter) app.syncFooter();
+};
+
+// Commit the staged approvals and sail. Called from crew review.
+app.sealAndSail = function () {
+  const approvals = app.ui.stagedApprovals;
+  if (!approvals) {
+    app.toast('No decisions to seal.');
+    return;
+  }
   try {
     app.ui.decision = Engine.decide(app.state, approvals);
   } catch (e) {
@@ -606,14 +623,10 @@ app.confirmDecision = function (approvals) {
     alert(`The seal could not fall: ${e.message}`);
     return;
   }
+  app.ui.stagedApprovals = null;
   app.ui.decisions = {};
   app.save();
-  // Auto-assign ships, then go to crew review
-  try {
-    if (Engine.autoAssignShips) Engine.autoAssignShips(app.state);
-  } catch (e) { /* auto-assign is best-effort */ }
-  app.save();
-  app.go('crew');
+  app.go('decision');
   if (app.syncFooter) app.syncFooter();
 };
 

@@ -2156,41 +2156,61 @@ function renderQueueAssignment(app, ships, tiers) {
 export function renderCrewReview(app, root) {
   const ships = (app.state.resources?.ships || []).filter((s) => (s.freeYear || 0) <= app.state.year);
   const tiers = app.Engine.RESOURCES?.SHIP_TIERS || {};
-  const queue = (app.state.queue || []).filter((q) => q.status === 'awaiting');
+  const staged = app.ui.stagedApprovals || [];
   const destName = (id) => app.Engine.DESTINATIONS?.[id]?.name || id;
   
-  // Group queue by ship
+  // Group staged approvals by ship (using the shipId in each approval)
+  // Auto-assign any without a ship
   const byShip = {};
   const unassigned = [];
-  for (const q of queue) {
-    if (q.shipId) {
-      if (!byShip[q.shipId]) byShip[q.shipId] = [];
-      byShip[q.shipId].push(q);
+  for (const a of staged) {
+    // Auto-assign if no ship picked (simple: first ship with range)
+    if (!a.shipId) {
+      const g = app.Engine.getGameData ? app.Engine.getGameData() : null;
+      let travel = 2;
+      if (g?.destinations) {
+        const dest = Array.isArray(g.destinations)
+          ? g.destinations.find((d) => d.id === a.destination)
+          : g.destinations[a.destination];
+        travel = dest?.travelYears ?? 2;
+      }
+      for (const s of ships) {
+        const ti = tiers[s.tier || 'carrack'] || tiers.carrack;
+        if (ti.range >= travel) {
+          a.shipId = s.id;
+          break;
+        }
+      }
+    }
+    if (a.shipId) {
+      if (!byShip[a.shipId]) byShip[a.shipId] = [];
+      byShip[a.shipId].push(a);
     } else {
-      unassigned.push(q);
+      unassigned.push(a);
     }
   }
   
-  const partySize = (q) => {
+  // Helper to get name from terna card
+  const getName = (approval) => {
+    const terna = app.state.currentYear?.terna || [];
+    const card = terna.find((c) => c.id === approval.id || c.petitionerId === approval.id);
+    return card?.name || approval.id;
+  };
+  const partySize = (a) => {
     let n = 1;
-    const comp = q.companions;
+    const comp = a.companions;
     if (typeof comp === 'number') n += comp;
-    else if (comp && typeof comp === 'object') n += Object.values(comp).reduce((a, b) => a + (b || 0), 0);
-    // Also check companionGrades
-    if (q.companionGrades && typeof q.companionGrades === 'object') {
-      n = 1 + Object.values(q.companionGrades).reduce((a, b) => a + (b || 0), 0);
-    }
+    else if (comp && typeof comp === 'object') n += Object.values(comp).reduce((x, y) => x + (y || 0), 0);
     return n;
   };
-  
   const shipCards = ships.map((s) => {
     const ti = tiers[s.tier || 'carrack'] || { label: 'Carrack', range: 2, capacity: 8 };
     const men = byShip[s.id] || [];
-    const used = men.reduce((sum, q) => sum + partySize(q), 0);
+    const used = men.reduce((sum, a) => sum + partySize(a), 0);
     const pct = Math.round((used / ti.capacity) * 100);
-    const menHtml = men.map((q) => `
-      <button class="crew-man" data-pid="${esc(q.petitionerId)}" data-ship="${s.id}">
-        ${esc(q.petitionerName || q.petitionerId)} → ${esc(destName(q.destination))} (${partySize(q)})
+    const menHtml = men.map((a) => `
+      <button class="crew-man" data-pid="${esc(a.id)}" data-ship="${s.id}">
+        ${esc(getName(a))} → ${esc(destName(a.destination))} (${partySize(a)})
       </button>`).join('');
     return `<div class="crew-ship" data-ship-id="${s.id}">
       <div class="crew-ship-head">${esc(s.name)} <span class="logi-tier">${esc(ti.label)} (range ${ti.range})</span></div>
@@ -2202,9 +2222,9 @@ export function renderCrewReview(app, root) {
   
   const unassignedHtml = unassigned.length
     ? `<div class="crew-section"><h3 class="px">UNASSIGNED</h3><div class="crew-men">` +
-      unassigned.map((q) => `
-        <button class="crew-man" data-pid="${esc(q.petitionerId)}" data-ship="">
-          ${esc(q.petitionerName || q.petitionerId)} → ${esc(destName(q.destination))} (${partySize(q)})
+      unassigned.map((a) => `
+        <button class="crew-man" data-pid="${esc(a.id)}" data-ship="">
+          ${esc(getName(a))} → ${esc(destName(a.destination))} (${partySize(a)})
         </button>`).join('') + `</div></div>`
     : '';
   
@@ -2216,7 +2236,8 @@ export function renderCrewReview(app, root) {
     <div class="crew-ships">${shipCards}</div>
     ${unassignedHtml}
     <div class="btn-row">
-      <button class="gbtn primary" id="crew-sail">Set sail →</button>
+      <button class="gbtn" id="crew-back">← Back to terna</button>
+      <button class="gbtn primary" id="crew-seal">Seal & sail →</button>
     </div>
   </section>`;
   
@@ -2244,20 +2265,23 @@ export function renderCrewReview(app, root) {
       if (e.target.closest('.crew-man')) return;
       if (!selectedPid) return;
       const shipId = shipEl.dataset.shipId;
-      try {
-        app.Engine.assignToShip(app.state, selectedPid, shipId);
-        app.save();
+      // Update the staged approval directly
+      const approval = staged.find((a) => a.id === selectedPid);
+      if (approval) {
+        approval.shipId = shipId;
         app.sound('tick');
         app.go('crew'); // refresh
-      } catch (err) {
-        app.toast(err.message);
       }
     });
   });
   
-  root.querySelector('#crew-sail').addEventListener('click', () => {
+  root.querySelector('#crew-back').addEventListener('click', () => {
     app.sound('page');
-    app.go('briefing'); // return to briefing, then close year from there
+    app.go('indipetae'); // back to terna, decisions preserved in app.ui.decisions
+  });
+  root.querySelector('#crew-seal').addEventListener('click', () => {
+    app.sound('page');
+    app.sealAndSail();
   });
 }
 

@@ -849,7 +849,16 @@ function backfillHistory(state, id) {
   const g = ensureData();
   const add = (ev) => recordHistory(state, id, { backfilled: true, ...ev });
   if (typeof rec.entryYear === 'number') {
-    const ty = typeof rec.trueEntryYear === 'number' ? rec.trueEntryYear : rec.entryYear;
+    // Backwards math: true entry = 1615 - years in Society
+    const yrsInSoc = yearsInSociety(state, id);
+    let ty;
+    if (typeof rec.trueEntryYear === 'number') {
+      ty = rec.trueEntryYear;
+    } else if (yrsInSoc > 0) {
+      ty = 1615 - yrsInSoc;
+    } else {
+      ty = rec.entryYear;
+    }
     add({ year: ty, front: true, kind: 'formation', event: 'entry', text: `Entered the Society (backfilled).` });
   }
   const led = (state.ledger || []).filter((e) => e.petitionerId === id).sort((a, b) => (a.seq || 0) - (b.seq || 0));
@@ -861,10 +870,36 @@ function backfillHistory(state, id) {
   const vw = rec.vows;
   if (vw && typeof vw === 'object') {
     const ms = { firstVows: 'first-vows', philosophy: 'philosophy', regency: 'regency', theology: 'theology' };
+    // Backwards math: if the man has years in Society before 1615, date formation events accordingly.
+    // Typical timeline: entry Year 0, first vows +2, philosophy +5, regency +8, theology +11.
+    const yrsInSociety = yearsInSociety(state, id);
+    const gameStart = 1615;
+    // Use the same trueEntry as the entry event above (recalculate to ensure consistency)
+    const rec2 = state.petitioners[id];
+    let trueEntry;
+    if (rec2 && typeof rec2.trueEntryYear === 'number') {
+      trueEntry = rec2.trueEntryYear;
+    } else if (yrsInSociety > 0) {
+      trueEntry = gameStart - yrsInSociety;
+    } else if (rec2 && typeof rec2.entryYear === 'number') {
+      trueEntry = rec2.entryYear;
+    } else {
+      trueEntry = gameStart;
+    }
+    const offsets = { firstVows: 2, philosophy: 5, regency: 8, theology: 11 };
     for (const [k, evName] of Object.entries(ms)) {
       if (!vw[k] || seen.has(evName)) continue;
-      const yr = typeof vw[k] === 'number' ? vw[k] : (typeof rec.trueEntryYear === 'number' ? rec.trueEntryYear : typeof rec.entryYear === 'number' ? rec.entryYear : state.year);
-      add({ year: yr, kind: 'formation', event: evName, text: `${k} recorded${typeof vw[k] === 'number' ? '' : ' before he entered the rolls'} (backfilled).` });
+      let yr;
+      if (typeof vw[k] === 'number') {
+        yr = vw[k];
+      } else if (yrsInSociety > 0) {
+        // Backdate based on years in Society
+        yr = trueEntry + (offsets[k] || 0);
+      } else {
+        yr = typeof rec.trueEntryYear === 'number' ? rec.trueEntryYear : typeof rec.entryYear === 'number' ? rec.entryYear : state.year;
+      }
+      const backdated = yrsInSociety > 0 && typeof vw[k] !== 'number';
+      add({ year: yr, kind: 'formation', event: evName, text: `${k} recorded${backdated ? ` in ${yr}` : typeof vw[k] === 'number' ? '' : ' before he entered the rolls'} (backfilled).` });
     }
   }
   for (const v of (state.voyages || []).filter((x) => x.petitionerId === id && x.stage === 'arrived')) {
@@ -3062,7 +3097,18 @@ function buildCard(g, state, pet, letter, fromFuture = false) {
 function fictionalData(state, g, rec) {
   const ids = g.destinations.map((d) => d.id);
   const names = g.destinations.map((d) => d.name);
-  return fictionalPetitioner(state.seed, rec.ficNum, ids, names, rec.genYear);
+  // Collect used names to ensure uniqueness
+  const usedNames = new Set();
+  for (const pid of Object.keys(state.petitioners || {})) {
+    const r = state.petitioners[pid];
+    if (r && r.name) usedNames.add(r.name);
+  }
+  // Also include historical petitioners
+  const g2 = getGameData();
+  if (g2 && g2.petitioners) {
+    for (const p of g2.petitioners) if (p.name) usedNames.add(p.name);
+  }
+  return fictionalPetitioner(state.seed, rec.ficNum, ids, names, rec.genYear, usedNames);
 }
 
 /**

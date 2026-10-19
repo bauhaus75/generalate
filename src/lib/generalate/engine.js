@@ -3436,26 +3436,42 @@ export function decide(state, approvals) {
       state.europeanLabor = state.europeanLabor.filter(
         (e) => e.petitionerId !== card.petitionerId);
     }
-    state.queue.push({
-      petitionerId: card.petitionerId,
-      approvedYear: state.year,
-      destination,
-      status: 'awaiting',
-      teamId: n.teamId || null,
-      teamSize,
-      companions: n.companionTotal || 0,
-      companionGrades: n.companions,
-      shipId: n.shipId || null,
-    });
+    if (!n.shipId && n.reserve === true) {
+      // Reserved: explicitly held from Crew Review. Man labors in Europe, earmarked for the mission.
+      if (!state.europeanLabor) state.europeanLabor = [];
+      // Remove if already there (avoid duplicates)
+      state.europeanLabor = state.europeanLabor.filter((e) => e.petitionerId !== card.petitionerId);
+      state.europeanLabor.push({
+        petitionerId: card.petitionerId,
+        name: card.name,
+        year: state.year,
+        via: 'reserved',
+        reservedFor: destination,
+        reservedForName: finalDestName,
+      });
+    } else {
+      state.queue.push({
+        petitionerId: card.petitionerId,
+        approvedYear: state.year,
+        destination,
+        status: 'awaiting',
+        teamId: n.teamId || null,
+        teamSize,
+        companions: n.companionTotal || 0,
+        companionGrades: n.companions,
+        shipId: n.shipId || null,
+      });
+    }
+    const reserveNote = (!n.shipId && n.reserve === true) ? `${card.name} is approved for ${finalDestName} and reserved — laboring in Europe until a ship is ready.` : null;
     addLedger(state, {
       year: state.year, type: 'decision',
       petitionerId: card.petitionerId, destination,
       decision: 'approved', status: STATUS.APPROVED,
-      note: redirected
+      note: reserveNote || (redirected
         ? `${card.name} is approved and redirected to ${finalDestName} (petitioned for ${card.destinationName})${n.companionTotal ? `, taking ${n.companionTotal} ${n.companionTotal === 1 ? 'companion' : 'companions'}` : ''}.`
         : n.teamId
           ? `${card.name} is approved for ${finalDestName}, sailing in company with ${teamSize - 1} ${teamSize - 1 === 1 ? 'other' : 'others'}${n.companionTotal ? ` and ${n.companionTotal} ${n.companionTotal === 1 ? 'companion' : 'companions'}` : ''}.`
-          : `${card.name} is approved for ${finalDestName} and enters the departure queue${n.companionTotal ? ` with ${n.companionTotal} ${n.companionTotal === 1 ? 'companion' : 'companions'}` : ''}.`,
+          : `${card.name} is approved for ${finalDestName} and enters the departure queue${n.companionTotal ? ` with ${n.companionTotal} ${n.companionTotal === 1 ? 'companion' : 'companions'}` : ''}.`),
     });
     approved.push({
       ...card,

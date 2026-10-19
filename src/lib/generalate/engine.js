@@ -129,6 +129,8 @@ function initMissions(destinations, petitioners) {
       fragileYears: 0,
       fragile: false,
       thrivingCount: 0,
+      // Historical founding year from destination data (for native vocations)
+      foundedYear: typeof d.foundedYear === 'number' ? d.foundedYear : undefined,
     };
   }
   return ms;

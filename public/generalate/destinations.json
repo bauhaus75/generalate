@@ -15,7 +15,8 @@
     "travelYears": 2,
     "blurb": "The Portuguese Estado da India: Goa, the Malabar coast, and the road onward to Macao and the Far East. The classic destination of the petitions.",
     "danger": 2,
-    "tropical": true
+    "tropical": true,
+    "foundedYear": 1545
   },
   "china": {
     "name": "China",
@@ -36,7 +37,8 @@
     ],
     "travelYears": 3,
     "blurb": "The scholar-mission of Ricci's successors: slow, learned, and comparatively open. A favored destination in the petitions.",
-    "danger": 1
+    "danger": 1,
+    "foundedYear": 1582
   },
   "japan": {
     "name": "Japan",
@@ -57,7 +59,8 @@
     ],
     "travelYears": 3,
     "blurb": "A forbidden mission under the Tokugawa persecution. Petitioners ask for Japan knowing entry means hiding and likely martyrdom.",
-    "danger": 3
+    "danger": 3,
+    "foundedYear": 1549
   },
   "india": {
     "name": "India",
@@ -71,7 +74,8 @@
     "travelYears": 2,
     "blurb": "The Malabar and Fishery coasts, Madurai and the Mughal court: the working heart of the Portuguese Asian missions.",
     "danger": 1,
-    "tropical": true
+    "tropical": true,
+    "foundedYear": 1542
   },
   "paraguay": {
     "name": "Paraguay",
@@ -89,7 +93,8 @@
     "travelYears": 2,
     "blurb": "The reductions of Paraguay: frontier missions among the Guarani, far up the rivers of South America.",
     "danger": 1,
-    "tropical": true
+    "tropical": true,
+    "foundedYear": 1588
   },
   "brazil": {
     "name": "Brazil",
@@ -103,7 +108,8 @@
     "travelYears": 1,
     "blurb": "Portuguese Brazil: coastal colleges at Bahia and the aldeia missions of the interior.",
     "danger": 1,
-    "tropical": true
+    "tropical": true,
+    "foundedYear": 1549
   },
   "aethiopia": {
     "name": "Aethiopia",
@@ -120,7 +126,8 @@
     ],
     "travelYears": 2,
     "blurb": "The highlands of Ethiopia, where Jesuits labored at the court of the negus in the 1620s before their expulsion in 1633.",
-    "danger": 2
+    "danger": 2,
+    "foundedYear": 1557
   },
   "england": {
     "name": "England",
@@ -133,7 +140,8 @@
     ],
     "travelYears": 1,
     "blurb": "A hidden mission under penal laws: priests cross covertly from the continent to serve recusant Catholics.",
-    "danger": 1
+    "danger": 1,
+    "foundedYear": 1580
   },
   "west-indies": {
     "name": "The West Indies",
@@ -147,7 +155,8 @@
     "travelYears": 1,
     "blurb": "The Spanish Caribbean: early missions and colleges on the islands and the mainland coast.",
     "danger": 1,
-    "tropical": true
+    "tropical": true,
+    "foundedYear": 1566
   },
   "peru": {
     "name": "Peru",
@@ -165,7 +174,8 @@
     "travelYears": 2,
     "blurb": "The viceroyalty of Peru: Lima's colleges and the Andean missions beyond.",
     "danger": 1,
-    "tropical": true
+    "tropical": true,
+    "foundedYear": 1568
   },
   "chile": {
     "name": "Chile",
@@ -182,7 +192,8 @@
     ],
     "travelYears": 2,
     "blurb": "The far southern frontier: missions among the Mapuche on the edge of the Spanish empire.",
-    "danger": 1
+    "danger": 1,
+    "foundedYear": 1593
   },
   "vietnam": {
     "name": "Vietnam (Cochinchina)",
@@ -205,7 +216,8 @@
     "blurb": "Cochinchina: the southern Vietnamese kingdom. Jesuits arrived in the 1610s; Alexandre de Rhodes will come in 1624.",
     "frontier": true,
     "danger": 1,
-    "tropical": true
+    "tropical": true,
+    "foundedYear": 1615
   },
   "tonkin": {
     "name": "Tonkin",
@@ -228,7 +240,8 @@
     "blurb": "Tonkin: the northern Vietnamese kingdom. A harder field than Cochinchina, opened later.",
     "frontier": true,
     "danger": 1,
-    "tropical": true
+    "tropical": true,
+    "foundedYear": 1615
   },
   "siam": {
     "name": "Siam",
@@ -247,7 +260,8 @@
     "blurb": "Siam: the kingdom of Ayutthaya. Portuguese traders know it; no Jesuit mission yet.",
     "frontier": true,
     "danger": 1,
-    "tropical": true
+    "tropical": true,
+    "foundedYear": 1607
   },
   "cambodia": {
     "name": "Cambodia",
@@ -270,7 +284,8 @@
     "blurb": "Cambodia: the Khmer kingdom at Lovek. A brief Jesuit presence; a frontier for the bold.",
     "frontier": true,
     "danger": 1,
-    "tropical": true
+    "tropical": true,
+    "foundedYear": 1555
   },
   "congo": {
     "name": "Congo",
@@ -289,7 +304,8 @@
     "blurb": "The Kongo kingdom: an old Christian kingdom, its Jesuit mission struggles.",
     "frontier": true,
     "danger": 2,
-    "tropical": true
+    "tropical": true,
+    "foundedYear": 1548
   },
   "angola": {
     "name": "Angola",
@@ -304,7 +320,8 @@
     "blurb": "Luanda: Portugal's African stronghold. A Jesuit college stands; the interior awaits.",
     "frontier": true,
     "danger": 2,
-    "tropical": true
+    "tropical": true,
+    "foundedYear": 1560
   },
   "mozambique": {
     "name": "Mozambique",
@@ -319,7 +336,8 @@
     "blurb": "Mozambique Island: gateway to the Zambezi. Fever country; few survive long.",
     "frontier": true,
     "danger": 1,
-    "tropical": true
+    "tropical": true,
+    "foundedYear": 1560
   },
   "madagascar": {
     "name": "Madagascar",
@@ -338,7 +356,8 @@
     "blurb": "Madagascar: the great island. Brief attempts; no lasting mission yet.",
     "frontier": true,
     "danger": 2,
-    "tropical": true
+    "tropical": true,
+    "foundedYear": 1610
   },
   "new-granada": {
     "name": "New Granada",
@@ -353,7 +372,8 @@
     "blurb": "New Granada: Cartagena and the interior. Jesuits arrived; the mission is young.",
     "frontier": true,
     "danger": 1,
-    "tropical": true
+    "tropical": true,
+    "foundedYear": 1604
   },
   "quito": {
     "name": "Quito",
@@ -372,7 +392,8 @@
     "blurb": "Quito: high in the Andes. A province will be erected in the 1620s.",
     "frontier": true,
     "danger": 1,
-    "tropical": true
+    "tropical": true,
+    "foundedYear": 1586
   },
   "mexico": {
     "name": "Mexico",
@@ -387,7 +408,8 @@
     "blurb": "New Spain: Mexico City and the northern frontier. The great province of the north.",
     "frontier": true,
     "danger": 1,
-    "tropical": true
+    "tropical": true,
+    "foundedYear": 1572
   },
   "huronia": {
     "name": "Huronia (New France)",
@@ -405,11 +427,12 @@
         "Huronia"
       ]
     ],
-    "danger": 2
+    "danger": 2,
+    "foundedYear": 1611
   },
   "philippines": {
     "name": "Philippines",
-    "blurb": "The Spanish Philippines. Jesuits arrived in 1581; Manila is a thriving entrep\u00f4t. Reachable via New Spain or the Indian Ocean.",
+    "blurb": "The Spanish Philippines. Jesuits arrived in 1581; Manila is a thriving entrepôt. Reachable via New Spain or the Indian Ocean.",
     "frontier": true,
     "region": "Far East",
     "travelYears": 3,
@@ -428,7 +451,8 @@
       ]
     ],
     "danger": 1,
-    "tropical": true
+    "tropical": true,
+    "foundedYear": 1581
   },
   "guatemala": {
     "name": "Guatemala",
@@ -447,6 +471,7 @@
       ]
     ],
     "danger": 1,
-    "tropical": true
+    "tropical": true,
+    "foundedYear": 1610
   }
 }

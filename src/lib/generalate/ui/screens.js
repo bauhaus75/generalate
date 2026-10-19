@@ -1516,12 +1516,6 @@ export function renderMissions(app, root) {
   if (!app.ui.dispatch || !openDests.some(d => d.id === app.ui.dispatch.destId)) {
     app.ui.dispatch = { destId: openDests.length ? openDests[0].id : null, fathers: 0, coadjutors: 0, brothers: 0 };
   }
-  const disp = app.ui.dispatch;
-  const grades = E.MISSION_GRADE_IDS || ['fathers', 'coadjutors', 'brothers'];
-
-  const dispatchCost = () => grades.reduce((n, gid) => n + (disp[gid] || 0) * E.MISSION_GRADES[gid].cost, 0);
-  const dispatchTotal = () => grades.reduce((n, gid) => n + (disp[gid] || 0), 0);
-
   root.innerHTML = `
   <section class="gscreen">
     <p class="kicker px">THE MISSIONS</p>
@@ -1558,38 +1552,6 @@ export function renderMissions(app, root) {
     </div>
   </section>`;
 
-  const refreshSummary = () => {
-    root.querySelector('#dispatch-summary').textContent =
-      `${dispatchTotal()} men · ${dispatchCost()} scudi · ${(app.state.available || 0).toLocaleString('en-US')} to spare`;
-    root.querySelector('#dispatch-send').disabled = !(dispatchTotal() > 0 && disp.destId);
-  };
-  root.querySelector('#dispatch-dest').addEventListener('change', (e) => {
-    disp.destId = e.target.value; app.sound('tick');
-  });
-  root.querySelectorAll('.dg-inc, .dg-dec').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const gid = btn.dataset.gid;
-      const delta = btn.classList.contains('dg-inc') ? 1 : -1;
-      disp[gid] = Math.max(0, Math.min(30, (disp[gid] || 0) + delta));
-      root.querySelector(`.dg-count[data-gid="${gid}"]`).textContent = disp[gid];
-      app.sound('tick');
-      refreshSummary();
-    });
-  });
-  root.querySelector('#dispatch-send').addEventListener('click', () => {
-    try {
-      const res = E.dispatchMission(app.state, disp.destId, { fathers: disp.fathers, coadjutors: disp.coadjutors, brothers: disp.brothers });
-      E.refreshBriefing(app.state);
-      app.save();
-      app.sound('coin');
-      app.ui.notice = `${res.total} men dispatched — the mission is strengthened.`;
-      disp.fathers = disp.coadjutors = disp.brothers = 0;
-      app.go('missions');
-    } catch (e) {
-      app.sound('error');
-      alert(e.message);
-    }
-  });
   // ---- frontier founding ----
   root.querySelectorAll('.frontier-found').forEach((btn) => btn.addEventListener('click', () => {
     const destId = btn.dataset.id;

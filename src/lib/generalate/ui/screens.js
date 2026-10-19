@@ -844,11 +844,19 @@ function missionCardHTML(app, d, year) {
     <div class="cap-bar" aria-hidden="true"><div class="cap-fill" style="width:${pct}%"></div></div>
     <p class="mission-staff">${esc(gradeBits)} — <button class="staff-toggle" data-dest="${esc(d.id)}"><strong>${staffed}/${st.capacity}</strong> (tap for roster)</button></p>
     <div class="mission-roster" data-roster="${esc(d.id)}" hidden>
-      ${(st.staffIds || []).map((pid) => {
-        const name = app.Engine.personName ? app.Engine.personName(app.state, pid) : pid;
-        const deeds = app.Engine.personDeeds ? app.Engine.personDeeds(app.state, pid) : '';
-        return `<div class="roster-person">${nameLink(app, pid, name)}${deeds ? `<div class="roster-deeds">${esc(deeds)}</div>` : ''}</div>`;
-      }).join('') || '<p class="disp-mini">No staff records.</p>'}
+      ${(() => {
+        const gradeOrder = { 'P': 0, 'S*': 1, 'S': 2, 'F': 3, 'nS': 4, 'nF': 5 };
+        const sorted = [...(st.staffIds || [])].sort((a, b) => {
+          const ga = app.Engine.detailedGradeFor ? app.Engine.detailedGradeFor(app.state, a) : 'F';
+          const gb = app.Engine.detailedGradeFor ? app.Engine.detailedGradeFor(app.state, b) : 'F';
+          return (gradeOrder[ga] ?? 99) - (gradeOrder[gb] ?? 99);
+        });
+        return sorted.map((pid) => {
+          const name = app.Engine.personName ? app.Engine.personName(app.state, pid) : pid;
+          const deeds = app.Engine.personDeeds ? app.Engine.personDeeds(app.state, pid) : '';
+          return `<div class="roster-person">${nameLink(app, pid, name)}${deeds ? `<div class="roster-deeds">${esc(deeds)}</div>` : ''}</div>`;
+        }).join('') || '<p class="disp-mini">No staff records.</p>';
+      })()}
     </div>
     <p class="mission-meta">strength ${strength}${bonus > 0 ? ` → +${bonus} to voyages` : ''} · upkeep ${upkeep} scudi/yr</p>
     ${(st.fruits || 0) > 0 ? `<p class="mission-fruits">Harvest: <strong>${(st.fruits || 0).toLocaleString('en-US')}</strong> souls</p>` : ''}

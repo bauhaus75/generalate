@@ -2902,15 +2902,52 @@ function resolveVocations(state, y) {
  *  Income depends on the man's grade (six-grade system), not the role.
  *  The role is the type of work; the grade determines how much it yields. */
 function domesticYearlyFunds(state) {
-  // Grade-based income: P > S* > S > F > nS/nF
-  const GRADE_INCOME = { 'P': 15, 'S*': 12, 'S': 10, 'F': 8, 'nS': 5, 'nF': 5 };
+  // Grade-based income per Tran 2026-10-19: P 12, S* 10, S 5, F 5, Novices 0
+  const GRADE_INCOME = { 'P': 12, 'S*': 10, 'S': 5, 'F': 5, 'nS': 0, 'nF': 0 };
   let total = 0;
   for (const e of state.europeanLabor || []) {
     if (!e.assignment) continue;
     const dg = detailedGradeFor(state, e.petitionerId);
-    total += GRADE_INCOME[dg] ?? 5;
+    total += GRADE_INCOME[dg] ?? 0;
   }
   return total;
+}
+
+/**
+ * Mission income: thriving missions (60%+ staffed) generate funds by grade.
+ * Full rate (P 12, S* 10, S 5, F 5): England, Far East, West Indies.
+ * Half rate: everywhere else.
+ * Zero: danger 3 (persecution).
+ */
+function missionYearlyFunds(state) {
+  const FULL = { 'P': 12, 'S*': 10, 'S': 5, 'F': 5, 'nS': 0, 'nF': 0 };
+  const HALF = { 'P': 6, 'S*': 5, 'S': 2.5, 'F': 2.5, 'nS': 0, 'nF': 0 };
+  const FULL_RATE_IDS = new Set([
+    'england',
+    // Far East
+    'japan', 'china', 'india', 'east-indies', 'philippines',
+    // West Indies
+    'west-indies',
+  ]);
+  const g = ensureData();
+  let total = 0;
+  for (const destId of Object.keys(state.missions || {})) {
+    const st = missionStaff(state, destId);
+    const dst = state.destState[destId] || {};
+    if (dst.collapsed || dst.access === 'closed') continue;
+    const ratio = missionStaffed(st) / (st.capacity || 5);
+    if (ratio < 0.6) continue; // only thriving missions
+    const dest = g.destinations.find((d) => d.id === destId);
+    const danger = dst.danger ?? dest?.danger ?? 1;
+    if (danger >= 3) continue; // persecution: no income
+    const rates = FULL_RATE_IDS.has(destId) ? FULL : HALF;
+    // Count by grade from staffIds
+    for (const pid of st.staffIds || []) {
+      const dg = detailedGradeFor(state, pid);
+      total += rates[dg] ?? 0;
+    }
+  }
+  return Math.floor(total);
 }
 
 /** Whether any formation aide is serving (reduces formation cost). */
@@ -4542,6 +4579,14 @@ export function resolveYear(state) {
     state.ledger.unshift({
       seq: ++state.seq.ledger, year: y, type: 'domestic',
       text: `Domestic service contributed ${domesticFunds} scudi to the chest.`,
+    });
+  }
+  const missionFunds = missionYearlyFunds(state);
+  if (missionFunds > 0) {
+    gainFunds(state, missionFunds, 'missions');
+    state.ledger.unshift({
+      seq: ++state.seq.ledger, year: y, type: 'missions',
+      text: `The missions remitted ${missionFunds} scudi to the chest.`,
     });
   }
   state.society = (state.society || 0) + rules.RESOURCES.SOCIETY_YEARLY_INTAKE;

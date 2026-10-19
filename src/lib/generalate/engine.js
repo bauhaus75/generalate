@@ -6,7 +6,7 @@ import { getGameData } from './data.js';
 import * as rules from './rules.js';
 import * as dice from './dice.js';
 import * as dispositions from './dispositions.js';
-import { fictionalPetitioner, archiveFictional, MAX_ACTIVE_FICTIONAL } from './generator.js';
+import { fictionalPetitioner, archiveFictional, MAX_ACTIVE_FICTIONAL, FIRST_NAMES, LAST_NAMES } from './generator.js';
 import {decideVows,inviteFinalVows,completeFinalVows,rankSuffix,checkVowsMilestones,ensureVows,purgeVowsState,vowsTrackFor,FORMATION_THRESHOLDS} from './vows.js';
 export {decideVows,inviteFinalVows,completeFinalVows,rankSuffix,purgeVowsState,vowsTrackFor,FORMATION_THRESHOLDS};
 
@@ -4640,6 +4640,66 @@ export function resolveYear(state) {
   // Mission fragility (informational only): track accumulated years each mission
   // spends below 40% staffing. 40-60% pauses the counter; 60%+ resets it.
 /**
+ * Native vocations: each year, thriving missions (60%+ staffing) in native
+ * territories have a 20% chance of gaining a native novice. 90% Brother
+ * track (nF), 10% Scholastic (nS). They spawn directly in the mission,
+ * bypassing the terna and Europe.
+ */
+function spawnNativeVocations(state, mainRng) {
+  // Natives only appear after 1630 (takes time for local vocations to develop)
+  if (state.year < 1630) return;
+  // Use a separate RNG stream so native rolls don't shift the main sequence
+  const rng = makeRng(`${state.seed}:natives:${state.year}`);
+  const NATIVE_MISSIONS = {
+    japan: 'japanese',
+    china: 'chinese',
+    india: 'indian',
+    brazil: 'brazilian',
+  };
+  const g = ensureData();
+  for (const [destId, culture] of Object.entries(NATIVE_MISSIONS)) {
+    const dst = state.destState[destId] || {};
+    if (dst.collapsed || dst.access === 'closed') continue;
+    const st = missionStaff(state, destId);
+    if (!st) continue;
+    const staffed = missionStaffed(st);
+    const capacity = st.capacity || 5;
+    // Must be thriving: 60%+ staffing
+    if (staffed < capacity * 0.6) continue;
+    if (staffed >= capacity) continue;
+    // 20% chance per year
+    if (rng.int(1, 100) > 20) continue;
+    // 90% nF (Brother track), 10% nS (Scholastic)
+    const isScholastic = rng.int(1, 100) <= 10;
+    const firstArr = FIRST_NAMES[culture];
+    const lastArr = LAST_NAMES[culture];
+    const first = firstArr ? firstArr[rng.int(0, firstArr.length - 1)] : 'Paulo';
+    const last = lastArr ? lastArr[rng.int(0, lastArr.length - 1)] : 'Silva';
+    const name = `${first} ${last}`;
+    const pid = `native-${destId}-${state.year}-${staffed}`;
+    if (!st.staffIds) st.staffIds = [];
+    st.staffIds.push(pid);
+    if (isScholastic) {
+      st.coadjutors = (st.coadjutors || 0) + 1;
+    } else {
+      st.brothers = (st.brothers || 0) + 1;
+    }
+    if (!state.petitioners[pid]) {
+      state.petitioners[pid] = {
+        id: pid, name, fictional: true, native: true, culture,
+        grade: isScholastic ? 'scholastic' : 'brother',
+        genYear: state.year, nativeTo: destId,
+      };
+    }
+    const destName = (g.destinations || []).find((d) => d.id === destId)?.name || destId;
+    addLedger(state, {
+      year: state.year, type: 'native', destination: destId,
+      text: `A native vocation, ${name}, has joined the mission at ${destName}.`,
+    });
+  }
+}
+
+/**
  * Annual martyrdom and disease rolls for stationed men.
  * Martyrdom: d20 vs danger (0=safe, 1=die on 1, 2=die on 1-2, 3=die on 1-3).
  * Disease: separate d20, die on 1 (5%), or 1-2 (10%) in tropics.
@@ -4775,6 +4835,9 @@ function collapseMission(state, destId) {
     text: `The mission at ${destName} has collapsed. ${lost} men lost. (-10 score)`,
   });
 }
+
+  // Native vocations: thriving missions gain native novices.
+  spawnNativeVocations(state, rng);
 
   // Martyrdom and disease: annual rolls for stationed men.
   resolveMartyrdomAndDisease(state, rng);

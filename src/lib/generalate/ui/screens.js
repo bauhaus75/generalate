@@ -835,7 +835,8 @@ function missionCardHTML(app, d, year) {
     <div class="mission-roster" data-roster="${esc(d.id)}" hidden>
       ${(st.staffIds || []).map((pid) => {
         const name = app.Engine.personName ? app.Engine.personName(app.state, pid) : pid;
-        return `<div>${nameLink(app, pid, name)}</div>`;
+        const deeds = app.Engine.personDeeds ? app.Engine.personDeeds(app.state, pid) : '';
+        return `<div class="roster-person">${nameLink(app, pid, name)}${deeds ? `<div class="roster-deeds">${esc(deeds)}</div>` : ''}</div>`;
       }).join('') || '<p class="disp-mini">No staff records.</p>'}
     </div>
     <p class="mission-meta">strength ${strength}${bonus > 0 ? ` → +${bonus} to voyages` : ''} · upkeep ${upkeep} scudi/yr</p>

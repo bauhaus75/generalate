@@ -686,7 +686,15 @@ function staffArrival(state, v) {
   if (!mst.staffIds) mst.staffIds = [];
   if (!mst.staffIds.includes(v.petitionerId)) mst.staffIds.push(v.petitionerId);
   const comps = Math.max(0, v.companions || 0);
-  if (comps > 0) mst.brothers += comps;
+  if (comps > 0) {
+    mst.brothers += comps;
+    // Companions need IDs too (every man = a profile)
+    if (!state._companionSeq) state._companionSeq = 0;
+    for (let i = 0; i < comps; i++) {
+      const cid = `companion-${v.destination}-${state.year}-${++state._companionSeq}`;
+      if (!mst.staffIds.includes(cid)) mst.staffIds.push(cid);
+    }
+  }
   v.staffGrade = sg;
   v.staffCompanions = comps;
 }
@@ -4638,6 +4646,7 @@ export function personDeeds(state, petitionerId) {
 export function detailedGradeFor(state, petitionerId) {
   const pid = String(petitionerId);
   if (pid.startsWith('dispatched-')) return 'F'; // default to Brother for placeholders
+  if (pid.startsWith('companion-')) return 'F'; // companions are Brothers
   
   const rec = state.petitioners[petitionerId];
   // Check if professed

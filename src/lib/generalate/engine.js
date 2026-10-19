@@ -476,9 +476,8 @@ export const ENERGY_PER_YEAR = 6;
 
 /** Spend energy; throws if the General has none left. */
 export function spendEnergy(state, n = 1, action = 'act') {
-  const have = state.energy ?? ENERGY_PER_YEAR;
-  if (have < n) throw new Error(`The General has no energy left for ${action} this year.`);
-  state.energy = have - n;
+  // Energy mechanic REMOVED per Tran 2026-10-19. No-op.
+  return;
 }
 
 /** Reset the year's energy (called when the year turns). */

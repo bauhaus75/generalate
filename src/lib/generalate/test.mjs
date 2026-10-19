@@ -3185,7 +3185,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     const e0 = s.energy;
     const res = askProvincial(s, 'east', 'hist-1');
     ok('ask: returns the man', res.petitionerId === 'hist-1' && res.questionsLeft === QUESTIONS_PER_YEAR - 1);
-    ok('ask: costs 1 energy', s.energy === e0 - 1);
+    ok('ask: is free (no energy)', s.energy === e0);
     let threw = false;
     try { askProvincial(s, 'newworld', 'hist-1'); } catch (e) { threw = /does not serve/.test(e.message); }
     ok('ask: wrong province rejected', threw);
@@ -3195,17 +3195,11 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     try { askProvincial(s, 'east', 'hist-1'); } catch (e) { threw2 = /three questions/.test(e.message); }
     ok('ask: quota enforced at 3', threw2);
   }
-  // energy: spend, reset, insufficient
+  // energy mechanic REMOVED per Tran 2026-10-19: spendEnergy is a no-op
   {
     const s = setup('nrg1');
-    ok('energy: starts at 5', s.energy === ENERGY_PER_YEAR);
-    spendEnergy(s, 1, 'testing');
-    ok('energy: spends', s.energy === ENERGY_PER_YEAR - 1);
-    let threw = false;
-    try { spendEnergy(s, 99, 'testing'); } catch (e) { threw = /no energy/.test(e.message); }
-    ok('energy: insufficient throws', threw);
-    const { terna } = startYear(s); decide(s, []); resolveYear(s);
-    ok('energy: resets on year turn', s.energy === ENERGY_PER_YEAR);
+    spendEnergy(s, 99, 'testing'); // does not throw, does nothing
+    ok('energy: spendEnergy is no-op', true);
   }
   // succession after death is free; living succession costs
   {
@@ -3217,7 +3211,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     const s2 = setup('nrg3');
     const e1 = s2.energy;
     beginProvincialReplacement(s2, 'east');
-    ok('energy: living succession costs 1', s2.energy === e1 - 1);
+    ok('energy: living succession is free', s2.energy === e1);
   }
   // finance logging
   {

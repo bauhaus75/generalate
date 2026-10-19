@@ -396,7 +396,7 @@ export function showHowTo(app) {
       <p><strong>2. The indipetae.</strong> Three petitioners lay their letters on your desk. Read each letter — the full text, the dossier, the man's history. No choice is marked; the weight is yours.</p>
       <p><strong>3. The decision.</strong> Select one petitioner, review your choice, and confirm. The seal falls: <em>APPROVED</em> on one, <em>DENIED</em> on two.</p>
       <p><strong>4. The year turns.</strong> Your chosen man sails. Storms, war, plague, and politics decide what your seal began. The ledger records everything.</p>
-      <p><strong>5. The account.</strong> Your SCORE starts at 50. You are judged by fruit, not dispatches: score moves when voyage news arrives and through lasting foundations. Each approval costs 1 energy and 30 scudi for the seal. Campaign ends in 1645; in Endless mode, you lay down the office when you choose.</p>
+      <p><strong>5. The account.</strong> Your SCORE starts at 50. You are judged by fruit, not dispatches: score moves when voyage news arrives and through lasting foundations. Each approval costs 30 scudi for the seal. Campaign ends in 1645; in Endless mode, you lay down the office when you choose.</p>
 
     </div>
   </div>`;
@@ -1456,7 +1456,7 @@ export function renderGovernance(app, root) {
       });
       if (!frontier.length) return '';
       return `<h3 class="sect">Found a mission</h3>
-      <p class="howto-note">Frontier fields await the Society — 1000 scudi, 3 energy, and men to send. Collapsed missions can be rebuilt.</p>
+      <p class="howto-note">Frontier fields await the Society — 1000 scudi and men to send. Collapsed missions can be rebuilt.</p>
       <div class="frontier-list">
         ${frontier.map((d) => `
         <div class="frontier-item">
@@ -1624,10 +1624,10 @@ function renderProvincialPage(app, root, regionId) {
     <h3 class="sect">His men <span class="disp-mini">(${roster.length})</span></h3>
     ${roster.length ? `<ul class="news-list">${roster.slice(0, 60).map((id) => `
       <li><strong>${esc(manName(id))}</strong> <span class="disp-mini">${esc(manGrade(id))}</span>
-      <button class="gbtn small ghost prov-ask" data-id="${esc(id)}" ${questionsLeft > 0 && energy > 0 ? '' : 'disabled'}>Ask about him</button></li>`).join('')}
+      <button class="gbtn small ghost prov-ask" data-id="${esc(id)}" ${questionsLeft > 0 ? '' : 'disabled'}>Ask about him</button></li>`).join('')}
       ${roster.length > 60 ? `<li class="disp-mini">…and ${roster.length - 60} more.</li>` : ''}</ul>`
       : `<p class="howto-note">No men of his are known to the Generalate.</p>`}
-    <p class="howto-note">Questions this year: <strong>${questionsLeft} of ${E.QUESTIONS_PER_YEAR}</strong> remain. Each costs 1 energy.</p>
+    <p class="howto-note">Questions this year: <strong>${questionsLeft} of ${E.QUESTIONS_PER_YEAR}</strong> remain. Each is free.</p>
 
     <div id="prov-answer"></div>
   </section>`;
@@ -1816,7 +1816,7 @@ function cardHTML(app, c) {
       <button class="gbtn small ghost inspect-btn" data-id="${esc(c.id)}" data-name="${esc(c.name)}">Inspect</button></p>
     <button class="gbtn small read-letter" data-id="${esc(c.id)}">Read letter</button>
     <div class="verdict-row" role="group" aria-label="Decision for ${esc(c.name)}">
-      <button class="gbtn small verdict approve-btn" data-id="${esc(c.id)}" data-verdict="approve" aria-pressed="false" title="Approve (1 energy, 30 scudi seal)">Approve</button>
+      <button class="gbtn small verdict approve-btn" data-id="${esc(c.id)}" data-verdict="approve" aria-pressed="false" title="Approve (30 scudi seal)">Approve</button>
       <button class="gbtn small ghost verdict deny-btn" data-id="${esc(c.id)}" data-verdict="deny" aria-pressed="false">Deny</button>
     </div>
     <label class="dest-redirect card-dest" data-id="${esc(c.id)}" hidden>Send to:
@@ -2567,12 +2567,12 @@ export function renderLogistics(app, root) {
     <div class="logi-section">
       <h3 class="px">BERTHS</h3>
       <p><strong>${berths}</strong> berths in port · <strong>${departedThisYear}</strong> ships outfitting</p>
-      <p class="disp-mini">Commission +1 berth for 400 scudi and 1 energy (Governance).</p>
+      <p class="disp-mini">Commission +1 berth for 400 scudi (Governance).</p>
     </div>
     <div class="logi-section">
       <h3 class="px">SHIPS (${ships.length})</h3>
       <div class="logi-ships">${shipCards || '<p class="disp-mini">No ships.</p>'}</div>
-      <p class="disp-mini">Caravel: 4 men · Carrack: 8 men · Galleon: 12 men. Charter in Governance (1 energy).</p>
+      <p class="disp-mini">Caravel: 4 men · Carrack: 8 men · Galleon: 12 men. Charter in Governance.</p>
     </div>
     <div class="logi-section">
       <h3 class="px">DEPARTURE QUEUE</h3>

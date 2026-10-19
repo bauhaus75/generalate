@@ -821,15 +821,22 @@ function missionCardHTML(app, d, year) {
   const closed = (app.state.destState[d.id] || {}).access === 'closed';
   const pct = st.capacity > 0 ? Math.min(100, Math.round((staffed / st.capacity) * 100)) : 0;
   const grades = E.MISSION_GRADE_IDS || ['fathers', 'coadjutors', 'brothers'];
-  const gradeBits = grades.map(gid => `${st[gid]} ${E.MISSION_GRADES[gid].short.toLowerCase()}`).join(' · ');
+  // Six-grade breakdown from staffIds (P, S*, S, F, nS, nF)
+  const gradeCounts = { P: 0, 'S*': 0, S: 0, F: 0, nS: 0, nF: 0 };
+  for (const pid of (st.staffIds || [])) {
+    const dg = E.detailedGradeFor ? E.detailedGradeFor(app.state, pid) : 'F';
+    if (gradeCounts.hasOwnProperty(dg)) gradeCounts[dg] += 1;
+  }
+  const gradeBits = ['P', 'S*', 'S', 'F', 'nS', 'nF'].map((g) => `${gradeCounts[g]}${g}`).join(' · ');
   const fragFlag = st.fragile
     ? '<span class="mflag fragile-flag">FRAGILE</span>'
     : (st.fragileYears > 0 ? `<span class="mflag understaffed-flag">understaffed (${st.fragileYears}/3 years)</span>` : '');
   return `<article class="mission-card${closed ? ' closed' : ''}${staffed < st.capacity && !closed ? ' wants-men' : ''}${st.fragile ? ' is-fragile' : ''}">
-    <div class="mission-head"><strong>${esc(d.name || d.id)}</strong>
+    <div class="mission-head mission-toggle" data-dest="${esc(d.id)}" style="cursor:pointer;"><strong>${esc(d.name || d.id)}</strong> <span class="toggle-hint">(tap to expand)</span>
       ${closed ? '<span class="mflag closed-flag">closed</span>'
         : staffed < st.capacity ? `<span class="mflag want-flag">asks for ${st.capacity - staffed} more</span>`
         : '<span class="mflag full-flag">at strength</span>'}${fragFlag}</div>
+    <div class="mission-details" data-details="${esc(d.id)}" hidden>
     <div class="cap-bar" aria-hidden="true"><div class="cap-fill" style="width:${pct}%"></div></div>
     <p class="mission-staff">${esc(gradeBits)} — <button class="staff-toggle" data-dest="${esc(d.id)}"><strong>${staffed}/${st.capacity}</strong> (tap for roster)</button></p>
     <div class="mission-roster" data-roster="${esc(d.id)}" hidden>
@@ -882,6 +889,7 @@ function missionCardHTML(app, d, year) {
         <button class="gbtn small ghost instr-send" data-id="${esc(d.id)}">Send</button></div>`;
     })()}
     ${!closed ? `<div class="btn-row"><button class="gbtn small warn mission-disband" data-id="${esc(d.id)}" data-energy="1">Disband mission</button></div>` : ''}
+    </div>
   </article>`;
 }
 
@@ -1530,7 +1538,7 @@ export function renderMissions(app, root) {
       </div>
       <p class="howto-note">Professed fathers are ordained men of the fourth vow — costly, and the strongest pillars of a mission. Spiritual coadjutors are ordained priests of simple vows. Brothers sustain the mission by labor.</p>
     </div>
-    ${deploymentPanelHTML(app)}
+    <!-- Collective deployment REMOVED per Tran 2026-10-19 -->
     ${(() => {
       const g = app.data;
       const destList = Array.isArray(g.destinations) ? g.destinations : Object.values(g.destinations || {});
@@ -1623,8 +1631,7 @@ export function renderMissions(app, root) {
       alert(e.message);
     }
   }));
-  // ---- collective deployment wiring ----
-  wireDeploymentPanel(app, root);
+  // Collective deployment wiring REMOVED per Tran 2026-10-19
   root.querySelectorAll('.instr-send').forEach(btn => {
     btn.addEventListener('click', () => {
       try {
@@ -1644,6 +1651,21 @@ export function renderMissions(app, root) {
   root.querySelector('#missions-back').addEventListener('click', () => {
     app.sound('page');
     app.go(app.ui.missionsFrom && app.ui.missionsFrom !== 'missions' ? app.ui.missionsFrom : 'briefing');
+  });
+  // Mission card toggles (collapse/expand)
+  root.querySelectorAll('.mission-toggle').forEach((header) => {
+    header.addEventListener('click', (e) => {
+      // Don't toggle if clicking a button inside
+      if (e.target.closest('button')) return;
+      const destId = header.dataset.dest;
+      const details = root.querySelector(`[data-details="${destId}"]`);
+      if (details) {
+        details.hidden = !details.hidden;
+        const hint = header.querySelector('.toggle-hint');
+        if (hint) hint.textContent = details.hidden ? '(tap to expand)' : '(tap to collapse)';
+        app.sound('tick');
+      }
+    });
   });
   // Staff roster toggles
   root.querySelectorAll('.staff-toggle').forEach((btn) => {

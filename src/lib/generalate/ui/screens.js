@@ -827,7 +827,7 @@ function missionCardHTML(app, d, year) {
     const dg = E.detailedGradeFor ? E.detailedGradeFor(app.state, pid) : 'F';
     if (gradeCounts.hasOwnProperty(dg)) gradeCounts[dg] += 1;
   }
-  const gradeBits = ['P', 'S*', 'S', 'F', 'nS', 'nF'].map((g) => `${gradeCounts[g]}${g}`).join(' · ');
+  const gradeBits = ['P', 'S*', 'S', 'F', 'nS', 'nF'].map((g) => `${g}: ${gradeCounts[g]}`).join(' || ');
   const fragFlag = st.fragile
     ? '<span class="mflag fragile-flag">FRAGILE</span>'
     : (st.fragileYears > 0 ? `<span class="mflag understaffed-flag">understaffed (${st.fragileYears}/3 years)</span>` : '');

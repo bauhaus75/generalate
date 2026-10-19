@@ -113,7 +113,7 @@ function initMissions(destinations, petitioners) {
   for (const d of list) {
     const id = d.id || d;
     const capacity = rules.MISSION_CAPACITY[id] ?? 5;
-    const total = Math.floor(capacity * 0.35);
+    const total = Math.max(2, Math.round(capacity * 0.35)); // min 2 men, avoids <25% trap
     const fathers = Math.round(total * 0.2);
     const coadjutors = Math.round(total * 0.3);
     const staffIds = [];
@@ -4661,22 +4661,23 @@ function resolveMartyrdomAndDisease(state, rng) {
     const diseased = [];
     
     for (const pid of [...st.staffIds]) {
-      // Martyrdom roll
+      // Martyrdom roll (reduced per balance audit 2026-10-19: 3%/6%/10%)
       let died = false;
       let martyr = false;
       if (danger > 0) {
-        const roll = rng.int(1, 20);
-        if (roll <= danger) {
+        const thresholds = { 1: 3, 2: 6, 3: 10 };
+        const roll = rng.int(1, 100);
+        if (roll <= (thresholds[danger] || 3)) {
           martyred.push(pid);
           died = true;
           martyr = true;
         }
       }
       
-      // Disease roll (separate)
+      // Disease roll (separate, reduced per balance audit 2026-10-19: 3%/6%)
       if (!died) {
-        const roll = rng.int(1, 20);
-        const threshold = tropical ? 2 : 1;
+        const roll = rng.int(1, 100);
+        const threshold = tropical ? 6 : 3;
         if (roll <= threshold) {
           diseased.push(pid);
           died = true;
@@ -4762,11 +4763,11 @@ function collapseMission(state, destId) {
   if (!state.destState[destId]) state.destState[destId] = {};
   state.destState[destId].access = 'closed';
   state.destState[destId].collapsed = true;
-  state.score = Math.max(0, (state.score || 0) - 20);
-  if (state.scoreUncapped != null) state.scoreUncapped -= 20;
+  state.score = Math.max(0, (state.score || 0) - 10);
+  if (state.scoreUncapped != null) state.scoreUncapped -= 10;
   addLedger(state, {
     year: state.year, type: 'collapse', destination: destId,
-    text: `The mission at ${destName} has collapsed. ${lost} men lost. (-20 score)`,
+    text: `The mission at ${destName} has collapsed. ${lost} men lost. (-10 score)`,
   });
 }
 

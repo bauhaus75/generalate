@@ -57,6 +57,19 @@ html, body {
 #generalate-app .tier-core {
   background: #8b0000; color: #ffd700; border: 1px solid #ffd700;
 }
+#generalate-app .trait-bubble {
+  display: inline-block;
+  min-width: 1.2rem; height: 1.2rem; line-height: 1.2rem;
+  border-radius: 0.6rem; text-align: center;
+  font-size: 0.7rem; font-weight: bold;
+  margin-left: 0.4rem; padding: 0 0.25rem;
+}
+#generalate-app .trait-bubble.up {
+  background: #c0392b; color: white;
+}
+#generalate-app .trait-bubble.down {
+  background: #7f8c8d; color: white;
+}
 
 /* ---------- header ---------- */
 #gheader {

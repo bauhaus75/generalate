@@ -110,11 +110,13 @@ export function showInspector(app, petitionerId, name) {
   const unattested = Dispositions.TRAITS.filter((t) => !d.evidence[t.id]);
   const rows = Dispositions.TRAITS.map((t) => {
     const init = d.initial[t.id], cur = d.current[t.id];
-    const delta = cur > init ? ' ↑' : cur < init ? ' ↓' : '';
+    const diff = cur - init;
+    const bubble = diff > 0 ? `<span class="trait-bubble up">+${diff}</span>`
+      : diff < 0 ? `<span class="trait-bubble down">${diff}</span>` : '';
     return `<div class="insp-row">
-      <span class="insp-tname" title="${esc(t.blurb)}">${esc(t.name)}</span>
+      <span class="insp-tname" title="${esc(t.blurb)}">${esc(t.name)}${bubble}</span>
       <span class="insp-scale"><span class="insp-lab">at first</span> ${dispDots(init)} <span class="insp-word">${esc(Dispositions.traitLabel(init))}</span></span>
-      <span class="insp-scale"><span class="insp-lab">now</span> ${dispDots(cur)} <span class="insp-word">${esc(Dispositions.traitLabel(cur))}${delta}</span></span>
+      <span class="insp-scale"><span class="insp-lab">now</span> ${dispDots(cur)} <span class="insp-word">${esc(Dispositions.traitLabel(cur))}</span></span>
     </div>`;
   }).join('');
   const ov = document.createElement('div');

@@ -153,8 +153,6 @@ html, body {
   max-width: 1080px;
   margin: 0 auto;
   box-sizing: border-box;
-  padding-left: 1rem;
-  padding-right: 1rem;
 }
 /* Desktop: use more width */
 @media (min-width: 1200px) {
@@ -227,8 +225,11 @@ html, body {
 #generalate-app .desk-screen { max-width: 1200px; }
 #generalate-app .desk-instr { font-size: 1.05rem; color: var(--parch-deep); font-style: italic; margin-bottom: 1.2rem; }
 #generalate-app .desk {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.1rem;
+  display: grid; grid-template-columns: 1fr; gap: 1.1rem;
   align-items: stretch;
+}
+@media (min-width: 768px) {
+  #generalate-app .desk { grid-template-columns: repeat(3, 1fr); }
 }
 #generalate-app .pcard {
   position: relative;

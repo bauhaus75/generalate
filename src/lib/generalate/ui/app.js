@@ -373,6 +373,7 @@ if (inboxBtn) inboxBtn.addEventListener('click', (e) => {
     if (inboxPanel) inboxPanel.addEventListener('click', (e) => { if (e.target === inboxPanel) closeInbox(); });
     app.renderInbox = renderInbox;
     h.querySelector('#gh-house').addEventListener('click', () => { app.sound('page'); app.ui.houseFrom = app.ui.screen; app.go('house'); });
+    h.querySelector('#gh-domestic').addEventListener('click', () => { app.sound('page'); app.go('domestic'); });
     h.querySelector('#gh-missions').addEventListener('click', () => { app.sound('page'); app.ui.missionsFrom = app.ui.screen; app.go('missions'); });
     h.querySelector('#gh-indipetae').addEventListener('click', () => { app.sound('page'); app.go('indipetae'); });
     h.querySelector('#gh-governance').addEventListener('click', () => { app.sound('page'); app.go('governance'); });
@@ -560,6 +561,7 @@ app.go = function (screen, params = {}) {
       break;
     }
     case 'house': app.syncHeader(); Screens.renderHouse(app, r); break;
+    case 'domestic': app.syncHeader(); Screens.renderDomesticMissions(app, r); break;
     case 'missions': app.syncHeader(); Screens.renderMissions(app, r); break;
     case 'governance': app.syncHeader(); Screens.renderGovernance(app, r); break;
     case 'treasury': app.syncHeader(); Screens.renderTreasury(app, r); break;
@@ -570,7 +572,7 @@ app.go = function (screen, params = {}) {
     case 'map': app.syncHeader(); Screens.renderMapScreen(app, r, params.from || app.ui.mapFrom); break;
     case 'ending': { const hh = document.getElementById('gheader'); if (hh) hh.style.display = 'none'; Screens.renderEnding(app, r, app.ui.end); break; }
   }
-  if (['briefing', 'desk', 'decision', 'yearreport', 'map', 'house', 'missions', 'governance', 'treasury', 'logistics', 'draft'].includes(screen)) app.save();
+  if (['briefing', 'desk', 'decision', 'yearreport', 'map', 'house', 'domestic', 'missions', 'governance', 'treasury', 'logistics', 'draft'].includes(screen)) app.save();
   // Energy gating: discretionary buttons go quiet at zero energy.
   try {
     const left = app.state ? (app.state.energy ?? Engine.ENERGY_PER_YEAR) : 0;

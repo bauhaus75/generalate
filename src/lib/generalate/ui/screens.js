@@ -635,7 +635,8 @@ export function renderBriefing(app, root, start) {
 
 /** Men laboring in Europe who may receive a year of formation. */
 function formationListHTML(app, year) {
-  const list = app.state.europeanLabor || [];
+  // Formation tab: show men in formation or available (not those with domestic assignments)
+  const list = (app.state.europeanLabor || []).filter(e => !e.assignment);
   if (!list.length) {
     return `<p class="howto-note">No men labor in Europe yet. Those you deny at the desk, and those who return from the sea, will gather here — and a year of formation can deepen them before they are sent.</p>`;
   }
@@ -680,6 +681,65 @@ function formationListHTML(app, year) {
       <button class="gbtn small ghost inspect-btn" data-id="${esc(e.petitionerId)}" data-name="${esc(e.name)}">Inspect</button>
     </li>`;
   }).join('')}</ul>`;
+}
+
+export function renderDomesticMissions(app, root) {
+  const year = app.state.currentYear ? app.state.currentYear.year : app.state.year;
+  const list = (app.state.europeanLabor || []).filter(e => e.assignment || (!e.assignment && !e.formation));
+  const roles = DOMESTIC_ROLES;
+  const roleOpts = Object.values(roles).map(r =>
+    `<option value="${r.id}" title="${esc(r.desc)}">${esc(r.name)} — ${esc(r.requires)}</option>`).join('');
+  root.innerHTML = `
+  <section class="gscreen">
+    <p class="kicker px">DOMESTIC MISSIONS</p>
+    <h2 class="year-head px">ANNO ${year}</h2>
+    <p class="howto-note">Men laboring in Europe — teaching, preaching, serving in colleges and parishes. Assign them to domestic work, or release them for the missions.</p>
+    <ul class="formation-list">${list.map((e) => {
+      const asg = e.assignment ? roles[e.assignment] : null;
+      const reserveTag = e.reservedFor ? `<span class="disp-mini reserve-badge">reserved: ${esc(e.reservedForName || e.reservedFor)}</span>` : '';
+      return `<li class="formation-row">
+        <strong>${esc(e.name)}</strong> ${gradeChip(app, e.petitionerId)}
+        ${reserveTag}
+        ${asg ? `<span class="form-active">Assigned: ${esc(asg.name)} (since ${e.assignedYear || year})</span>
+          <button class="gbtn small ghost domestic-release" data-id="${esc(e.petitionerId)}">Release</button>`
+        : `<label class="form-pick">Domestic:
+            <select class="domestic-role" data-id="${esc(e.petitionerId)}">
+              <option value="">— available —</option>${roleOpts}
+            </select></label>
+            <button class="gbtn small domestic-assign" data-id="${esc(e.petitionerId)}">Assign</button>`}
+        <button class="gbtn small ghost inspect-btn" data-id="${esc(e.petitionerId)}" data-name="${esc(e.name)}">Inspect</button>
+      </li>`;
+    }).join('') || '<p class="disp-mini">No men in domestic missions.</p>'}</ul>
+    <div class="btn-row">
+      <button class="gbtn ghost" id="domestic-back">← Back</button>
+    </div>
+  </section>`;
+  // Wire domestic assign/release
+  root.querySelectorAll('.domestic-assign').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pid = btn.dataset.id;
+      const sel = root.querySelector(`.domestic-role[data-id="${pid}"]`);
+      const roleId = sel ? sel.value : '';
+      if (!roleId) { app.toast('Choose a role first.'); return; }
+      try {
+        app.Engine.assignDomestic(app.state, pid, roleId);
+        app.save(); app.go('domestic');
+      } catch (e) { alert(e.message); }
+    });
+  });
+  root.querySelectorAll('.domestic-release').forEach(btn => {
+    btn.addEventListener('click', () => {
+      try {
+        app.Engine.releaseDomestic(app.state, btn.dataset.id);
+        app.save(); app.go('domestic');
+      } catch (e) { alert(e.message); }
+    });
+  });
+  root.querySelectorAll('.inspect-btn').forEach(btn => {
+    btn.addEventListener('click', () => app.showInspector(btn.dataset.id));
+  });
+  const back = root.querySelector('#domestic-back');
+  if (back) back.addEventListener('click', () => app.go('briefing'));
 }
 
 export function renderHouse(app, root) {

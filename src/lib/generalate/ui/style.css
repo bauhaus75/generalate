@@ -148,8 +148,9 @@ html, body {
   background:
     radial-gradient(ellipse at 20% 0%, rgba(216,180,106,0.06), transparent 60%),
     linear-gradient(180deg, #43301d 0%, var(--wood) 30%, var(--wood-deep) 100%);
-  min-height: 70vh;
+  min-height: 100vh;
   padding: 2rem 1.25rem 4rem;
+  box-sizing: border-box;
 }
 #generalate-app .gscreen {
   width: 100%;

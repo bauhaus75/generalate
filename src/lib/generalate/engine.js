@@ -4566,6 +4566,49 @@ export function personName(state, petitionerId) {
   return name;
 }
 
+/**
+ * Generate a one-line "deeds" summary for a person — what associates them
+ * with feats of greatness. Used in rosters to make names meaningful.
+ */
+export function personDeeds(state, petitionerId) {
+  const pid = String(petitionerId);
+  if (pid.startsWith('dispatched-')) return 'Dispatched from Rome';
+  
+  const deeds = [];
+  const g = getGameData();
+  
+  // Grade
+  const grade = staffGradeFor(state, petitionerId);
+  const gradeLabel = grade === 'fathers' ? 'Father' : grade === 'brothers' ? 'Brother' : 'Scholastic';
+  deeds.push(gradeLabel);
+  
+  // Years in Society
+  const yrs = yearsInSociety(state, petitionerId);
+  if (yrs > 0) deeds.push(`${yrs} yrs in Society`);
+  
+  // Missions served (from voyage history)
+  const voyages = (state.voyages || []).filter((v) => v.petitionerId === petitionerId && v.outcome === 'thriving');
+  if (voyages.length > 0) {
+    const dests = [...new Set(voyages.map((v) => {
+      const d = g?.destinations ? (Array.isArray(g.destinations) ? g.destinations.find((x) => x.id === v.destination) : g.destinations[v.destination]) : null;
+      return d?.name || v.destination;
+    }))];
+    if (dests.length > 0) {
+      deeds.push(`served in ${dests.slice(0, 2).join(', ')}${dests.length > 2 ? ` +${dests.length - 2} more` : ''}`);
+    }
+  }
+  
+  // Notable: survived punching up
+  const punched = voyages.filter((v) => v.shipTier && v.destination);
+  if (punched.length > 0) {
+    // Check if any voyage was punching up (we'd need to store this, for now just count voyages)
+    if (voyages.length >= 3) deeds.push('veteran of 3+ voyages');
+    else if (voyages.length >= 2) deeds.push('veteran of 2 voyages');
+  }
+  
+  return deeds.join(' · ');
+}
+
 export function cardName(state, g, id) {
   const hist = g.petitioners.find((p) => p.id === id);
   if (hist) return hist.name;

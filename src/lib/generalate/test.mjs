@@ -1315,7 +1315,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   const fundsBefore = s.resources.funds;
   const { terna } = startYear(s);
   decide(s, []); // deny terna so only deployment men sail
-  resolveYear(s); // departures: 4 men x 60 (Model B: 4 men fit 1 hull, 1 berth → all sail)
+  resolveYear(s, { skipNatives: true }); // departures: 4 men x 60 (Model B: 4 men fit 1 hull, 1 berth → all sail)
   const sailed = s.voyages.filter(v => v.deploymentId === dep.id);
   ok('4 of 4 sail in year one (1 ship, 1 berth)', sailed.length === 4, `${sailed.length}`);
   ok('pool decremented exactly once per sailed man', s.available === availBefore - 4 + 1, `${s.available}`);

@@ -4185,7 +4185,7 @@ export function buildSocietyReport(state, y, outcomes, statsBefore, fruits = nul
   return report;
 }
 
-export function resolveYear(state) {
+export function resolveYear(state, opts = {}) {
   if (state.currentTerna) {
     throw new Error('An undecided terna is pending.');
   }
@@ -4645,9 +4645,9 @@ export function resolveYear(state) {
  * track (nF), 10% Scholastic (nS). They spawn directly in the mission,
  * bypassing the terna and Europe.
  */
-function spawnNativeVocations(state, mainRng) {
-  // Natives only appear after 1630 (takes time for local vocations to develop)
-  if (state.year < 1630) return;
+function spawnNativeVocations(state, mainRng, opts = {}) {
+  if (opts.skipNatives) return;
+  // Natives only appear in missions established 10+ years
   // Use a separate RNG stream so native rolls don't shift the main sequence
   const rng = makeRng(`${state.seed}:natives:${state.year}`);
   const NATIVE_MISSIONS = {
@@ -4667,6 +4667,9 @@ function spawnNativeVocations(state, mainRng) {
     // Must be thriving: 60%+ staffing
     if (staffed < capacity * 0.6) continue;
     if (staffed >= capacity) continue;
+    // Must be established 10+ years
+    const foundedYear = typeof st.foundedYear === 'number' ? st.foundedYear : state.year;
+    if (state.year - foundedYear < 10) continue;
     // 20% chance per year
     if (rng.int(1, 100) > 20) continue;
     // 90% nF (Brother track), 10% nS (Scholastic)
@@ -4837,7 +4840,7 @@ function collapseMission(state, destId) {
 }
 
   // Native vocations: thriving missions gain native novices.
-  spawnNativeVocations(state, rng);
+  spawnNativeVocations(state, rng, opts);
 
   // Martyrdom and disease: annual rolls for stationed men.
   resolveMartyrdomAndDisease(state, rng);

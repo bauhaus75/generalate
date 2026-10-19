@@ -20,14 +20,14 @@ export const FICTIONAL_DISCLAIMER = '';
 export const MAX_ACTIVE_FICTIONAL = 120;
 
 const FIRST_NAMES = Object.freeze({
-  italian: ['Giovanni', 'Marco', 'Tommaso', 'Francesco', 'Antonio', 'Pietro', 'Paolo', 'Giuseppe', 'Carlo', 'Luca', 'Alessandro', 'Domenico', 'Stefano', 'Filippo', 'Nicola', 'Bartolomeo'],
-  spanish: ['Pedro', 'Diego', 'Juan', 'Francisco', 'Antonio', 'Miguel', 'Alonso', 'Cristobal', 'Domingo', 'Esteban', 'Felipe', 'Gabriel', 'Hernando', 'Ignacio', 'Jose', 'Luis'],
-  portuguese: ['Manuel', 'Joao', 'Antonio', 'Francisco', 'Pedro', 'Diogo', 'Gaspar', 'Miguel', 'Tome', 'Baltasar', 'Cristovao', 'Duarte', 'Fernando', 'Goncalo', 'Henrique', 'Lourenco'],
+  italian: ['Giovanni', 'Marco', 'Tommaso', 'Francesco', 'Antonio', 'Pietro', 'Paolo', 'Giuseppe', 'Carlo', 'Luca', 'Alessandro', 'Domenico', 'Stefano', 'Filippo', 'Nicola', 'Bartolomeo', 'Giacomo', 'Lorenzo', 'Matteo', 'Andrea', 'Simone', 'Vincenzo', 'Salvatore', 'Raffaele', 'Emanuele', 'Federico', 'Roberto', 'Claudio', 'Enrico', 'Giorgio', 'Ugo', 'Ottavio', 'Fabio', 'Sergio', 'Maurizio', 'Valerio', 'Aldo', 'Bruno', 'Cesare', 'Dario', 'Elio', 'Flavio'],
+  spanish: ['Pedro', 'Diego', 'Juan', 'Francisco', 'Antonio', 'Miguel', 'Alonso', 'Cristobal', 'Domingo', 'Esteban', 'Felipe', 'Gabriel', 'Hernando', 'Ignacio', 'Jose', 'Luis', 'Carlos', 'Manuel', 'Rafael', 'Andres', 'Javier', 'Ricardo', 'Eduardo', 'Pablo', 'Ramon', 'Emilio', 'Julio', 'Tomas', 'Vicente', 'Salvador', 'Marcos', 'Nicolas', 'Agustin', 'Baltasar', 'Bernardo', 'Camilo', 'Dionisio', 'Eugenio', 'Fabian', 'Gregorio', 'Isidro', 'Joaquin'],
+  portuguese: ['Manuel', 'Joao', 'Antonio', 'Francisco', 'Pedro', 'Diogo', 'Gaspar', 'Miguel', 'Tome', 'Baltasar', 'Cristovao', 'Duarte', 'Fernando', 'Goncalo', 'Henrique', 'Lourenco', 'Afonso', 'Bento', 'Caetano', 'Damiao', 'Estêvão', 'Filipe', 'Geraldo', 'Inacio', 'Jorge', 'Leonardo', 'Martinho', 'Nuno', 'Paulo', 'Rodrigo', 'Sebastiao', 'Tiago', 'Vasco', 'Xavier', 'Zacarias', 'Amaro', 'Bras', 'Cipriano', 'Dionisio', 'Egas', 'Froila', 'Garcia'],
 });
 
 const LAST_NAMES = Object.freeze({
-  italian: ['Rossi', 'Bianchi', 'Verdi', 'Neri', 'Bellini', 'Sforza', 'Colonna', 'Orsini', 'Ferrari', 'Marini', 'Conti', 'Ricci', 'Moretti', 'Gallo', 'Fontana', 'Serra'],
-  spanish: ['Alvarez', 'Fuentes', 'Garcia', 'Lopez', 'Martinez', 'Sanchez', 'Torres', 'Vargas', 'Castillo', 'Morales', 'Ortega', 'Reyes', 'Cruz', 'Mendoza', 'Aguilar', 'Delgado'],
+  italian: ['Rossi', 'Bianchi', 'Verdi', 'Neri', 'Bellini', 'Sforza', 'Colonna', 'Orsini', 'Ferrari', 'Marini', 'Conti', 'Ricci', 'Moretti', 'Gallo', 'Fontana', 'Serra', 'Rinaldi', 'Barbieri', 'Grassi', 'Pellegrini', 'Farina', 'Sartori', 'Mancini', 'Ruggieri', 'Vitali', 'Orlando', 'Palmieri', 'Testa', 'Gatti', 'Villa', 'Costa', 'Fontana', 'Mariani', 'Barone', 'Santoro', 'Caputo', 'Ferraro', 'Gentile', 'Lombardi', 'Mazza', 'Pugliese', 'Romano'],
+  spanish: ['Alvarez', 'Fuentes', 'Garcia', 'Lopez', 'Martinez', 'Sanchez', 'Torres', 'Vargas', 'Castillo', 'Morales', 'Ortega', 'Reyes', 'Cruz', 'Mendoza', 'Aguilar', 'Delgado', 'Navarro', 'Dominguez', 'Vazquez', 'Ramos', 'Gil', 'Serrano', 'Blanco', 'Molina', 'Herrera', 'Medina', 'Guerrero', 'Campos', 'Vidal', 'Soto', 'Luna', 'Marin', 'Roldan', 'Salazar', 'Cardenas', 'Rosales', 'Beltran', 'Correa', 'Flores', 'Gutierrez', 'Herranz', 'Ibanez'],
   portuguese: ['Costa', 'Mendes', 'Silva', 'Santos', 'Ferreira', 'Pereira', 'Carvalho', 'Rocha', 'Dias', 'Nunes', 'Moreira', 'Teixeira', 'Correia', 'Pinto', 'Ribeiro', 'Faria'],
 });
 
@@ -64,10 +64,28 @@ const CLOSINGS = [
  * @param {number} genYear the game year this petitioner enters the pool
  * @returns {object} petitioner record in the petitioners.json shape (fictional:true)
  */
-export function fictionalPetitioner(seedBase, n, destIds, destNames, genYear) {
+export function fictionalPetitioner(seedBase, n, destIds, destNames, genYear, usedNames) {
   const rng = makeRng(`${seedBase}:fic:${n}`);
   const culture = rng.pick(CULTURES);
-  const name = `${rng.pick(FIRST_NAMES[culture])} ${rng.pick(LAST_NAMES[culture])}`;
+  let name = `${rng.pick(FIRST_NAMES[culture])} ${rng.pick(LAST_NAMES[culture])}`;
+  // Ensure uniqueness: if name is taken, try alternatives deterministically
+  if (usedNames && usedNames.has(name)) {
+    // Try with middle name or epithet
+    const middleNames = FIRST_NAMES[culture];
+    for (let i = 0; i < 10; i++) {
+      const altRng = makeRng(`${seedBase}:fic:${n}:alt:${i}`);
+      const altName = `${altRng.pick(FIRST_NAMES[culture])} ${altRng.pick(middleNames)} ${altRng.pick(LAST_NAMES[culture])}`;
+      if (!usedNames.has(altName)) {
+        name = altName;
+        break;
+      }
+    }
+    // If still taken, append roman numeral based on n
+    if (usedNames.has(name)) {
+      const numerals = ['II', 'III', 'IV', 'V'];
+      name = `${name} ${numerals[n % numerals.length]}`;
+    }
+  }
   const age = rng.int(18, 40);
   const yearsInSociety = rng.int(0, Math.min(age - 15, 25));
   const formation =

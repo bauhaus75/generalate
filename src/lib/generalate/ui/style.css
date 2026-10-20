@@ -888,3 +888,22 @@ body > .overlay .hist-loc, body > .overlay .hist-text { opacity: .75; }
 .ledger-death .ledger-entry-type { color: #8a2a2a; }
 .ledger-collapse .ledger-entry-type { color: #8a2a2a; font-weight: bold; }
 .ledger-warning .ledger-entry-type { color: #b06a00; font-weight: bold; }
+
+.deceased-name {
+  font-weight: bold;
+  min-width: 180px;
+}
+.deceased-name.martyr {
+  color: #8a1a1a;
+}
+.deceased-name.disease {
+  color: #4a4a4a;
+}
+.formation-list {
+  margin: 1rem 0;
+}
+.formation-item {
+  border: 1px solid var(--gold-dim);
+  padding: 0.75rem;
+  margin: 0.5rem 0;
+}

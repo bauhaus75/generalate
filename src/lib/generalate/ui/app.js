@@ -264,6 +264,7 @@ function renderHeader() {
         <button class="gbtn small ghost" id="gh-governance">Governance<span class="gh-badge" id="gh-badge-governance" hidden></span></button>
         <button class="gbtn small ghost" id="gh-map">Map</button>
         <button class="gbtn small ghost" id="gh-ledger">Ledger</button>
+        <button class="gbtn small ghost" id="gh-deceased">Deceased</button>
         <button class="gbtn small ghost" id="gh-treasury">Treasury</button>
         <button class="gbtn small ghost" id="gh-sound" aria-label="Toggle sound">🔊</button>
         <button class="gbtn small ghost" id="gh-end" hidden>End office</button>
@@ -280,6 +281,7 @@ function renderHeader() {
           <button class="gbtn small ghost" id="gh-d-governance">Governance<span class="gh-badge" id="gh-d-badge-governance" hidden></span></button>
           <button class="gbtn small ghost" id="gh-d-map">Map</button>
           <button class="gbtn small ghost" id="gh-d-ledger">Ledger</button>
+          <button class="gbtn small ghost" id="gh-d-deceased">Deceased</button>
           <button class="gbtn small ghost" id="gh-d-treasury">Treasury</button>
           <button class="gbtn small ghost" id="gh-d-logistics">Logistics</button>
         </div>
@@ -316,6 +318,7 @@ function renderHeader() {
     drawerGo('#gh-d-governance', () => app.go('governance'));
     drawerGo('#gh-d-map', () => app.go('map', { from: app.ui.screen }));
     drawerGo('#gh-d-ledger', () => Screens.showLedgerOverlay(app));
+    drawerGo('#gh-d-deceased', () => Screens.showDeceasedBook(app));
     drawerGo('#gh-d-treasury', () => app.go('treasury'));
     drawerGo('#gh-d-logistics', () => app.go('logistics'));
     // Notification inbox
@@ -386,6 +389,8 @@ if (inboxBtn) inboxBtn.addEventListener('click', (e) => {
     h.querySelector('#gh-governance').addEventListener('click', () => { app.sound('page'); app.go('governance'); });
     h.querySelector('#gh-map').addEventListener('click', () => { app.sound('page'); app.go('map', { from: app.ui.screen }); });
     h.querySelector('#gh-ledger').addEventListener('click', () => Screens.showLedgerOverlay(app));
+    const decBtn = h.querySelector('#gh-deceased');
+    if (decBtn) decBtn.addEventListener('click', () => Screens.showDeceasedBook(app));
     h.querySelector('#gh-treasury').addEventListener('click', () => { app.sound('page'); app.go('treasury'); });
     const coinsBtn = h.querySelector('#gh-coins-btn');
     if (coinsBtn) {

@@ -1449,6 +1449,7 @@ export function renderGovernance(app, root) {
     <p class="howto-note">The General governs through his provincials. Choose one to see his men, his requests, and to ask about a man.</p>
     ${provincialsHTML(app)}
     ${app.ui.provReplacement ? provincialReplacementHTML(app, app.ui.provReplacement) : ''}
+    ${formationDecisionsHTML(app)}
     ${(() => {
       const E2 = app.Engine;
       const destList = E2.DESTINATIONS ? Object.values(E2.DESTINATIONS) : [];
@@ -1471,6 +1472,7 @@ export function renderGovernance(app, root) {
     })()}
   </section>`;
 
+  attachVowsHandlers(app, root);
   root.querySelectorAll('.gov-provincial').forEach((el) => {
     el.addEventListener('click', (ev) => {
       if (ev.target.closest('button')) return; // let Replace/Recall buttons work
@@ -2760,6 +2762,67 @@ export function showLedgerOverlay(app) {
           </div>
         </section>
       `).join('') || '<p class="gmap-hint">The pages are blank. No entries yet.</p>'}
+    </div>
+  </div>`;
+  ov.querySelector('.overlay-close').addEventListener('click', () => { app.sound('page'); ov.remove(); });
+  ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); });
+  document.body.appendChild(ov);
+  app.sound('page');
+}
+
+/* ---------------- Deceased book (martyrology) ---------------- */
+export function showDeceasedBook(app) {
+  const E = app.Engine;
+  const deaths = (app.state.ledger || []).filter(e => e.type === 'martyrdom' || e.type === 'death');
+  // Group by year
+  const byYear = {};
+  for (const d of deaths) {
+    const y = d.year || '?';
+    if (!byYear[y]) byYear[y] = [];
+    byYear[y].push(d);
+  }
+  const years = Object.keys(byYear).sort((a, b) => b - a);
+
+  const getBirthYear = (text) => {
+    // Try to find petitioner by name in text
+    const m = text.match(/^(.+?) (was martyred|died of disease)/);
+    if (!m) return '?';
+    const name = m[1];
+    for (const [pid, p] of Object.entries(app.state.petitioners || {})) {
+      try {
+        if (E.personName(app.state, pid) === name && p.entryYear && p.age) {
+          return p.entryYear - p.age;
+        }
+      } catch (e) {}
+    }
+    return '?';
+  };
+
+  const ov = document.createElement('div');
+  ov.className = 'overlay';
+  ov.innerHTML = `
+  <div class="overlay-card ledger-book" role="dialog" aria-modal="true" aria-label="Deceased">
+    <button class="overlay-close" aria-label="Close">✕</button>
+    <h2 class="px">REQUIESCANT IN PACE</h2>
+    <p class="ledger-sub">The fallen of the Society, year by year.</p>
+    <div class="ledger-pages">
+      ${years.map(y => `
+        <section class="ledger-year">
+          <h3 class="ledger-year-head">Anno ${y}</h3>
+          ${byYear[y].map(d => {
+            const isMartyr = d.type === 'martyrdom';
+            const birth = getBirthYear(d.text || '');
+            const dest = d.destination ? (E.DESTINATIONS?.[d.destination]?.name || d.destination) : '';
+            return `
+            <div class="ledger-entry">
+              <span class="deceased-name ${isMartyr ? 'martyr' : 'disease'}">${esc((d.text || '').split(/ was martyred| died of disease/)[0])}</span>
+              <span class="ledger-entry-text">
+                (${birth}–${y}) ${isMartyr ? '☩ martyred' : 'died of disease'}${dest ? ` at ${esc(dest)}` : ''}
+              </span>
+            </div>`;
+          }).join('')}
+        </section>
+      `).join('') || '<p class="gmap-hint">No deaths recorded.</p>'}
     </div>
   </div>`;
   ov.querySelector('.overlay-close').addEventListener('click', () => { app.sound('page'); ov.remove(); });

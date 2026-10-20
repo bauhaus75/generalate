@@ -4945,6 +4945,7 @@ function collapseMission(state, destId) {
 export function personName(state, petitionerId) {
   const pid = String(petitionerId);
   if (pid.startsWith('dispatched-')) return 'A missionary';
+  if (pid.startsWith('companion-')) return 'A companion';
   const g = getGameData();
   if (!g) return 'A petitioner';
   const name = cardName(state, g, petitionerId);

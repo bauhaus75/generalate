@@ -3336,19 +3336,24 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     const { engineStrength, engineBonus, setIntention, intentionVoyageMod } = EngineNS;
     const es = engineStrength(s);
     ok('engine: counts priests + martyrs', es.total >= 35 && es.martyrs === 5, `total=${es.total}`);
-    ok('engine: bonus is floor(total/10) capped 3', engineBonus(s) === Math.min(3, Math.floor(es.total / 10)), `bonus=${engineBonus(s)}`);
+    ok('engine: bonus is +0.1 per unit of strength', Math.abs(engineBonus(s) - es.total * 0.1) < 0.001, `bonus=${engineBonus(s)}`);
     setIntention(s, 'japan');
     ok('engine: mission intention gives voyage mod', intentionVoyageMod(s, 'japan') === engineBonus(s));
     ok('engine: other missions get no mod', intentionVoyageMod(s, 'china') === 0);
     setIntention(s, 'society');
     ok('engine: society intention gives no voyage mod', intentionVoyageMod(s, 'japan') === 0);
-    // Society zeal: run a year with the intention set
+    // Society zeal: temporary — applied one year, lifted the next
     let terna;
     const before = ensureDisposition(s, 'hist-1').current.zeal;
     ({ terna } = startYear(s)); decide(s, []); resolveYear(s);
     const after = ensureDisposition(s, 'hist-1').current.zeal;
-    const zb = Math.min(3, Math.floor(es.total / 10));
-    ok('engine: society intention raises zeal', after === Math.min(6, before + zb), `before=${before} after=${after} zb=${zb}`);
+    const zb = Math.round(es.total * 0.1 * 100) / 100;
+    ok('engine: society intention raises zeal for the year', Math.abs(after - Math.min(6, before + zb)) < 0.001, `before=${before} after=${after} zb=${zb}`);
+    // Switch the intention away: the blessing lifts
+    setIntention(s, 'japan');
+    ({ terna } = startYear(s)); decide(s, []); resolveYear(s);
+    const lifted = ensureDisposition(s, 'hist-1').current.zeal;
+    ok('engine: the blessing lifts the next year', Math.abs(lifted - before) < 1.01, `before=${before} lifted=${lifted}`);
   }
 
   // Scripture bank validation

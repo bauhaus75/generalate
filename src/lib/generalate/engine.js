@@ -184,7 +184,7 @@ export function missionStrength(st) {
  * Masses of its priests — offered for the missions and the Father General —
  * were the engine of the whole enterprise. Strength = living ordained priests
  * (mission fathers + ordained men in Europe) + the martyrs, who intercede
- * from heaven. Bonus: +1 per 10 strength, capped at +3.
+ * from heaven. Bonus: +0.1 per unit of strength, uncapped.
  * The General sets ONE intention: a mission (voyage bonus there) or the
  * Society as a whole (+zeal to all men that year).
  */
@@ -200,7 +200,8 @@ export function engineStrength(state) {
   return { priests, martyrs: state.stats?.martyrs || 0, total: priests + (state.stats?.martyrs || 0) };
 }
 export function engineBonus(state) {
-  return Math.min(3, Math.floor(engineStrength(state).total / 10));
+  // Tran 2026-10-19: +0.1 per martyr (and per priest's Mass), uncapped.
+  return Math.round(engineStrength(state).total * 0.1 * 100) / 100;
 }
 export function setIntention(state, target) {
   state.intention = { target: target || 'society', year: state.year };
@@ -4518,19 +4519,38 @@ export function resolveYear(state, opts = {}) {
   }
   state.queue = state.queue.filter((q) => q.status === 'awaiting');
 
-  // The Engine's intention for the Society: the Masses raise every man's
-  // zeal by the engine bonus before the year's reckonings.
+  // The Engine's intention for the Society (Tran 2026-10-19): the Masses
+  // raise every man's zeal for ONE year only. Last year's blessing lifts
+  // first; this year's is then laid on if the intention is still the Society.
+  // Lift last year's blessing exactly (each man lost only what he gained).
+  if (state.appliedSocietyZeal && state.appliedSocietyZeal.added) {
+    for (const [pid, added] of Object.entries(state.appliedSocietyZeal.added)) {
+      const rec = state.petitioners[pid];
+      if (!rec || rec.status === 'deceased' || rec.status === 'dismissed' || rec.status === 'apostate') continue;
+      const d = ensureDisposition(state, pid);
+      if (d && d.current && typeof d.current.zeal === 'number') {
+        d.current.zeal = Math.max(1, d.current.zeal - added);
+      }
+    }
+    state.appliedSocietyZeal = null;
+  }
   if (state.intention && state.intention.target === 'society') {
     const zb = engineBonus(state);
     if (zb > 0) {
+      const added = {};
       for (const pid of Object.keys(state.petitioners || {})) {
         const rec = state.petitioners[pid];
         if (rec.status === 'deceased' || rec.status === 'dismissed' || rec.status === 'apostate') continue;
         const d = ensureDisposition(state, pid);
         if (d && d.current && typeof d.current.zeal === 'number') {
-          d.current.zeal = Math.min(6, d.current.zeal + zb);
+          const gain = Math.min(6, d.current.zeal + zb) - d.current.zeal;
+          if (gain > 0) {
+            d.current.zeal += gain;
+            added[pid] = gain;
+          }
         }
       }
+      state.appliedSocietyZeal = { year: state.year, added };
     }
   }
   // 3. Voyages due this year arrive; outcomes resolve; news delivered when due.

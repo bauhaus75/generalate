@@ -4120,8 +4120,10 @@ export function fruitCapacity(state, petitionerId, destId = null) {
 
 /**
  * Yearly fruit production. Each man's output = capacity × yearly variance
- * (60%-100%, seeded). Quota = 75% of capacity per man. Scale bonus for
- * larger missions. Miss quota after 2-year grace → -2 score.
+ * (60%-100%, seeded). Quota = 50% of capacity per man (Tran 2026-10-19,
+ * was 75%), and it applies ONLY to Established and Core missions (capacity
+ * 6+); Frontier missions, collapsed missions, and never-opened fields are
+ * exempt. Miss quota after 2-year grace → -2 score.
  */
 /**
  * The provincial governing a destination's region, if any.
@@ -4141,9 +4143,14 @@ export function produceFruits(state) {
   let quotaPenalty = 0;
   const GRACE_YEARS = 2;
   const PENALTY_PER_MISS = 2;
-  const QUOTA_RATIO = 0.75;
+  const QUOTA_RATIO = 0.50;
   for (const destId of Object.keys(state.missions || {})) {
     const st = missionStaff(state, destId);
+    // Quota tier (Tran 2026-10-19): only Established (capacity 6-8) and Core
+    // (capacity 9+) missions answer for a quota. Frontier fields (capacity
+    // <=5), collapsed missions, and never-opened fields are exempt.
+    const dst = state.destState[destId] || {};
+    const quotaApplies = (st.capacity || 5) >= 6 && !dst.collapsed && dst.access !== 'closed';
     // Provincials administer; they don't labor in the harvest.
     const men = missionCommunity(state, destId).filter((id) => !isProvincial(state, id));
     // Provincial execution virtues: zeal inspires (+10%), stability preserves (-5% decay),
@@ -4159,7 +4166,7 @@ export function produceFruits(state) {
     if (typeof st.foundedYear !== 'number') st.foundedYear = state.year;
     const age = state.year - st.foundedYear;
     if (!men.length) {
-      if (age >= GRACE_YEARS) {
+      if (quotaApplies && age >= GRACE_YEARS) {
         quotaPenalty += PENALTY_PER_MISS;
         byMission[destId] = { harvest: 0, decayed: 0, total: st.fruits, missedQuota: true };
       }
@@ -4221,7 +4228,7 @@ export function produceFruits(state) {
     else if (provStab === 1) decayRate = Math.min(1, decayRate + 0.075);
     const decayed = Math.round(st.fruits * decayRate);
     st.fruits = Math.max(0, st.fruits - decayed + harvest);
-    const missedQuota = age >= GRACE_YEARS && harvest < expected;
+    const missedQuota = quotaApplies && age >= GRACE_YEARS && harvest < expected;
     if (missedQuota) quotaPenalty += PENALTY_PER_MISS;
     byMission[destId] = { harvest, decayed, total: st.fruits, missedQuota, expected };
     totalNew += harvest;

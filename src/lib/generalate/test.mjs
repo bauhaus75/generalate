@@ -3594,6 +3594,86 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   ok('export: payload restores as a game', restored.seed === s.seed && restored.year === s.year);
 }
 
+// --- 52. Send from the dock: relief valve for the departure queue ------------
+{
+  // A queued man can be sent straight to his destination on arranged
+  // passage: off the dock, into the mission roster, out of the spare pool.
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'dock-send' });
+  const { terna } = startYear(s);
+  decide(s, [{ id: terna[0].petitionerId }]);
+  const pid = terna[0].petitionerId;
+  const destId = s.queue.find((q) => q.petitionerId === pid).destination;
+  s.resources.funds = 5000;
+  const fundsBefore = s.resources.funds;
+  const availBefore = s.available;
+  const staffBefore = missionStaffed(missionStaff(s, destId));
+  const info = EngineNS.dockSendCost(s, pid);
+  ok('dock-send: price is quoted for a queued man', info && info.cost > 0, JSON.stringify(info));
+  const res = EngineNS.dispatchFromDock(s, pid);
+  ok('dock-send: receipt names man, destination, price', res.petitionerId === pid && res.destId === destId && res.cost === info.cost);
+  ok('dock-send: off the dock', !s.queue.some((q) => q.petitionerId === pid && q.status === 'awaiting'));
+  ok('dock-send: on the mission roster', missionStaff(s, destId).staffIds.includes(pid));
+  ok('dock-send: headcount rises by one', missionStaffed(missionStaff(s, destId)) === staffBefore + 1);
+  ok('dock-send: chest charged the quoted price', s.resources.funds === fundsBefore - info.cost);
+  ok('dock-send: spare pool loses him', s.available === availBefore - 1);
+  ok('dock-send: ledger records the arranged passage',
+    s.ledger.some((e) => e.type === 'dispatch' && e.decision === 'dock' && e.petitionerId === pid));
+  ok('dock-send: quoted price is null once he has sailed away', EngineNS.dockSendCost(s, pid) === null);
+
+  // Companions ride along at the usual companion prices.
+  const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'dock-send-2' });
+  const { terna: t2 } = startYear(s2);
+  decide(s2, [{ id: t2[0].petitionerId }]);
+  const pid2 = t2[0].petitionerId;
+  const q2 = s2.queue.find((x) => x.petitionerId === pid2);
+  q2.companions = 2;
+  q2.companionGrades = { brother: 2 };
+  const rec2 = s2.petitioners[pid2];
+  if (!rec2.vows) rec2.vows = {};
+  rec2.vows.stage = 'brother';
+  s2.resources.funds = 5000;
+  const info2 = EngineNS.dockSendCost(s2, pid2);
+  ok('dock-send: party price = man + companions', info2.cost === 50 + 2 * 50, `${info2.cost}`);
+  const st2 = missionStaff(s2, q2.destination);
+  const bBefore = st2.brothers;
+  EngineNS.dispatchFromDock(s2, pid2);
+  ok('dock-send: the party joins the mission', st2.brothers === bBefore + 3);
+
+  // Guards: not at the dock, closed destination, short chest.
+  const s3 = newGameWithGalleons({ mode: 'campaign', seed: 'dock-send-3' });
+  let threw = false;
+  try { EngineNS.dispatchFromDock(s3, 'nobody'); } catch (e) { threw = /not waiting at the dock/.test(e.message); }
+  ok('dock-send: no dock entry, no sailing', threw);
+  const { terna: t3 } = startYear(s3);
+  decide(s3, [{ id: t3[0].petitionerId }]);
+  const pid3 = t3[0].petitionerId;
+  const dest3 = s3.queue.find((x) => x.petitionerId === pid3).destination;
+  s3.destState[dest3].access = 'closed';
+  const funds3 = s3.resources.funds;
+  let closedThrew = false;
+  try { EngineNS.dispatchFromDock(s3, pid3); } catch (e) { closedThrew = /closed to new men/.test(e.message); }
+  ok('dock-send: closed destination refused', closedThrew);
+  ok('dock-send: refusal leaves the man in the queue', s3.queue.some((x) => x.petitionerId === pid3 && x.status === 'awaiting'));
+  ok('dock-send: refusal touches nothing', s3.resources.funds === funds3);
+  s3.destState[dest3].access = 'open';
+  s3.resources.funds = 1;
+  let brokeThrew = false;
+  try { EngineNS.dispatchFromDock(s3, pid3); } catch (e) { brokeThrew = /scudi needed/.test(e.message); }
+  ok('dock-send: insufficient funds refused', brokeThrew);
+
+  // A held man can be sent straight from the dock — that is the point.
+  const s4 = newGameWithGalleons({ mode: 'campaign', seed: 'dock-send-4' });
+  const { terna: t4 } = startYear(s4);
+  decide(s4, [{ id: t4[0].petitionerId }]);
+  const pid4 = t4[0].petitionerId;
+  s4.resources.funds = 5000;
+  EngineNS.setDockHold(s4, pid4, true);
+  ok('dock-send: held man is docked', s4.queue.some((x) => x.petitionerId === pid4 && x.held));
+  const res4 = EngineNS.dispatchFromDock(s4, pid4);
+  ok('dock-send: held man sails on arranged passage',
+    res4.petitionerId === pid4 && !s4.queue.some((x) => x.petitionerId === pid4));
+}
+
 console.log(`\n${failures === 0 ? 'ALL TESTS PASSED' : failures + ' FAILURES'}`);
 process.exit(failures === 0 ? 0 : 1);
 

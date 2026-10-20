@@ -2398,23 +2398,27 @@ function renderQueueAssignment(app, ships, tiers) {
       const sel = q.shipId === s.id ? ' selected' : '';
       return `<option value="${s.id}"${sel}>${esc(s.name)} (${ti.label})</option>`;
     }).join('');
+    const send = app.Engine.dockSendCost ? app.Engine.dockSendCost(app.state, q.petitionerId) : null;
+    const sendBtn = `<button class="gbtn small dock-send-btn" data-pid="${esc(q.petitionerId)}">Send now${send ? ` (${send.cost} scudi)` : ''}</button>`;
     return `<div class="queue-row${q.held ? ' held' : ''}">
       <span class="queue-name">${nameLink(app, q.petitionerId, q.petitionerName || q.petitionerId)}</span>
       <span class="queue-dest">→ ${esc(destName(q.destination))}</span>
       ${q.held
         ? `<span class="queue-held-note">⚓ held at dock — laboring in the port</span>
-           <button class="gbtn small ghost dock-hold-btn" data-pid="${esc(q.petitionerId)}" data-held="1">Release</button>`
+           <button class="gbtn small ghost dock-hold-btn" data-pid="${esc(q.petitionerId)}" data-held="1">Release</button>
+           ${sendBtn}`
         : `<select class="queue-ship" data-pid="${esc(q.petitionerId)}" aria-label="Assign ship">
         <option value="">Auto</option>
         ${options}
       </select>
       ${assignedShip ? `<span class="queue-assigned">on ${esc(assignedShip.name)}</span>` : ''}
-      <button class="gbtn small ghost dock-hold-btn" data-pid="${esc(q.petitionerId)}" data-held="0">Hold at dock</button>`}
+      <button class="gbtn small ghost dock-hold-btn" data-pid="${esc(q.petitionerId)}" data-held="0">Hold at dock</button>
+      ${sendBtn}`}
     </div>`;
   }).join('');
-  
+
   return `<div class="queue-list">${rows}</div>
-    <p class="disp-mini">Assign men to ships, or leave on Auto. If a ship is full at departure, excess men wait. Men held at dock do not board — they labor in the port and earn their grade income until released.</p>`;
+    <p class="disp-mini">Assign men to ships, or leave on Auto. If a ship is full at departure, excess men wait. Men held at dock do not board — they labor in the port and earn their grade income until released. Send now puts a man on arranged passage at the dispatch price — no ship, berth, or queue turn needed.</p>`;
 }
 
 /* ---------------- map screen ---------------- */
@@ -2674,6 +2678,18 @@ export function renderLogistics(app, root) {
     btn.addEventListener('click', () => {
       try {
         app.Engine.setDockHold(app.state, btn.dataset.pid, btn.dataset.held !== '1');
+        app.save();
+        app.sound('page');
+        app.go('logistics'); // refresh
+      } catch (e) {
+        app.toast(e.message);
+      }
+    });
+  });
+  root.querySelectorAll('.dock-send-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      try {
+        app.Engine.dispatchFromDock(app.state, btn.dataset.pid);
         app.save();
         app.sound('page');
         app.go('logistics'); // refresh

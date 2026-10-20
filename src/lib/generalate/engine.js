@@ -1944,6 +1944,89 @@ export function dispatchFromEurope(state, petitionerId, destId) {
   return { petitionerId, destId, grade, cost };
 }
 
+/**
+ * The price of sending a queued man straight from the dock: his own
+ * arranged-passage fare by grade plus his companions at the usual prices.
+ * Pure: no mutation. Returns null when the man is not awaiting departure.
+ */
+export function dockSendCost(state, petitionerId) {
+  const q = (state.queue || []).find((x) => x.petitionerId === petitionerId && x.status === 'awaiting');
+  if (!q) return null;
+  const grade = staffGradeFor(state, petitionerId);
+  let cost = rules.MISSION_GRADES[grade].cost;
+  const gradesMap = (q.companionGrades && typeof q.companionGrades === 'object') ? q.companionGrades : {};
+  let graded = 0;
+  for (const [gn, n] of Object.entries(gradesMap)) {
+    const nn = Math.max(0, n || 0);
+    if (!nn) continue;
+    cost += nn * ((rules.RESOURCES.COMPANION_GRADE_COST || {})[gn] ?? rules.RESOURCES.COMPANION_COST);
+    graded += nn;
+  }
+  const compTotal = Math.max(q.companions || 0, graded);
+  if (compTotal > graded) cost += (compTotal - graded) * rules.RESOURCES.COMPANION_COST;
+  return { cost, companions: compTotal, grade };
+}
+
+/**
+ * Send a man waiting at the dock straight to his destination on arranged
+ * passage — the relief valve for the departure queue. Unlike the year-end
+ * sailing he does not need a ship, a berth, or the queue's turn; he pays
+ * the same arranged-passage price as a dispatch from Europe, and his
+ * companions (retained on the queue entry) ride along at the usual
+ * companion prices. The man and his party join the mission like any
+ * dispatched men, and he leaves the spare-men pool. Held or unheld, the
+ * dock is his only home — he cannot petition or be dispatched twice.
+ * Returns {petitionerId, destId, grade, cost, companions}.
+ */
+export function dispatchFromDock(state, petitionerId) {
+  const qi = (state.queue || []).findIndex((q) => q.petitionerId === petitionerId && q.status === 'awaiting');
+  if (qi < 0) throw new Error('That man is not waiting at the dock.');
+  const q = state.queue[qi];
+  const destId = q.destination;
+  const g = ensureData();
+  const dest = g.destinations.find((d) => d.id === destId);
+  if (!dest) throw new Error(`dispatchFromDock: unknown destination "${destId}"`);
+  const dst = state.destState[destId];
+  if (dst && (dst.access === 'closed' || dst.collapsed)) {
+    throw new Error(`dispatchFromDock: ${dest.name || destId} is closed to new men`);
+  }
+  const compBucket = { professed: 'fathers', father: 'fathers', scholastic: 'coadjutors', brother: 'brothers' };
+  const compCounts = { fathers: 0, coadjutors: 0, brothers: 0 };
+  const gradesMap = (q.companionGrades && typeof q.companionGrades === 'object') ? q.companionGrades : {};
+  for (const [gn, n] of Object.entries(gradesMap)) {
+    const b = compBucket[gn];
+    const nn = Math.max(0, n || 0);
+    if (!b || !nn) continue;
+    compCounts[b] += nn;
+  }
+  const { cost, companions: compTotal, grade } = dockSendCost(state, petitionerId);
+  // Companions beyond the graded tally ride as brothers (same fallback
+  // the year-end arrival uses).
+  const gradedTotal = compCounts.fathers + compCounts.coadjutors + compCounts.brothers;
+  if (compTotal > gradedTotal) compCounts.brothers += compTotal - gradedTotal;
+  if (state.resources.funds < cost) {
+    throw new Error(`dispatchFromDock: ${cost} scudi needed, the chest holds ${state.resources.funds}`);
+  }
+  // Off the dock.
+  state.queue.splice(qi, 1);
+  spendFunds(state, cost, 'dispatches');
+  const st = missionStaff(state, destId);
+  for (const gid of rules.MISSION_GRADE_IDS) if (compCounts[gid]) st[gid] = (st[gid] || 0) + compCounts[gid];
+  st[grade] += 1;
+  if (!st.staffIds) st.staffIds = [];
+  if (!st.staffIds.includes(petitionerId)) st.staffIds.push(petitionerId);
+  state.available = Math.max(0, (state.available || 0) - (1 + compTotal));
+  const rec = ensureRecord(state, petitionerId, false);
+  rec.status = STATUS.ACTIVE;
+  rec.history.push({ year: state.year, decision: 'dispatch-dock', destination: destId });
+  const name = q.petitionerName || personName(state, petitionerId);
+  addLedger(state, {
+    year: state.year, type: 'dispatch', petitionerId, decision: 'dock',
+    text: `${name} sent from the dock to ${dest.name || destId} on arranged passage${compTotal ? `, with ${compTotal} ${compTotal === 1 ? 'companion' : 'companions'}` : ''} — ${cost} scudi from the chest.`,
+  });
+  return { petitionerId, destId, grade, cost, companions: compTotal };
+}
+
 // ---------------------------------------------------------------------------
 // Collective deployment (Stage 1)
 //

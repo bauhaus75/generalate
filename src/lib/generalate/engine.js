@@ -4819,59 +4819,77 @@ function resolveMartyrdomAndDisease(state, rng) {
     const destName = dest?.name || destId;
     
     const martyred = [];
-    const diseased = [];
-    
+
+    // Disease rolls (two-stage: sicken this year, die the next)
     for (const pid of [...st.staffIds]) {
-      // Martyrdom roll (reduced per balance audit 2026-10-19: 3%/6%/10%)
-      let died = false;
-      let martyr = false;
-      if (danger > 0) {
-        const thresholds = { 1: 3, 2: 6, 3: 10 };
-        const roll = rng.int(1, 100);
-        if (roll <= (thresholds[danger] || 3)) {
-          martyred.push(pid);
-          died = true;
-          martyr = true;
-        }
-      }
-      
-      // Disease roll (separate, reduced per balance audit 2026-10-19: 3%/6%)
-      // The ill do not die at once: they sicken this year and die the next.
-      if (!died && !state.sickMen[pid]) {
-        const roll = rng.int(1, 100);
-        const threshold = tropical ? 6 : 3;
-        if (roll <= threshold) {
-          state.sickMen[pid] = { since: state.year, destId };
-          const name = personName(state, pid);
-          addLedger(state, {
-            year: state.year, type: 'ill', destination: destId,
-            text: `${name} has fallen ill at ${destName}.`,
-          });
-        }
-      }
-      
-      if (died) {
-        // Remove from mission
-        const idx = st.staffIds.indexOf(pid);
-        if (idx >= 0) st.staffIds.splice(idx, 1);
-        // Decrement bucket (simplified: try each)
-        if (st.fathers > 0) st.fathers--;
-        else if (st.coadjutors > 0) st.coadjutors--;
-        else if (st.brothers > 0) st.brothers--;
-        
+      if (state.sickMen[pid]) continue;
+      const roll = rng.int(1, 100);
+      const threshold = tropical ? 6 : 3;
+      if (roll <= threshold) {
+        state.sickMen[pid] = { since: state.year, destId };
         const name = personName(state, pid);
-        if (state.sickMen) delete state.sickMen[pid];
-        if (martyr) {
+        addLedger(state, {
+          year: state.year, type: 'ill', destination: destId,
+          text: `${name} has fallen ill at ${destName}.`,
+        });
+      }
+    }
+
+    // Persecution event (Tran 2026-10-19): replaces the flat martyrdom roll.
+    // At danger 2-3, one man may be seized. His fate turns on zeal + prudence
+    // (zelus non secundum scientiam is bad): >=8 crown, 5-7 confessor, <=4 apostate.
+    if (danger >= 2 && st.staffIds.length > 0) {
+      const chance = danger >= 3 ? 0.25 : 0.12;
+      if (rng.chance(chance)) {
+        const pid = rng.pick(st.staffIds);
+        const d = ensureDisposition(state, pid);
+        const zeal = d?.current?.zeal ?? 3;
+        const prud = d?.current?.prudence ?? 3;
+        const sum = zeal + prud;
+        const name = personName(state, pid);
+        const removeMan = () => {
+          const idx = st.staffIds.indexOf(pid);
+          if (idx >= 0) st.staffIds.splice(idx, 1);
+          if (st.fathers > 0) st.fathers--;
+          else if (st.coadjutors > 0) st.coadjutors--;
+          else if (st.brothers > 0) st.brothers--;
+          if (state.sickMen) delete state.sickMen[pid];
+        };
+        if (sum >= 8) {
+          // The glorious crown
+          removeMan();
+          martyred.push(pid);
           state.stats.martyrs = (state.stats.martyrs || 0) + 1;
+          if (state.petitioners[pid]) state.petitioners[pid].status = 'deceased';
           addLedger(state, {
             year: state.year, type: 'martyrdom', destination: destId,
-            text: `${name} was martyred at ${destName}.`,
+            text: `${name} was seized at ${destName} and won the glorious crown of the martyrs (zeal ${zeal} + prudence ${prud}).`,
+          });
+        } else if (sum >= 5) {
+          // Confessor: suffers, survives, body broken, virtues perfected
+          state.stats.confessors = (state.stats.confessors || 0) + 1;
+          const rec = state.petitioners[pid];
+          if (rec) {
+            rec.confessor = state.year;
+            rec.health = Math.max(1, (typeof rec.health === 'number' ? rec.health : 4) - 2);
+          }
+          if (d && d.current) {
+            for (const t of Object.keys(d.current)) d.current[t] = 6;
+          }
+          recordHistory(state, pid, { kind: 'vow', event: 'confessor',
+            text: `Seized at ${destName}, he confessed the faith under threat of death and was released, broken in body.` });
+          addLedger(state, {
+            year: state.year, type: 'confessor', destination: destId,
+            text: `${name} was seized at ${destName} and confessed the faith — he lives, broken in body, perfected in virtue (zeal ${zeal} + prudence ${prud}).`,
           });
         } else {
-          state.stats.deaths = (state.stats.deaths || 0) + 1;
+          // Apostasy under threat of death
+          removeMan();
+          state.stats.apostates = (state.stats.apostates || 0) + 1;
+          if (state.petitioners[pid]) state.petitioners[pid].status = 'apostate';
           addLedger(state, {
-            year: state.year, type: 'death', destination: destId,
-            text: `${name} died of disease at ${destName}.`,
+            year: state.year, type: 'apostasy', destination: destId,
+            text: `${name} was seized at ${destName} and apostasized under threat of death (zeal ${zeal} + prudence ${prud}). The mission is scandalized.`,
           });
         }
       }

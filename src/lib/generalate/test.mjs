@@ -3275,6 +3275,46 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     ok('illness: death recorded in ledger', !!deathNote, deathNote ? deathNote.text : 'none');
   }
 
+
+  // Persecution event: three tiers by zeal+prudence
+  {
+    let terna;
+    const runCase = (seed, zeal, prud) => {
+      const s = setup(seed);
+      s.destState.japan.danger = 3; // persecution needs danger >= 2; fixtures set 1
+      const pid = 'fic-seized-1';
+      s.petitioners[pid] = {
+        id: pid, fictional: true, status: 'active', name: 'Seized Test Man',
+        entryYear: 1615, vows: { stage: 'brother', firstVows: true }, age: 30,
+        disposition: { initial: {}, current: { zeal, prudence: prud, obedience: 3, humility: 3, patience: 3, adaptability: 3, stability: 3 }, evidence: {}, observed: [] },
+      };
+      const mst = missionStaff(s, 'japan'); // danger 3
+      mst.staffIds = [pid];
+      mst.brothers = 1; mst.fathers = 0; mst.coadjutors = 0;
+      // Make sure no one else interferes: clear other missions' staff is unnecessary;
+      // we only look for entries about this man.
+      for (let i = 0; i < 28; i++) { // campaign ends 1645, stay under the cap
+        ({ terna } = startYear(s)); decide(s, []); resolveYear(s);
+        const hit = (s.ledger || []).find((e) => ['martyrdom', 'confessor', 'apostasy'].includes(e.type) && /Seized Test Man/.test(e.text || ''));
+        if (hit) return { hit, s };
+      }
+      return { hit: null, s };
+    };
+    const crown = runCase('persec-crown', 5, 5); // 10 -> crown
+    ok('persecution: zeal+prudence 10 wins the crown', crown.hit?.type === 'martyrdom', crown.hit ? crown.hit.type : 'no event');
+    const conf = runCase('persec-conf', 3, 3); // 6 -> confessor
+    ok('persecution: zeal+prudence 6 makes a confessor', conf.hit?.type === 'confessor', conf.hit ? conf.hit.type : 'no event');
+    if (conf.hit) {
+      const rec = conf.s.petitioners['fic-seized-1'];
+      const disp = rec?.disposition?.current || {};
+      ok('persecution: confessor virtues are maxed', Object.values(disp).every((v) => v === 6), JSON.stringify(disp));
+      const stillThere = (missionStaff(conf.s, 'japan').staffIds || []).includes('fic-seized-1');
+      ok('persecution: confessor survives at the mission', stillThere);
+    }
+    const apos = runCase('persec-apos', 1, 1); // 2 -> apostate
+    ok('persecution: zeal+prudence 2 apostasizes', apos.hit?.type === 'apostasy', apos.hit ? apos.hit.type : 'no event');
+  }
+
   // Scripture bank validation
   {
     const { SCRIPTURE_BANK } = await import('./scripture-bank.js');

@@ -561,8 +561,8 @@ app.go = function (screen, params = {}) {
       // Mass of the Holy Spirit opens each new year
       const showBriefingWithWarnings = () => {
         Screens.renderBriefing(app, r, app.ui.brief);
-        // Collapse imminent popup (fragileYears === 2)
         try {
+          // Collapse imminent popup (fragileYears === 2)
           const imminent = [];
           for (const [mid, st] of Object.entries(app.state.missions || {})) {
             if (st.fragileYears === 2 && !(app.state.destState[mid] || {}).collapsed) {
@@ -572,6 +572,12 @@ app.go = function (screen, params = {}) {
             }
           }
           if (imminent.length) Screens.showCollapseWarning(app, imminent);
+          // Death notices from the previous year
+          const prevYear = app.state.year - 1;
+          const deaths = (app.state.ledger || []).filter(e => 
+            e.year === prevYear && (e.type === 'martyrdom' || e.type === 'death')
+          );
+          if (deaths.length) Screens.showDeathNotice(app, deaths);
         } catch (e) { /* ignore */ }
       };
       if (isNewYear) {

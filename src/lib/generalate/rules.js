@@ -189,7 +189,7 @@ export const OUTCOME_LABELS = Object.freeze({
  * All numbers here are gameplay abstractions for balance, not historical
  * statistics.
  */
-export const VOYAGE_DC = 11;
+export const VOYAGE_DC = 5; // Tran 2026-10-19: 80% arrival rate (was 50%)
 export const VOYAGE_DANGER_MOD = -2; // per point of destination danger
 export const VOYAGE_TEAM_MOD = 2;    // sailing in company
 export const VOYAGE_DEGREE_OUTCOMES = Object.freeze({

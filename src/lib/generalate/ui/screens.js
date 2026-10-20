@@ -2680,6 +2680,25 @@ export function showCollapseWarning(app, missions) {
   app.sound('page');
 }
 
+/* ---------------- Death notification popup ---------------- */
+export function showDeathNotice(app, deaths) {
+  if (!deaths || !deaths.length) return;
+  const ov = document.createElement('div');
+  ov.className = 'overlay';
+  ov.innerHTML = `
+  <div class="overlay-card" role="alertdialog" aria-modal="true" aria-label="Deaths">
+    <h2 class="px">REQUIESCANT IN PACE</h2>
+    ${deaths.map(d => `<p>${esc(d.text)}</p>`).join('')}
+    <button class="btn primary death-ack">Requiem aeternam</button>
+  </div>`;
+  ov.querySelector('.death-ack').addEventListener('click', () => {
+    app.sound('page');
+    ov.remove();
+  });
+  document.body.appendChild(ov);
+  app.sound('page');
+}
+
 /* ---------------- Mass of the Holy Spirit opening ---------------- */
 export function showMassOverlay(app, onContinue) {
   const yv = app.Engine.yearVirtue(app.state.seed, app.state.year);

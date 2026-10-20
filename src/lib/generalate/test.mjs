@@ -4113,6 +4113,16 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     if (c3.petitioners['hist-6']) c3.petitioners['hist-6'].vows = { stage: 'scholastic', firstVows: true };
     ok('prefix: a brother is Br. even with a scholastic stage on his record',
       EngineNS.namePrefix(c3, 'hist-6') === 'Br.', EngineNS.namePrefix(c3, 'hist-6'));
+    // Novices: nothing on the priest track (Tran), Br. on the brother track.
+    const novice = (track) => {
+      const c = deserialize(serialize(s));
+      c.petitioners['test-novice-1'] = { id: 'test-novice-1', name: 'Test Novice',
+        vows: { stage: 'novice', firstVows: false }, ...(track ? { vowsTrack: track } : {}) };
+      return EngineNS.namePrefix(c, 'test-novice-1');
+    };
+    ok('prefix: a novice on the priest track carries no prefix', novice('scholastic') === '');
+    ok('prefix: a novice with no recorded track carries no prefix', novice(null) === '');
+    ok('prefix: a novice on the brother track is Br.', novice('brother') === 'Br.');
   }
 
   // ================================================================

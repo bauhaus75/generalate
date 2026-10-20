@@ -5676,6 +5676,13 @@ export function namePrefix(state, petitionerId) {
   const rec = state.petitioners ? state.petitioners[petitionerId] : null;
   const stage = rec && rec.vows ? rec.vows.stage : null;
   if (stage === 'professed' || stage === 'ordained' || stage === 'coadjutor') return 'Fr.';
+  // A novice takes a prefix only on the brother track; a novice on the
+  // priest track carries nothing, like an unordained scholastic (Tran).
+  if (stage === 'novice') {
+    const tr = (rec && rec.vowsTrack)
+      || (String((gradeFor(state, petitionerId).grade || '')).toLowerCase() === 'brother' ? 'brother' : null);
+    return tr === 'brother' ? 'Br.' : '';
+  }
   const g = gradeFor(state, petitionerId);
   if (!stage && g.ordained === true) return 'Fr.';
   const track = (rec && rec.vowsTrack) || (String((g && g.grade) || '').toLowerCase() === 'brother' ? 'brother' : null);

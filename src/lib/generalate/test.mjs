@@ -104,17 +104,17 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   ok('newGame score: uncapped 50, displayed 37 (floor -500, ceiling +1000)', s.score === 50 && getScore(s) === 37);
   const { year, briefing, terna } = startYear(s);
   ok('startYear year', year === 1615);
-  ok('terna length 3, distinct ids', terna.length === 3 && new Set(terna.map(c => c.petitionerId)).size === 3);
+  ok('terna length 10, distinct ids', terna.length === 10 && new Set(terna.map(c => c.petitionerId)).size === 10);
   ok('card id alias', terna.every(c => c.id === c.petitionerId));
   ok('card history is string array', terna.every(c => Array.isArray(c.history)));
   ok('card health is 1-5 number', terna.every(c => Number.isInteger(c.health) && c.health >= 1 && c.health <= 5));
   ok('briefing shapes (UI)', typeof briefing.funds === 'number' && typeof briefing.berths === 'number'
     && typeof briefing.ships === 'number' && briefing.missionNews.every(n => typeof n === 'string')
     && briefing.eventsUpcoming.every(n => typeof n === 'string'));
-  ok('state.currentYear mirror set', !!s.currentYear && s.currentYear.terna.length === 3 && s.currentYear.decided === false);
+  ok('state.currentYear mirror set', !!s.currentYear && s.currentYear.terna.length === 10 && s.currentYear.decided === false);
   const chosenId = terna[1].petitionerId;
   const res = decide(s, [{ id: chosenId }]);
-  ok('decide returns approved+2 denied', res.approved[0].petitionerId === chosenId && res.denied.length === 2);
+  ok('decide returns approved+9 denied', res.approved[0].petitionerId === chosenId && res.denied.length === 9);
   ok('decide report summary/detail', typeof res.report.summary === 'string' && typeof res.report.detail === 'string');
   ok('decide scoreDelta = 0 (no points for sending)', res.scoreDelta === 0, `delta=${res.scoreDelta}`);
   ok('score unchanged after decide', getScore(s) === 37);
@@ -131,7 +131,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const end = endGame(s);
   ok('endGame title band', end.title === 'The Reluctant Steward', end.title);
   ok('endGame stats aliases (UI)', end.stats.yearsRuled === 1 && end.stats.approved === 1
-    && end.stats.denied === 2 && end.stats.departed === 1 && typeof end.stats.arrived === 'number'
+    && end.stats.denied === 9 && end.stats.departed === 1 && typeof end.stats.arrived === 'number'
     && typeof end.stats.lost === 'number' && end.stats.finalScore === 37 && end.stats.seed === 'walkthrough');
   ok('reflection is non-empty string', typeof end.reflection === 'string' && end.reflection.length > 50);
 }
@@ -172,7 +172,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const s = newGameWithGalleons({ mode: 'campaign', seed: 'debug-test' });
   ok('dbgJumpYear', dbgJumpYear(s, 1630) === 1630);
   const cards = dbgSpawnTerna(s);
-  ok('dbgSpawnTerna 3 cards', cards.length === 3);
+  ok('dbgSpawnTerna 10 cards', cards.length === 10);
   decide(s, [{ id: cards[0].petitionerId }]);
   resolveYear(s);
   const out = dbgForceOutcome(s, s.voyages[0].id, 'deceased');
@@ -226,8 +226,8 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const { terna } = startYear(s);
   decide(s, [{ id: terna[0].petitionerId }]);
   ok('filter by decision=approved', getLedger(s, { decision: 'approved' }).length === 1);
-  ok('filter by decision=denied', getLedger(s, { decision: 'denied' }).length === 2);
-  ok('filter by year', getLedger(s, { year: 1615 }).length === 3);
+  ok('filter by decision=denied', getLedger(s, { decision: 'denied' }).length === 9);
+  ok('filter by year', getLedger(s, { year: 1615 }).length === 10);
   ok('filter by petitionerId', getLedger(s, { petitionerId: terna[0].petitionerId }).length === 1);
 }
 
@@ -243,26 +243,25 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const s = newGameWithGalleons({ mode: 'campaign', seed: 'approve-all' });
   const { terna } = startYear(s);
   const dest = terna[0].destination;
-  // Approve all three, two bound for the same destination -> one team of 2.
-  const res = decide(s, [
-    { id: terna[0].petitionerId, destination: dest },
-    { id: terna[1].petitionerId, destination: dest },
-    { id: terna[2].petitionerId },
-  ]);
-  ok('approve-all: 3 approved, 0 denied', res.approved.length === 3 && res.denied.length === 0);
+  // Approve all ten, two bound for the same destination -> one team of 2.
+  const res = decide(s, terna.map((c, i) => ({
+    id: c.petitionerId,
+    ...(i < 2 ? { destination: dest } : {}),
+  })));
+  ok('approve-all: 10 approved, 0 denied', res.approved.length === 10 && res.denied.length === 0);
   const id0 = terna[0].petitionerId, id1 = terna[1].petitionerId;
   ok('approve-all: forced pair sails as a team',
     res.teams.some(tm => tm.size >= 2 && tm.members.includes(id0) && tm.members.includes(id1) && tm.destination === dest),
     JSON.stringify(res.teams.map(t => ({ size: t.size, dest: t.destination }))));
   ok('approve-all: scoreDelta = 0 (no points for sending)', res.scoreDelta === 0, `delta=${res.scoreDelta}`);
-  ok('approve-all: queue holds 3', s.queue.length === 3);
+  ok('approve-all: queue holds 10', s.queue.length === 10);
   ok('approve-all: team queue entries share teamId',
     s.queue[0].teamId && s.queue[0].teamId === s.queue[1].teamId);
   const teamIdBefore = s.queue[0].teamId;
   resolveYear(s);
   const v0 = s.voyages.find(v => v.petitionerId === id0);
   ok('voyage carries teamSize', v0.teamSize >= 2 && v0.teamId === teamIdBefore);
-  ok('stats.teams counted', s.stats.teams >= 1 && s.stats.approvals === 3);
+  ok('stats.teams counted', s.stats.teams >= 1 && s.stats.approvals === 10);
 }
 
 // --- 12. Approve none ------------------------------------------------------------
@@ -270,7 +269,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const s = newGameWithGalleons({ mode: 'campaign', seed: 'approve-none' });
   const { terna } = startYear(s);
   const res = decide(s, []);
-  ok('approve-none: 0 approved, 3 denied', res.approved.length === 0 && res.denied.length === 3);
+  ok('approve-none: 0 approved, 10 denied', res.approved.length === 0 && res.denied.length === 10);
   ok('approve-none: scoreDelta = 0', res.scoreDelta === 0, `delta=${res.scoreDelta}`);
   ok('approve-none: queue empty', s.queue.length === 0);
 }
@@ -482,9 +481,9 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   ok('deceased news: -5', s.score === before - 5, `${before}→${s.score}`);
   ok('deceased delta shown', out2.delta === -5);
   // Display score clamps to 0-100 (floor -500 -> 0, ceiling +1000 -> 100).
-  s.score = -2000;
+  s.scoreUncapped = -2000;
   ok('score display clamps at 0', getScore(s) === 0, `${getScore(s)}`);
-  s.score = 3000;
+  s.scoreUncapped = 3000;
   ok('score display clamps at 100', getScore(s) === 100, `${getScore(s)}`);
 }
 
@@ -496,8 +495,8 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   decide(s, [{ id: terna[0].petitionerId }]);
   const deniedIds = [terna[1].petitionerId, terna[2].petitionerId];
   ok('decide with one approval: score unchanged', s.score === 50);
-  ok('two denied men labor in Europe',
-    s.europeanLabor.length === 2 && deniedIds.every((id) => s.europeanLabor.some((e) => e.petitionerId === id && e.via === 'denied')),
+  ok('denied men labor in Europe',
+    s.europeanLabor.length === 9 && deniedIds.every((id) => s.europeanLabor.some((e) => e.petitionerId === id && e.via === 'denied')),
     JSON.stringify(s.europeanLabor.map((e) => e.via)));
   resolveYear(s); // the approved man sails
   const v = s.voyages[0];
@@ -581,7 +580,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   resolveYear(s);
   ok('no hulls free: zero departures', s.voyages.length === 0, `${s.voyages.length}`);
   ok('queue waits with hull notes',
-    s.queue.length === 3 && s.queue.every((q) => q.note === 'delayed: no hulls free'),
+    s.queue.length === 10 && s.queue.every((q) => q.note === 'delayed: no hulls free'),
     s.queue.map((q) => q.note).join('|'));
 
   // Soul packing: 3 men, one destination, no companions → one hull (3 souls ≤ 8).
@@ -591,7 +590,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   decide(s2, t2.map((c) => ({ id: c.id, destination: dest })));
   const yr = s2.year;
   resolveYear(s2);
-  ok('3 men sail on 1 hull', s2.voyages.length === 3, `${s2.voyages.length}`);
+  ok('10 men sail on 1 hull', s2.voyages.length === 10, `${s2.voyages.length}`);
   const usedShips = new Set(s2.voyages.map((v) => v.shipId));
   ok('hull shared by destination', usedShips.size === 1, [...usedShips].join(','));
   const freeShips = s2.resources.ships.filter((sh) => (sh.freeYear || 0) <= yr);
@@ -742,7 +741,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'sealcost2' });
   const { terna: t2 } = startYear(s2);
   decide(s2, t2.map((c) => ({ id: c.petitionerId })));
-  ok('approve-all seal costs 90', s2.resources.funds === 910, `${s2.resources.funds}`);
+  ok('approve-all seal costs 300', s2.resources.funds === 700, `${s2.resources.funds}`);
   const s3 = newGameWithGalleons({ mode: 'campaign', seed: 'sealcost3' });
   startYear(s3);
   decide(s3, []);
@@ -766,7 +765,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const { terna: t5 } = startYear(s5);
   decide(s5, t5.map((c) => ({ id: c.petitionerId })));
   resolveYear(s5);
-  ok('no hulls: queue holds 3', s5.queue.length === 3);
+  ok('no hulls: queue holds 10', s5.queue.length === 10);
   for (const sh of s5.resources.ships) sh.freeYear = 0;
   s5.resources.funds = 1000;
   const { terna: t6 } = startYear(s5);

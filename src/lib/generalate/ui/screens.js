@@ -99,6 +99,23 @@ export function historyPanelHTML(app, petitionerId) {
   return `${summary}<h3 class="sect">Formation</h3>${list('formation')}<h3 class="sect">Mission</h3>${list('mission')}`;
 }
 
+/**
+ * The man's indipetae letter, shown ONLY inside the inspector (Tran
+ * 2026-10-19): cards stay compact; the full letter is read by inspecting.
+ */
+function letterSectionHTML(app, petitionerId) {
+  const cards = (app.state.currentTerna && app.state.currentTerna.cards) || [];
+  const c = cards.find((x) => x.id === petitionerId);
+  if (!c || !c.letter) return '';
+  const L = c.letter;
+  return `<h3 class="sect">His letter</h3>
+    <p class="letter-meta">${esc(L.place || '')}, ${esc(L.date || '')}<br>
+      <span class="archival">${esc(L.archival || '')}</span></p>
+    <p>${kindBadge(L.kind)}</p>
+    <div class="letter-text">${(L.full_paras || []).map((p) => `<p>${esc(p)}</p>`).join('')}</div>
+    <p class="letter-dossier">${esc(c.dossier || '')}</p>`;
+}
+
 /** Four-layer inspector: evidence / seeded initial / current / observed. */
 export function showInspector(app, petitionerId, name) {
   const d = app.Engine.ensureDisposition(app.state, petitionerId);
@@ -126,6 +143,7 @@ export function showInspector(app, petitionerId, name) {
     <button class="overlay-close" aria-label="Close">✕</button>
     <h2 class="px">${esc(name)}</h2>
     <p class="insp-grade">${gradeChip(app, petitionerId)} <span class="insp-ord">${esc(ordNote)}</span></p>
+    ${letterSectionHTML(app, petitionerId)}
     <div class="insp-actions">
       ${app.Engine.ordinationEligible(app.state, petitionerId) ? `<button class="gbtn small" id="insp-ordain">Ordain to priesthood</button>` : ''}
       <label class="form-pick">Formation focus:
@@ -223,7 +241,7 @@ export function renderDraft(app, root) {
     const sel = draft.picks[region.id] === c.id;
     return `
       <article class="pcard draft-cand${sel ? ' approved-pick' : ''}" data-region="${esc(region.id)}" data-id="${esc(c.id)}" tabindex="0" role="button" aria-pressed="${sel}">
-        <h3 class="pcard-name">${esc(c.name)}</h3>
+        <h3 class="pcard-name">${nameLink(app, c.id, c.name)}</h3>
         <p class="pcard-meta">${c.age} years old &middot; ${c.yearsInSociety} years in the Society</p>
         <ul class="draft-traits">
           ${Dispositions.TRAITS.map((t) => {
@@ -393,7 +411,7 @@ export function showHowTo(app) {
     <h2 class="px">HOW TO PLAY</h2>
     <div class="howto-body">
       <p><strong>1. The briefing.</strong> Each year opens with the state of the Society: funds, free berths, ships, news from the missions, and rumors of what is coming.</p>
-      <p><strong>2. The indipetae.</strong> Three petitioners lay their letters on your desk. Read each letter — the full text, the dossier, the man's history. No choice is marked; the weight is yours.</p>
+      <p><strong>2. The indipetae.</strong> Ten petitioners lay their letters on your desk. The card shows the man; tap his name to read the full letter and his dossier. No choice is marked; the weight is yours.</p>
       <p><strong>3. The decision.</strong> Select one petitioner, review your choice, and confirm. The seal falls: <em>APPROVED</em> on one, <em>DENIED</em> on two.</p>
       <p><strong>4. The year turns.</strong> Your chosen man sails. Storms, war, plague, and politics decide what your seal began. The ledger records everything.</p>
       <p><strong>5. The account.</strong> Your SCORE starts at 50. You are judged by fruit, not dispatches: score moves when voyage news arrives and through lasting foundations. Each approval costs 30 scudi for the seal. Campaign ends in 1645; in Endless mode, you lay down the office when you choose.</p>
@@ -1015,11 +1033,11 @@ function missionCardHTML(app, d, year) {
       let html = '';
       if (stationed.length) {
         html += `<p class="mission-roster"><strong>Stationed:</strong> ${stationed.map(v =>
-          esc(v.petitionerName || v.petitionerId)).join(', ')}</p>`;
+          nameLink(app, v.petitionerId, v.petitionerName || v.petitionerId)).join(', ')}</p>`;
       }
       if (incoming.length) {
         html += `<p class="mission-roster incoming"><strong>Incoming:</strong> ${incoming.map(v =>
-          esc(v.petitionerName || v.petitionerId)).join(', ')} (arriving ${incoming[0].arriveYear})</p>`;
+          nameLink(app, v.petitionerId, v.petitionerName || v.petitionerId)).join(', ')} (arriving ${incoming[0].arriveYear})</p>`;
       }
       // The community's character: top 3 traits among stationed men.
       const traits = E.communityTraits(app.state, d.id);
@@ -1177,7 +1195,7 @@ function deploymentListHTML(app) {
         <span class="mflag ${st.status === 'arrived' ? 'full-flag' : 'want-flag'}">${esc(statusText)}</span></div>
       <p class="mission-meta">ordered anno ${dep.year} · ${esc(E.DEPLOYMENT_PURPOSES[dep.purpose] || dep.purpose)} · ${dep.memberIds.length} men</p>
       <ul class="deploy-names">${roster.map(m =>
-        `<li>${esc(m.name)} <span class="dg-meta">${esc((E.MISSION_GRADES[m.grade] || {}).short || m.grade)}</span> — ${esc(stateLabel(m.state))}${m.arriveYear && m.state === 'in-transit' ? ` (arriving ${m.arriveYear})` : ''}</li>`
+        `<li>${nameLink(app, m.petitionerId, m.name)} <span class="dg-meta">${esc((E.MISSION_GRADES[m.grade] || {}).short || m.grade)}</span> — ${esc(stateLabel(m.state))}${m.arriveYear && m.state === 'in-transit' ? ` (arriving ${m.arriveYear})` : ''}</li>`
       ).join('')}</ul>
     </article>`;
   }).join('');
@@ -1770,6 +1788,8 @@ export function renderMissions(app, root) {
       }
     });
   });
+  attachNameLinks(app, root);
+  wireDeploymentPanel(app, root);
   root.querySelector('#missions-back').addEventListener('click', () => {
     app.sound('page');
     app.go(app.ui.missionsFrom && app.ui.missionsFrom !== 'missions' ? app.ui.missionsFrom : 'briefing');
@@ -1830,10 +1850,8 @@ function cardHTML(app, c) {
     <div class="pcard-skills">${c.skills.map(s => `<span class="skill">${esc(s)}</span>`).join('')}
       <span class="health" title="Health">♥${'●'.repeat(c.health)}${'○'.repeat(5 - c.health)}</span></div>
     ${hist}
-    <p class="pcard-excerpt">“${esc(L.excerpt)}”</p>
     <p class="pcard-disposition"><span class="disp-line">${dispLine(app, c.id)}</span>
       <button class="gbtn small ghost inspect-btn" data-id="${esc(c.id)}" data-name="${esc(c.name)}">Inspect</button></p>
-    <button class="gbtn small read-letter" data-id="${esc(c.id)}">Read letter</button>
     <div class="verdict-row" role="group" aria-label="Decision for ${esc(c.name)}">
       <button class="gbtn small verdict approve-btn" data-id="${esc(c.id)}" data-verdict="approve" aria-pressed="false" title="Approve (30 scudi seal)">Approve</button>
       <button class="gbtn small ghost verdict deny-btn" data-id="${esc(c.id)}" data-verdict="deny" aria-pressed="false">Deny</button>
@@ -2218,13 +2236,7 @@ export function renderDesk(app, root, terna) {
     });
   });
 
-  root.querySelectorAll('.read-letter').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const c = terna.find(x => x.id === btn.dataset.id);
-      showLetterOverlay(app, c);
-    });
-  });
+  attachNameLinks(app, root);
 
   root.querySelectorAll('.inspect-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -2846,9 +2858,13 @@ export function showDeceasedBook(app) {
             const isMartyr = d.type === 'martyrdom';
             const birth = getBirthYear(d.text || '');
             const dest = d.destination ? (E.DESTINATIONS?.[d.destination]?.name || d.destination) : '';
+            const nm = (d.text || '').split(/ was martyred| died of disease/)[0];
+            const link = d.petitionerId
+              ? nameLink(app, d.petitionerId, nm)
+              : `<span class="deceased-name ${isMartyr ? 'martyr' : 'disease'}">${esc(nm)}</span>`;
             return `
             <div class="ledger-entry">
-              <span class="deceased-name ${isMartyr ? 'martyr' : 'disease'}">${esc((d.text || '').split(/ was martyred| died of disease/)[0])}</span>
+              <span class="deceased-name ${isMartyr ? 'martyr' : 'disease'}">${link}</span>
               <span class="ledger-entry-text">
                 (${birth}–${y}) ${isMartyr ? '☩ martyred' : 'died of disease'}${dest ? ` at ${esc(dest)}` : ''}
               </span>
@@ -2858,6 +2874,7 @@ export function showDeceasedBook(app) {
       `).join('') || '<p class="gmap-hint">No deaths recorded.</p>'}
     </div>
   </div>`;
+  attachNameLinks(app, ov);
   ov.querySelector('.overlay-close').addEventListener('click', () => { app.sound('page'); ov.remove(); });
   ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); });
   document.body.appendChild(ov);

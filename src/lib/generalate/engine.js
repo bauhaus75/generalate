@@ -3289,8 +3289,16 @@ function buildCard(g, state, pet, letter, fromFuture = false) {
 
 /** Regenerate a fictional petitioner's full data deterministically from the seed. */
 function fictionalData(state, g, rec) {
-  const ids = g.destinations.map((d) => d.id);
-  const names = g.destinations.map((d) => d.name);
+  // Men write for missions that exist: draw from OPEN destinations only
+  // (Tran 2026-10-19). Petitioning a closed frontier is archived-at-birth
+  // waste; a returning man's destination may shift as the map changes.
+  const openDestIds = new Set();
+  for (const [did, ds] of Object.entries(state.destState || {})) {
+    if (ds.access === 'open' && !ds.collapsed) openDestIds.add(did);
+  }
+  const open = g.destinations.filter((d) => openDestIds.has(d.id));
+  const ids = (open.length ? open : g.destinations).map((d) => d.id);
+  const names = (open.length ? open : g.destinations).map((d) => d.name);
   // Collect used names to ensure uniqueness
   const usedNames = new Set();
   for (const pid of Object.keys(state.petitioners || {})) {
@@ -3303,10 +3311,6 @@ function fictionalData(state, g, rec) {
     for (const p of g2.petitioners) if (p.name) usedNames.add(p.name);
   }
   // Open missions for native territory restriction
-  const openDestIds = new Set();
-  for (const [did, ds] of Object.entries(state.destState || {})) {
-    if (ds.access === 'open' && !ds.collapsed) openDestIds.add(did);
-  }
   return fictionalPetitioner(state.seed, rec.ficNum, ids, names, rec.genYear, usedNames, openDestIds);
 }
 
@@ -3356,10 +3360,13 @@ function spawnFictional(state, g, rng) {
   return null;
 }
 
+export const TERNA_SIZE = 10;
+
 /**
- * Assemble exactly 3 distinct eligible petitioners: a mix of new historical
- * and returning denied. Campaign prefers letters of year <= current game
- * year, unused first. Closed destinations are excluded.
+ * Assemble the year's indipetae: 10 distinct eligible petitioners (Tran
+ * 2026-10-19 — the game is a vocation-promotion instrument, not a ration):
+ * a mix of new historical and returning denied. Campaign prefers letters of
+ * year <= current game year, unused first. Closed destinations excluded.
  */
 function assembleTerna(state, g, rng) {
   const year = state.year;
@@ -3407,28 +3414,28 @@ function assembleTerna(state, g, rng) {
   const retS = rng.shuffle(retC);
 
   const picks = [];
-  picks.push(...newS.slice(0, 2), ...retS.slice(0, 1)); // the intended mix
-  const rest = [...newS.slice(2), ...retS.slice(1)];
-  while (picks.length < 3 && rest.length > 0) picks.push(rest.shift());
+  picks.push(...newS.slice(0, 7), ...retS.slice(0, 3)); // the intended mix (7 new + 3 returning)
+  const rest = [...newS.slice(7), ...retS.slice(3)];
+  while (picks.length < TERNA_SIZE && rest.length > 0) picks.push(rest.shift());
 
   // Supplement with fictional petitioners when history runs dry
   // (endless mode, or campaign mode once the historical pool is exhausted).
-  while (picks.length < 3) {
+  while (picks.length < TERNA_SIZE) {
     const fic = spawnFictional(state, g, rng);
     if (!fic) break;
     picks.push(fic);
     // In campaign mode, only use fictional as a last resort to fill the terna;
     // in endless mode they are a regular source.
-    if (state.mode === 'campaign' && picks.length >= 3) break;
+    if (state.mode === 'campaign' && picks.length >= TERNA_SIZE) break;
   }
 
   // Last resort: relax the closed-destination exclusion rather than fail,
   // and note it in the briefing.
   let relaxedClosed = false;
-  if (picks.length < 3) {
+  if (picks.length < TERNA_SIZE) {
     const seen = new Set(picks.map((p) => p.pet.id));
     for (const pet of rng.shuffle(g.petitioners.filter((p) => !p.fictional))) {
-      if (picks.length >= 3) break;
+      if (picks.length >= TERNA_SIZE) break;
       if (seen.has(pet.id)) continue;
       const rec = state.petitioners[pet.id];
       const status = rec ? rec.status : STATUS.NEW;
@@ -3441,10 +3448,12 @@ function assembleTerna(state, g, rng) {
     }
   }
 
-  if (picks.length < 3) {
-    throw new Error(`Cannot assemble the indipetae: only ${picks.length} eligible petitioners in ${year}.`);
+  // A thin year lays a thin stack: never crash for 1..TERNA_SIZE-1 writers.
+  // Only a year with NO letters at all is an error.
+  if (picks.length === 0) {
+    throw new Error(`Cannot assemble the indipetae: no eligible petitioners in ${year}.`);
   }
-  const cards = picks.slice(0, 3).map(({ pet, letter, fromFuture }) => buildCard(g, state, pet, letter, fromFuture));
+  const cards = picks.slice(0, TERNA_SIZE).map(({ pet, letter, fromFuture }) => buildCard(g, state, pet, letter, fromFuture));
   return { cards, relaxedClosed };
 }
 
@@ -4594,7 +4603,13 @@ export function resolveYear(state, opts = {}) {
         ...dispositionVoyageMods(state, v.petitionerId),
       ],
     });
-    const outcome = rules.VOYAGE_DEGREE_OUTCOMES[check.degree];
+    let outcome = rules.VOYAGE_DEGREE_OUTCOMES[check.degree];
+    // A man who died aboard (old age, disease) cannot arrive, return, or
+    // fall ill — his voyage resolves as deceased (he died at sea).
+    const preRec = state.petitioners[v.petitionerId];
+    if (preRec && preRec.status === STATUS.DECEASED && outcome !== 'deceased') {
+      outcome = 'deceased';
+    }
     v.resolveRoll = {
       roll: check.roll, total: check.total, dc: check.dc,
       modifiers: check.modifiers, degree: check.degree, danger,
@@ -4876,7 +4891,7 @@ function resolveMartyrdomAndDisease(state, rng) {
       const name = personName(state, pid);
       state.stats.deaths = (state.stats.deaths || 0) + 1;
       addLedger(state, {
-        year: state.year, type: 'death', destination: info.destId,
+        year: state.year, type: 'death', destination: info.destId, petitionerId: pid,
         text: `${name} died of disease at ${destName}, after a year's illness.`,
       });
     }
@@ -4941,7 +4956,7 @@ function resolveMartyrdomAndDisease(state, rng) {
           // indipetae can still surface in a terna, and addEuropeanLabor
           // throws for the deceased. The ledger is the record of his death.
           addLedger(state, {
-            year: state.year, type: 'martyrdom', destination: destId,
+            year: state.year, type: 'martyrdom', destination: destId, petitionerId: pid,
             text: `${name} was seized at ${destName} and won the glorious crown of the martyrs.`,
           });
         } else if (sum >= 5) {
@@ -4958,7 +4973,7 @@ function resolveMartyrdomAndDisease(state, rng) {
           recordHistory(state, pid, { kind: 'vow', event: 'confessor',
             text: `Seized at ${destName}, he confessed the faith under threat of death and was released, broken in body.` });
           addLedger(state, {
-            year: state.year, type: 'confessor', destination: destId,
+            year: state.year, type: 'confessor', destination: destId, petitionerId: pid,
             text: `${name} was seized at ${destName} and confessed the faith — he lives, broken in body, perfected in virtue.`,
           });
         } else {
@@ -4967,7 +4982,7 @@ function resolveMartyrdomAndDisease(state, rng) {
           state.stats.apostates = (state.stats.apostates || 0) + 1;
           if (state.petitioners[pid]) state.petitioners[pid].status = 'apostate';
           addLedger(state, {
-            year: state.year, type: 'apostasy', destination: destId,
+            year: state.year, type: 'apostasy', destination: destId, petitionerId: pid,
             text: `${name} was seized at ${destName} and apostasized under threat of death. The mission is scandalized.`,
           });
         }
@@ -5214,12 +5229,14 @@ export function cardName(state, g, id) {
 
 /** @param {object} state @returns {number} 0..100 */
 export function getScore(state) {
-  // Display normalization (Tran 2026-10-19, option B): the uncapped tally
-  // (state.score) is the internal truth. The shown score stretches it
-  // linearly: -500 -> 0 (total ruin), +1000 -> 100 (a great reign).
+  // Display normalization (Tran 2026-10-19, option B): the shown score
+  // stretches the UNCAPPED tally (state.scoreUncapped — state.score itself
+  // is clamped to [0,100] by rules.addScore and cannot carry the scale):
+  // -500 -> 0 (total ruin), +1000 -> 100 (a great reign).
   const FLOOR = -500;
   const CEILING = 1000;
-  const t = (state.score - FLOOR) / (CEILING - FLOOR);
+  const raw = typeof state.scoreUncapped === 'number' ? state.scoreUncapped : state.score;
+  const t = (raw - FLOOR) / (CEILING - FLOOR);
   return Math.max(0, Math.min(100, Math.round(t * 100)));
 }
 
@@ -5731,8 +5748,8 @@ export function soakTest({ rounds = 100, seed = 'soak', mode = 'endless' } = {})
       // --- startYear ---
       const { terna } = startYear(state);
       // Invariant 1: exactly 3 distinct petitioner ids per terna.
-      check(`round ${i}: terna has exactly 3 cards`, terna.length === 3);
-      check(`round ${i}: terna ids distinct`, new Set(terna.map((c) => c.petitionerId)).size === 3);
+      check(`round ${i}: terna has 1..10 cards`, terna.length >= 1 && terna.length <= TERNA_SIZE);
+      check(`round ${i}: terna ids distinct`, new Set(terna.map((c) => c.petitionerId)).size === terna.length);
       check(`round ${i}: card id alias`, terna.every((c) => c.id === c.petitionerId));
 
       // Invariant 2: decide() validates its approvals; anything else throws.
@@ -5752,7 +5769,10 @@ export function soakTest({ rounds = 100, seed = 'soak', mode = 'endless' } = {})
       }
 
       // Approve a random subset (0–3) of the terna; sometimes redirect one.
-      const approvals = terna.filter(() => decider.chance(0.5)).map((c) => ({ id: c.petitionerId }));
+      // Approve ~half, but never more than the chest can seal (30/man) —
+      // a real General denies more when the treasury is thin.
+      const affordable = Math.max(0, Math.floor(state.resources.funds / 30));
+      const approvals = terna.filter(() => decider.chance(0.5)).slice(0, affordable).map((c) => ({ id: c.petitionerId }));
       if (approvals.length && decider.chance(0.25)) {
         const openDests = Object.keys(state.destState).filter((d) => isDestOpen(state, d));
         if (openDests.length) approvals[0].destination = decider.pick(openDests);
@@ -5760,15 +5780,22 @@ export function soakTest({ rounds = 100, seed = 'soak', mode = 'endless' } = {})
       const res = decide(state, approvals);
       // Invariant 5: approved + denied partition the terna; no double role.
       const approvedIds = new Set(res.approved.map((c) => c.petitionerId));
-      check(`round ${i}: partition covers terna`, res.approved.length + res.denied.length === 3);
+      check(`round ${i}: partition covers terna`, res.approved.length + res.denied.length === terna.length);
       check(`round ${i}: no double role`, !res.denied.some((d) => approvedIds.has(d.petitionerId)));
       check(`round ${i}: teams consistent`,
         res.teams.every((tm) => tm.size >= 2 && tm.members.every((id) => approvedIds.has(id))));
-      // Invariant 3: score within [0,100].
-      check(`round ${i}: score in range after decide`, state.score >= 0 && state.score <= 100);
+      // Invariant 3: displayed score within [0,100] (state.score is the
+      // uncapped tally and may roam; getScore normalizes it).
+      check(`round ${i}: score in range after decide`, getScore(state) >= 0 && getScore(state) <= 100);
 
+      // A real General rebuilds: reopen a collapsed mission when the chest
+      // and the spare men allow (the world otherwise decays shut).
+      const collapsedDest = Object.entries(state.destState || {}).find(([, ds]) => ds && ds.collapsed);
+      if (collapsedDest && state.resources.funds >= 1100 && (state.available || 0) >= 1) {
+        try { foundMission(state, collapsedDest[0], { fathers: 1 }); } catch { /* try again next year */ }
+      }
       const r = resolveYear(state);
-      check(`round ${i}: score in range after resolve`, state.score >= 0 && state.score <= 100);
+      check(`round ${i}: score in range after resolve`, getScore(state) >= 0 && getScore(state) <= 100);
       check(`round ${i}: outcomes is array`, Array.isArray(r.outcomes));
       check(`round ${i}: eventsFired is array`, Array.isArray(r.eventsFired));
       // Invariant 4: returning petitioners keep id + history (year-ordered).

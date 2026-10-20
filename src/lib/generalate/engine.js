@@ -20,9 +20,7 @@ export function yearVirtue(seed, year) {
   const virtue = rng.pick(virtues);
   const candidates = SCRIPTURE_BANK.filter(e => e.virtue === virtue);
   const pick = rng.pick(candidates);
-  // For display, we need the verse text. The bank stores citations;
-  // the UI displays the reference. Full text retrieval is a future enhancement.
-  return { virtue, verse: pick.reference, ref: pick.reference, theme: pick.theme, id: pick.id };
+  return { virtue, verse: pick.reference, ref: pick.reference, theme: pick.theme, id: pick.id, text: pick.text };
 }
 import {decideVows,inviteFinalVows,completeFinalVows,rankSuffix,checkVowsMilestones,ensureVows,purgeVowsState,vowsTrackFor,FORMATION_THRESHOLDS} from './vows.js';
 export {decideVows,inviteFinalVows,completeFinalVows,rankSuffix,purgeVowsState,vowsTrackFor,FORMATION_THRESHOLDS};

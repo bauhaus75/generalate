@@ -3498,15 +3498,28 @@ function enrichPetitioner(pet, seedBase) {
   if (enriched.yearsInSociety == null) {
     enriched.yearsInSociety = rng.int(1, Math.min(enriched.age - 16, 28));
   }
-  if (!enriched.formation) {
+  {
     const yis = enriched.yearsInSociety;
-    const grade = String(enriched.grade || '').toLowerCase();
-    const isBrother = grade === 'brother';
-    // Brothers never go through scholastic formation (priest track only).
-    // A brother is novice (<2yrs) then brother; never 'scholastic'.
-    if (isBrother) {
+    // The man's grade lives in the archive table (dispositions.GRADES),
+    // NOT on the letter record — pet.grade is empty for historical men,
+    // so the old code carded every one of them by a years heuristic:
+    // a professed father read 'scholastic', a brother read 'priest'.
+    // A determined archive grade ALWAYS sets the card's word.
+    const g = (dispositions.GRADES || {})[pet.id] || {};
+    const grade = String(g.grade || '').toLowerCase();
+    if (grade === 'brother' || grade === 'temporal-coadjutor') {
+      // Brothers never go through scholastic formation (priest track only).
       enriched.formation = yis < 2 ? 'novice' : 'brother';
-    } else {
+    } else if (grade === 'father') {
+      enriched.formation = 'priest';
+    } else if (grade === 'professed-of-the-4th-vow' || grade === 'professed') {
+      enriched.formation = 'professed';
+    } else if (grade === 'novice') {
+      enriched.formation = 'novice';
+    } else if (grade === 'scholastic') {
+      enriched.formation = yis < 2 ? 'novice' : 'scholastic';
+    } else if (!enriched.formation) {
+      // Undetermined in the source: the years heuristic is the game's guess.
       enriched.formation = yis < 2 ? 'novice' : yis <= 8 ? 'scholastic' : rng.pick(['priest', 'professed', 'priest']);
     }
   }

@@ -4114,6 +4114,28 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     ok('prefix: a brother is Br. even with a scholastic stage on his record',
       EngineNS.namePrefix(c3, 'hist-6') === 'Br.', EngineNS.namePrefix(c3, 'hist-6'));
   }
+
+  // ================================================================
+  console.log('\n61. Card labels — the card reads the archive grade, not a years guess');
+  {
+    // enrichPetitioner used to derive the card's formation word from
+    // pet.grade — a field the letter records do not carry — so every
+    // historical man was carded by years alone: a professed father
+    // read 'scholastic', a brother read 'priest'. The cards must read
+    // dispositions.GRADES: hist-1 is a professed father, hist-3 a brother.
+    const s = deserialize(serialize(newGame({ mode: 'campaign', seed: 'cards-61' })));
+    const seen = {};
+    for (let y = 0; y < 9 && (seen['hist-1'] === undefined || seen['hist-3'] === undefined) && !s.ended; y++) {
+      const { terna } = startYear(s);
+      for (const c of terna) if (seen[c.petitionerId] === undefined) seen[c.petitionerId] = c.formation;
+      decide(s, []);
+      resolveYear(s);
+    }
+    ok('cards: a professed father is carded professed', seen['hist-1'] === 'professed', JSON.stringify(seen));
+    ok('cards: a brother is carded brother, never priest or scholastic', seen['hist-6'] === 'brother', JSON.stringify(seen));
+    ok('cards: a first-year brother is carded novice — and still takes Br.',
+      seen['hist-3'] === 'novice' && EngineNS.namePrefix(s, 'hist-3') === 'Br.', JSON.stringify(seen));
+  }
 }
 
 console.log(`\n${failures === 0 ? 'ALL TESTS PASSED' : failures + ' FAILURES'}`);

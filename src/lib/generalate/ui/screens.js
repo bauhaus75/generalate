@@ -1832,7 +1832,7 @@ function cardHTML(app, c) {
       <span class="pcard-n">№ ${L.n}</span>
       ${kindBadge(L.kind)}
     </div>
-    <h3 class="pcard-name">${esc(c.name)}</h3>
+    <h3 class="pcard-name">${esc(pname(app, c.id, c.name))}</h3>
     <p class="pcard-meta">aet. ${c.age} · ${c.yearsInSociety} yrs in the Society · ${esc(formationLabel)}</p>
     <p class="pcard-dest">⛵ ${esc(destName(app, c.destination))}</p>
     <p class="pcard-dossier">${esc(c.dossier)}</p>
@@ -1840,7 +1840,7 @@ function cardHTML(app, c) {
       <span class="health" title="Health">♥${'●'.repeat(c.health)}${'○'.repeat(5 - c.health)}</span></div>
     ${hist}
     <p class="pcard-disposition"><span class="disp-line">${dispLine(app, c.id)}</span>
-      <button class="gbtn small ghost inspect-btn" data-id="${esc(c.id)}" data-name="${esc(c.name)}">Inspect</button></p>
+      <button class="gbtn small ghost inspect-btn" data-id="${esc(c.id)}" data-name="${esc(pname(app, c.id, c.name))}">Inspect</button></p>
     <div class="verdict-row" role="group" aria-label="Decision for ${esc(c.name)}">
       <button class="gbtn small verdict approve-btn" data-id="${esc(c.id)}" data-verdict="approve" aria-pressed="false" title="Approve (30 scudi seal)">Approve</button>
       <button class="gbtn small ghost verdict deny-btn" data-id="${esc(c.id)}" data-verdict="deny" aria-pressed="false">Deny</button>

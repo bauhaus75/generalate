@@ -2418,7 +2418,7 @@ function renderQueueAssignment(app, ships, tiers) {
   }).join('');
 
   return `<div class="queue-list">${rows}</div>
-    <p class="disp-mini">Assign men to ships, or leave on Auto. If a ship is full at departure, excess men wait. Men held at dock do not board — they labor in the port and earn their grade income until released. Send now puts a man on arranged passage at the dispatch price — no ship, berth, or queue turn needed.</p>`;
+    <p class="disp-mini">Assign men to ships, or leave on Auto. If a ship is full at departure, excess men wait. Men held at dock do not board — they labor in the port and earn their grade income until released; the first ${(app.Engine.RESOURCES && app.Engine.RESOURCES.DOCK_WAGE_CAP) ?? 8} held men in the queue are paid, the rest wait unpaid. Send now puts a man on arranged passage at the dispatch price — no ship, berth, or queue turn needed.</p>`;
 }
 
 /* ---------------- map screen ---------------- */

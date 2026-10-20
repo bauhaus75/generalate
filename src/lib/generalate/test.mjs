@@ -3711,6 +3711,38 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   ok('punch-up: the wait is blamed on hulls, not range', q3 && q3.note === 'delayed: no hulls free', q3 && q3.note);
 }
 
+// --- 54. Dock wages are capped: the first 8 held men are paid -------------------
+{
+  // The dock pays a waiting party, not a workforce (Tran 2026-10-20).
+  // Expectations are computed from the men's actual grades: the wage bill
+  // is the first 8 paid-grade men in queue order, and no more.
+  const WAGE = { 'P': 12, 'S*': 10, 'S': 5, 'F': 5, 'nS': 0, 'nF': 0 };
+  const holdAll = (seed, approveCount) => {
+    const s = newGameWithGalleons({ mode: 'campaign', seed });
+    const { terna } = startYear(s);
+    decide(s, terna.slice(0, approveCount).map((c) => ({ id: c.petitionerId })));
+    const held = s.queue.filter((q) => q.status === 'awaiting');
+    for (const q of held) EngineNS.setDockHold(s, q.petitionerId, true);
+    const wages = held.map((q) => WAGE[EngineNS.detailedGradeFor(s, q.petitionerId)] ?? 0).filter((w) => w > 0);
+    return { s, wages };
+  };
+  const a = holdAll('dock-cap-a', 10);
+  ok('dock cap: more than 8 paid-grade men are held', a.wages.length > 8, `${a.wages.length}`);
+  const expectedA = a.wages.slice(0, 8).reduce((n, w) => n + w, 0);
+  const uncappedA = a.wages.reduce((n, w) => n + w, 0);
+  ok('dock cap: only the first 8 in queue order are paid', EngineNS.dockYearlyFunds(a.s) === expectedA,
+    `${EngineNS.dockYearlyFunds(a.s)} vs ${expectedA}`);
+  ok('dock cap: the cap actually bites', expectedA < uncappedA, `${expectedA} < ${uncappedA}`);
+  // Under the cap, everyone held is paid in full — through resolveYear too.
+  const c = holdAll('dock-cap-c', 3);
+  const expectedC = c.wages.reduce((n, w) => n + w, 0);
+  ok('dock cap: a small party is paid in full', EngineNS.dockYearlyFunds(c.s) === expectedC && expectedC > 0,
+    `${EngineNS.dockYearlyFunds(c.s)} vs ${expectedC}`);
+  resolveYear(c.s);
+  const dockC = Object.values(c.s.financeYears).reduce((n, fy) => n + ((fy.income || {}).dock || 0), 0);
+  ok('dock cap: the capped wage reaches the chest at year end', dockC === expectedC, `${dockC}`);
+}
+
 console.log(`\n${failures === 0 ? 'ALL TESTS PASSED' : failures + ' FAILURES'}`);
 process.exit(failures === 0 ? 0 : 1);
 

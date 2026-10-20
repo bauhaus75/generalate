@@ -3262,13 +3262,22 @@ function domesticYearlyFunds(state) {
 
 /** Yearly funds from men held at dock (Tran 2026-10-19): a man waiting
  *  for his ship labors in the port — teaching, preaching, serving the
- *  college — and earns his grade income, same as domestic service. */
-function dockYearlyFunds(state) {
+ *  college — and earns his grade income, same as domestic service.
+ *  CAPPED (Tran 2026-10-20): only the first DOCK_WAGE_CAP paid men in the
+ *  queue earn — the dock pays a waiting party, not a workforce. Men whose
+ *  grade pays nothing (novices) never draw on the cap. */
+export function dockYearlyFunds(state) {
   const GRADE_INCOME = { 'P': 12, 'S*': 10, 'S': 5, 'F': 5, 'nS': 0, 'nF': 0 };
+  const cap = rules.RESOURCES.DOCK_WAGE_CAP ?? 8;
   let total = 0;
+  let paid = 0;
   for (const q of state.queue || []) {
     if (q.status !== 'awaiting' || !q.held) continue;
-    total += GRADE_INCOME[detailedGradeFor(state, q.petitionerId)] ?? 0;
+    const wage = GRADE_INCOME[detailedGradeFor(state, q.petitionerId)] ?? 0;
+    if (wage <= 0) continue;
+    if (paid >= cap) break;
+    paid += 1;
+    total += wage;
   }
   return total;
 }

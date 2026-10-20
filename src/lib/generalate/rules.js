@@ -138,6 +138,11 @@ export const RESOURCES = Object.freeze({
   // 30-scudi seal duplicated the sending charge and taxed the game's core
   // act; men cost when they sail, not when they are approved).
   SEAL_COST: 0,
+  /** Dock wages (Tran 2026-10-20 cap): at most this many men held at the
+   *  dock are paid wages in a year — the first in the queue. The dock
+   *  pays for a waiting party (one consolidated sailing), not a workforce;
+   *  uncapped, holding everyone forever printed ~29k a campaign. */
+  DOCK_WAGE_CAP: 8,
   COMPANION_GRADE_COST: Object.freeze({
     professed: 120,
     father: 120,

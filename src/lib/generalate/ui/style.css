@@ -782,7 +782,7 @@ body > .overlay .hist-loc, body > .overlay .hist-text { opacity: .75; }
   background: #1a1a1a;
   border: 1px solid var(--gold-dim);
 }
-#generalate-app .mass-altar-img {
+.overlay .mass-altar-img {
   width: 120px !important;
   height: 120px !important;
   max-width: 120px !important;
@@ -790,7 +790,7 @@ body > .overlay .hist-loc, body > .overlay .hist-text { opacity: .75; }
   object-fit: contain;
   border: 1px solid var(--gold-dim);
 }
-#generalate-app .mass-image {
+.overlay .mass-image {
   display: flex;
   justify-content: center;
   align-items: center;

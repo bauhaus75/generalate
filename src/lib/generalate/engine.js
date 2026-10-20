@@ -4472,7 +4472,7 @@ export function produceFruits(state) {
   let totalNew = 0;
   let quotaPenalty = 0;
   let overPenalty = 0;
-  const OVER_PENALTY_PER_MISSION = 5;
+  const OVER_PENALTY_PER_EXCESS_MAN = 5;
   const GRACE_YEARS = 2;
   const PENALTY_PER_MISS = 2;
   const QUOTA_RATIO = 0.50;
@@ -4483,10 +4483,10 @@ export function produceFruits(state) {
     // <=5), collapsed missions, and never-opened fields are exempt.
     const dst = state.destState[destId] || {};
     const quotaApplies = (st.capacity || 5) >= 6 && !dst.collapsed && dst.access !== 'closed';
-    // Overcrowding tally (Tran 2026-10-20): -5 a year for every open
-    // mission holding more men than it has places.
-    if (!dst.collapsed && dst.access !== 'closed' && missionStaffed(st) > (st.capacity || 5)) {
-      overPenalty += OVER_PENALTY_PER_MISSION;
+    // Overcrowding tally (Tran 2026-10-20): -5 a year per excess man —
+    // every man an open mission holds beyond its places.
+    if (!dst.collapsed && dst.access !== 'closed') {
+      overPenalty += OVER_PENALTY_PER_EXCESS_MAN * Math.max(0, missionStaffed(st) - (st.capacity || 5));
     }
     // Provincials administer; they don't labor in the harvest.
     const men = missionCommunity(state, destId).filter((id) => !isProvincial(state, id));

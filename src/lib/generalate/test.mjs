@@ -3944,9 +3944,15 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   const hOver = frOver.byMission.goa.harvest;
   ok('overcap: over-capacity men bear less fruit', hOver < hFull, `${hOver} vs ${hFull}`);
   ok('overcap: the loss is the halving, not a wipeout', hOver > hFull * 0.4, `${hOver} vs ${hFull}`);
-  // Tally: -5 per overfull mission per year, recorded for the breakdown.
+  // Tally: -5 per excess man per year, recorded for the breakdown.
   ok('overcap: tally penalty counts overfull missions', frOver.overPenalty === 5 && frFull.overPenalty === 0,
     `${frOver.overPenalty} vs ${frFull.overPenalty}`);
+  const over4 = deserialize(serialize(base));
+  over4.missions.goa.capacity = 1;
+  over4.missions.goa.brothers += 3; // 5 men counted, 1 place: 4 excess
+  ok('overcap: tally penalty scales per excess man',
+    EngineNS.produceFruits(over4).overPenalty === 20,
+    `${EngineNS.produceFruits(over4).overPenalty}`);
   const sbState = deserialize(serialize(base));
   EngineNS.buildSocietyReport(sbState, sbState.year, [], JSON.parse(JSON.stringify(sbState.stats || {})),
     { totalNew: 0, quotaPenalty: 0, overPenalty: 5 });

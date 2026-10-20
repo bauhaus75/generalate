@@ -708,25 +708,51 @@ function staffArrival(state, v) {
   if (!mst.staffIds.includes(v.petitionerId)) mst.staffIds.push(v.petitionerId);
   const comps = Math.max(0, v.companions || 0);
   if (comps > 0) {
-    mst.brothers += comps;
+    // Distribute companions into staffing buckets by their ticker grade
+    const grades = v.companionGrades || {};
+    const fathersN = (grades.professed || 0) + (grades.father || 0);
+    const scholN = grades.scholastic || 0;
+    const brothN = grades.brother || 0;
+    const accounted = fathersN + scholN + brothN;
+    if (accounted > 0) {
+      mst.fathers += fathersN;
+      mst.coadjutors += scholN;
+      mst.brothers += brothN + Math.max(0, comps - accounted);
+    } else {
+      mst.brothers += comps;
+    }
     // Companions are real men: generate them as fictional petitioners with names
     if (!state._companionSeq) state._companionSeq = 0;
     for (let i = 0; i < comps; i++) {
       const cid = `companion-${v.destination}-${state.year}-${++state._companionSeq}`;
       if (!mst.staffIds.includes(cid)) mst.staffIds.push(cid);
       // Create a full petitioner record so they have names, dispositions, etc.
+      // Grade comes from the ticker selection (companionGrades), not hardcoded.
       if (!state.petitioners[cid]) {
         try {
           const g = getGameData();
           const rng = makeRng(`${state.seed}:companion:${cid}`);
           const culture = rng.pick(['italian', 'spanish', 'portuguese']);
           const name = `${rng.pick(FIRST_NAMES[culture])} ${rng.pick(LAST_NAMES[culture])}`;
+          // Determine grade from companionGrades (in order: professed, father, scholastic, brother)
+          const grades = v.companionGrades || {};
+          let grade = 'brother';
+          // Assign based on position i among companions
+          const gradeOrder = [];
+          for (const [gname, count] of Object.entries(grades)) {
+            for (let k = 0; k < (count || 0); k++) gradeOrder.push(gname);
+          }
+          if (gradeOrder[i]) {
+            const gn = gradeOrder[i];
+            grade = gn === 'professed' ? 'professed' : gn === 'father' ? 'father' : gn === 'scholastic' ? 'scholastic' : 'brother';
+          }
+          const vowStage = grade === 'professed' ? 'professed' : grade === 'father' ? 'father' : grade === 'scholastic' ? 'scholastic' : 'brother';
           state.petitioners[cid] = {
             id: cid, fictional: true, status: 'active',
             name, culture, history: [],
             disposition: { initial: {}, current: {}, evidence: {}, observed: [] },
             entryYear: state.year, genYear: state.year,
-            vows: { stage: 'brother', firstVows: true },
+            vows: { stage: vowStage, firstVows: true },
             age: 25 + Math.floor(rng.random() * 20),
           };
           ensureDisposition(state, cid);
@@ -4423,6 +4449,7 @@ export function resolveYear(state, opts = {}) {
           teamId: q.teamId || null,
           teamSize: actualTeamSize,
           companions: comps,
+          companionGrades: q.companionGrades || {},
           shipId: hull.id,
           shipName: hull.name,
           shipTier: hull.tier || 'carrack',

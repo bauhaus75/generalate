@@ -11,8 +11,8 @@ import {
   foundNovitiate, expandBerths, charterShip, refreshBriefing, streamFor,
   ensureDisposition, gradeFor, assignFormation, observe,
   missionStaff, missionStaffed, missionStrength, missionVoyageBonus, missionUpkeep,
-  missionRequests, dispatchMission, staffGradeFor,
-  assignDomestic, unassignDomestic, dispatchFromFormation, dispatchFromEurope,
+  missionRequests, staffGradeFor,
+  assignDomestic, unassignDomestic,
   ordinationEligible, ordainPriest, careerStage, issueInstruction,
   decideVows, inviteFinalVows, completeFinalVows, rankSuffix, purgeVowsState,
   orderDeployment, selectDeploymentMembers, deploymentCandidates, deploymentEligible,
@@ -156,7 +156,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const goa = terna.find((c) => c.destination === 'goa') || terna[0];
   decide(s, [{ id: goa.petitionerId }]);
   resolveYear(s); // 1615: sails
-  const v = s.voyages[0];
+  const v = s.voyages.find((x) => x.petitionerId === goa.petitionerId);
   ok('voyage created in transit', !!v && v.stage === 'transit' && v.status === 'enroute');
   ok('arriveYear = depart + travelYears', v.arriveYear === v.departYear + v.travelYears, `${v.arriveYear}`);
   ok('newsYear within +0..1 of arrival', v.newsYear === v.arriveYear || v.newsYear === v.arriveYear + 1);
@@ -175,15 +175,16 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   ok('dbgSpawnTerna 10 cards', cards.length === 10);
   decide(s, [{ id: cards[0].petitionerId }]);
   resolveYear(s);
-  const out = dbgForceOutcome(s, s.voyages[0].id, 'deceased');
-  ok('dbgForceOutcome', out.outcome === 'deceased' && s.voyages[0].stage === 'arrived');
+  const v0 = s.voyages.find((v) => v.petitionerId === cards[0].petitionerId);
+  const out = dbgForceOutcome(s, v0.id, 'deceased');
+  ok('dbgForceOutcome', out.outcome === 'deceased' && v0.stage === 'arrived');
   let threw = false;
-  try { dbgForceOutcome(s, s.voyages[0].id, 'ascended'); } catch { threw = true; }
+  try { dbgForceOutcome(s, v0.id, 'ascended'); } catch { threw = true; }
   ok('dbgForceOutcome rejects bad outcome', threw);
   ok('__fireEvent alias', typeof __fireEvent(s, 'ev-macao-1635').title === 'string');
   const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'debug-test-2' });
   const { terna: t2 } = startYear(s2); decide(s2, [{ id: t2[0].petitionerId }]); resolveYear(s2);
-  const o2 = __forceOutcome(s2, s2.voyages[0].id, 'lost'); // mock vocabulary
+  const o2 = __forceOutcome(s2, s2.voyages.find((v) => v.petitionerId === t2[0].petitionerId).id, 'lost'); // mock vocabulary
   ok('__forceOutcome maps lost→deceased', o2.outcome === 'deceased');
   const dbg = __debug();
   ok('__debug lists event ids', Array.isArray(dbg.EVENTS) && dbg.EVENTS.includes('ev-nagasaki-1622'));
@@ -311,13 +312,21 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   dbgJumpYear(s, 1622); dbgFireEvent(s, 'ev-nagasaki-1622');
   try { foundNovitiate(s, 'japan'); } catch { closed = true; }
   ok('novitiate at closed mission throws', closed);
-  // Yearly fruit: +1 score per novitiate at resolveYear.
-  const scoreBefore = s.score;
+  // Yearly fruit: +1 score per novitiate at resolveYear. Measured
+  // differentially — the same year played from the same position with
+  // and without the novitiate on the books; the rest of the world
+  // (staffed missions bearing fruit included) scores identically.
   const { terna } = startYear(s);
   decide(s, [{ id: terna[0].petitionerId }]);
+  const snap = JSON.stringify(serialize(s));
+  const withNov = deserialize(JSON.parse(snap));
+  const noNov = deserialize(JSON.parse(snap));
+  noNov.novitiates = [];
+  resolveYear(withNov);
+  resolveYear(noNov);
+  ok('novitiate yearly +1 score', withNov.score === noNov.score + 1,
+    `with=${withNov.score} without=${noNov.score}`);
   resolveYear(s);
-  ok('novitiate yearly +1 score', s.score === scoreBefore + 1,
-    `before=${scoreBefore} after=${s.score}`); // decide gives nothing; +1 novitiate
   ok('ledger has novitiate entry', getLedger(s, { type: 'novitiate' }).length === 1);
   // Mid-terna founding is refused.
   startYear(s);
@@ -372,20 +381,22 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
     const { terna } = startYear(st);
     decide(st, [{ id: terna[0].petitionerId }]);
     resolveYear(st); // first voyage sails
-    return st;
+    return { st, pid: terna[0].petitionerId };
   };
-  const sA = mk(), sB = mk();
+  const A = mk(), B = mk();
+  const sA = A.st, sB = B.st;
+  const firstVoyage = (st, pid) => st.voyages.find((v) => v.petitionerId === pid);
   for (let i = 0; i < 50; i++) streamFor(sA, 'profile', 'meddler').int(1, 20); // noisy inspection
   // Fast-forward both identically until the first voyage resolves.
   let guard = 0;
-  while (sA.voyages[0].stage === 'transit' && guard++ < 40) {
+  while (firstVoyage(sA, A.pid).stage === 'transit' && guard++ < 40) {
     for (const st of [sA, sB]) {
       const { terna: t } = startYear(st);
       decide(st, [{ id: t[0].petitionerId }]);
       resolveYear(st);
     }
   }
-  const vA = sA.voyages[0], vB = sB.voyages[0];
+  const vA = firstVoyage(sA, A.pid), vB = firstVoyage(sB, B.pid);
   ok('profile inspection does not change voyage outcome',
     vA.stage === 'arrived' && vA.outcome === vB.outcome && vA.resolveRoll.roll === vB.resolveRoll.roll,
     `${vA.outcome}/${vB.outcome}`);
@@ -428,7 +439,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   decide(s, [{ id: terna[0].petitionerId }]);
   resolveYear(s);
   // Fast-forward until the first voyage resolves and its news arrives.
-  let v = s.voyages[0];
+  let v = s.voyages.find((x) => x.petitionerId === terna[0].petitionerId);
   let guard = 0;
   while (!v.newsDelivered && guard++ < 40) {
     const { terna: t } = startYear(s);
@@ -447,7 +458,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const { terna: t2 } = startYear(s2);
   decide(s2, [{ id: t2[0].petitionerId }]);
   resolveYear(s2);
-  let v2 = s2.voyages[0], g2 = 0;
+  let v2 = s2.voyages.find((x) => x.petitionerId === t2[0].petitionerId), g2 = 0;
   while (!v2.newsDelivered && g2++ < 40) {
     const { terna: t } = startYear(s2);
     decide(s2, [{ id: t[0].petitionerId }]);
@@ -467,9 +478,10 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   decide(s, [{ id: terna[0].petitionerId }]);
   ok('dispatch earns nothing', s.score === 50);
   resolveYear(s); // sails
-  const v = s.voyages[0];
+  const v = s.voyages.find((x) => x.petitionerId === terna[0].petitionerId);
+  const preForce = s.score; // the sailing year itself may bear fruit now
   const out1 = dbgForceOutcome(s, v.id, 'thriving');
-  ok('thriving news: +4', s.score === 54, `${s.score}`);
+  ok('thriving news: +4', s.score === preForce + 4, `${preForce}→${s.score}`);
   ok('outcome ledger carries fruit delta', out1.delta === 4, `${out1.delta}`);
   // A second voyage, resolved deceased.
   const { terna: t2 } = startYear(s);
@@ -499,7 +511,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
     s.europeanLabor.length === 9 && deniedIds.every((id) => s.europeanLabor.some((e) => e.petitionerId === id && e.via === 'denied')),
     JSON.stringify(s.europeanLabor.map((e) => e.via)));
   resolveYear(s); // the approved man sails
-  const v = s.voyages[0];
+  const v = s.voyages.find((x) => x.petitionerId === terna[0].petitionerId);
   const before = s.score;
   const out = dbgForceOutcome(s, v.id, 'returned');
   ok('returned news: +1 (European fruit)', s.score === before + 1, `${before}→${s.score}`);
@@ -531,8 +543,10 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const { terna } = startYear(s);
   decide(s, terna.map((c) => ({ id: c.petitionerId })));
   resolveYear(s);
-  dbgForceOutcome(s, s.voyages[0].id, 'thriving');
-  ok('thriving news first: +4', s.score === 54, `${s.score}`);
+  const vetVoyage = s.voyages.find((v) => v.petitionerId === terna[0].petitionerId);
+  const preForceV = s.score;
+  dbgForceOutcome(s, vetVoyage.id, 'thriving');
+  ok('thriving news first: +4', s.score === preForceV + 4, `${preForceV}→${s.score}`);
   let vet = null;
   let vetYear = 0;
   for (let i = 0; i < 8 && !vet; i++) {
@@ -545,11 +559,11 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   ok('zeal burns 3 years after homecoming', s.zealUntil === vetYear + 3, `${s.zealUntil}`);
   ok('veteran labors in Europe',
     s.europeanLabor.some((e) => e.petitionerId === vet.petitionerId && e.via === 'veteran'));
-  ok('veteran returns only once', s.voyages.filter((v) => v.veteranReturned).length === 1);
+  ok('veteran returns only once', s.voyages.filter((v) => v.veteranReturned && v.petitionerId === vet.petitionerId).length === 1);
   // Regression: the yearly chance must use a year-specific stream. The old
   // code used streamFor(s, 'veteran', vid) without the year, so the "15%
   // yearly" chance was actually "15% in year 3 or never."
-  const vid = s.voyages[0].id;
+  const vid = vetVoyage.id;
   const v3 = streamFor(s, 'veteran', vid, '1618').int(1, 1000000);
   const v4 = streamFor(s, 'veteran', vid, '1619').int(1, 1000000);
   ok('veteran stream is year-specific', v3 !== v4, `${v3} vs ${v4}`);
@@ -578,7 +592,8 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const { terna } = startYear(s);
   decide(s, terna.map((c) => ({ id: c.petitionerId })));
   resolveYear(s);
-  ok('no hulls free: zero departures', s.voyages.length === 0, `${s.voyages.length}`);
+  const sailed0 = s.voyages.filter((v) => !v.mintedStaff);
+  ok('no hulls free: zero departures', sailed0.length === 0, `${sailed0.length}`);
   ok('queue waits with hull notes',
     s.queue.length === 10 && s.queue.every((q) => q.note === 'delayed: no hulls free'),
     s.queue.map((q) => q.note).join('|'));
@@ -590,12 +605,13 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   decide(s2, t2.map((c) => ({ id: c.id, destination: dest })));
   const yr = s2.year;
   resolveYear(s2);
-  ok('10 men sail on 1 hull', s2.voyages.length === 10, `${s2.voyages.length}`);
-  const usedShips = new Set(s2.voyages.map((v) => v.shipId));
+  const sailed2 = s2.voyages.filter((v) => !v.mintedStaff);
+  ok('10 men sail on 1 hull', sailed2.length === 10, `${sailed2.length}`);
+  const usedShips = new Set(sailed2.map((v) => v.shipId));
   ok('hull shared by destination', usedShips.size === 1, [...usedShips].join(','));
   const freeShips = s2.resources.ships.filter((sh) => (sh.freeYear || 0) <= yr);
   ok('two hulls still free', freeShips.length === 2, `${freeShips.length}`);
-  const travel = s2.voyages[0].travelYears;
+  const travel = sailed2[0].travelYears;
   ok('sailed hull busy for the voyage length',
     s2.resources.ships.filter((sh) => !freeShips.includes(sh)).every((sh) => sh.freeYear === yr + travel));
 
@@ -607,12 +623,13 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
     { id: t3[1].petitionerId, destination: dest, companions: 7 },
   ]);
   resolveYear(s3);
-  ok('both retinues sail', s3.voyages.length === 2, `${s3.voyages.length}`);
-  const hullsUsed = new Set(s3.voyages.map((v) => v.shipId));
+  const sailed3 = s3.voyages.filter((v) => !v.mintedStaff);
+  ok('both retinues sail', sailed3.length === 2, `${sailed3.length}`);
+  const hullsUsed = new Set(sailed3.map((v) => v.shipId));
   ok('a full retinue takes a whole hull', hullsUsed.size === 2, [...hullsUsed].join(','));
-  for (const v of s3.voyages) { v.arriveYear = s3.year; v.newsYear = s3.year; }
+  for (const v of sailed3) { v.arriveYear = s3.year; v.newsYear = s3.year; }
   resolveYear(s3);
-  const mods7 = (s3.voyages[0].resolveRoll && s3.voyages[0].resolveRoll.modifiers) || [];
+  const mods7 = (sailed3[0].resolveRoll && sailed3[0].resolveRoll.modifiers) || [];
   ok('voyage bonus caps at +3 even with 7 companions',
     mods7.some((m) => m.label === '3 companions' && m.value === 3),
     JSON.stringify(mods7.map((m) => m.label)));
@@ -625,14 +642,15 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
     { id: t4[1].petitionerId, destination: dest, companions: 3 },
   ]);
   resolveYear(s4);
+  const sailed4 = s4.voyages.filter((v) => !v.mintedStaff);
   ok('two retinues share one hull',
-    s4.voyages.length === 2 && new Set(s4.voyages.map((v) => v.shipId)).size === 1,
-    `${s4.voyages.length} voyages, ${new Set(s4.voyages.map((v) => v.shipId)).size} hulls`);
+    sailed4.length === 2 && new Set(sailed4.map((v) => v.shipId)).size === 1,
+    `${sailed4.length} voyages, ${new Set(sailed4.map((v) => v.shipId)).size} hulls`);
 
-  // Chartering: -300 scudi, +1 free hull.
+  // Chartering: -200 scudi, +1 free hull (ship prices cut, Tran 2026-10-20).
   const fundsBefore = s2.resources.funds;
   const ch = charterShip(s2);
-  ok('charter costs 300', s2.resources.funds === fundsBefore - 300, `${s2.resources.funds}`);
+  ok('charter costs 200', s2.resources.funds === fundsBefore - 200, `${s2.resources.funds}`);
   ok('charter adds a free hull', s2.resources.ships.length === 4 && ch.ship.freeYear === 0);
   ok('chartered hull has a name', typeof ch.ship.name === 'string' && ch.ship.name.length > 0);
 
@@ -654,12 +672,15 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const fundsBefore = s.resources.funds;
   const availBefore = s.available;
   const upkeep = Object.keys(s.missions).reduce((n, id) => n + missionUpkeep(missionStaff(s, id)), 0);
-  resolveYear(s); // departs: (60 + 2×40) + 60; yearly income 240; mission upkeep
+  const r23 = resolveYear(s); // departs: (60 + 2×40) + 60; yearly income 240; mission upkeep
   ok('companions cost by grade at departure (2 brothers × 50)',
     s.resources.funds === fundsBefore - 220 + 240 - upkeep, `${s.resources.funds}`);
+  // Veterans coming home rejoin the eligible pool (+1 each) — starting
+  // staff are real men now, so some may return in any given year.
+  const vetReturns23 = (r23.yearReport.outcomes || []).filter((o) => o.outcome === 'veteran').length;
   ok('eligible pool loses the men and companions, gains 1% of intake',
-    s.available === availBefore - 4 + 1, `${s.available}`);
-  const v = s.voyages[0];
+    s.available === availBefore - 4 + 1 + vetReturns23, `${s.available} (veterans home: ${vetReturns23})`);
+  const v = s.voyages.find((x) => x.petitionerId === terna[0].petitionerId);
   ok('voyage records companions', v.companions === 2, `${v.companions}`);
   v.arriveYear = s.year; v.newsYear = s.year;
   resolveYear(s);
@@ -676,8 +697,8 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const { terna } = startYear(s);
   decide(s, [{ id: terna[0].petitionerId }, { id: terna[1].petitionerId }]);
   resolveYear(s); // both depart, still in transit
-  const v = s.voyages[0];
-  const v2 = s.voyages[1];
+  const v = s.voyages.find((x) => x.petitionerId === terna[0].petitionerId);
+  const v2 = s.voyages.find((x) => x.petitionerId === terna[1].petitionerId);
   // Death shrinks the Society itself; the eligible pool already lost him at departure.
   const availPre = s.available;
   const socPre = s.society;
@@ -704,7 +725,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
     s3.queue.map((q) => q.note).join('|'));
   s3.available = 2; // the man + 1 companion can be spared; the 2nd and 3rd cannot
   resolveYear(s3);
-  const v3 = s3.voyages[0];
+  const v3 = s3.voyages.find((v) => v.petitionerId === t3[0].petitionerId);
   ok('companions clamp to what can be spared', v3 && v3.companions === 1, `${v3 && v3.companions}`);
   ok('shortfall is recorded honestly',
     s3.ledger.some((e) => e.type === 'departure' && /only 1 could be spared/.test(e.note)),
@@ -922,7 +943,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   dv.current.zeal = 5; dv.current.prudence = 1;
   decide(sV, [{ id: vid }]);
   resolveYear(sV);
-  const vv = sV.voyages[0];
+  const vv = sV.voyages.find((v) => v.petitionerId === vid);
   vv.arriveYear = sV.year; vv.newsYear = sV.year;
   resolveYear(sV);
   const mods = (vv.resolveRoll && vv.resolveRoll.modifiers) || [];
@@ -934,7 +955,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
     JSON.stringify(mods.map((m) => m.label)));
 }
 
-// --- 13. Mission staffing: dispatch, capacity, upkeep, requests ----------------
+// --- 13. Mission staffing: sending, capacity, upkeep, requests -----------------
 {
   const s = newGameWithGalleons({ mode: 'endless', seed: 'mission-a' });
   const destId = FIXTURES.destinations[0].id;
@@ -942,30 +963,38 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   ok('missions init with capacity', st0.capacity > 0 && Number.isInteger(st0.capacity), `${destId} cap=${st0.capacity}`);
   ok('missions start below capacity', missionStaffed(st0) < st0.capacity, `staffed=${missionStaffed(st0)}`);
 
-  // Dispatch: costs scudi per grade, draws from the eligible pool.
+  // Sending men (ships only, Tran 2026-10-20): grade counts are filled
+  // with NAMED men from Europe and queued for the fleet. Nothing is
+  // charged and nobody is stationed until a ship carries them.
+  const ids = seedLabor(s, 6, 'b13');
+  s.petitioners[ids[0]].vows = { stage: 'professed' };
+  s.petitioners[ids[1]].vows = { stage: 'scholastic' };
+  s.petitioners[ids[2]].vows = { stage: 'scholastic' };
+  s.petitioners[ids[3]].vows = { stage: 'brother' };
+  s.petitioners[ids[4]].vows = { stage: 'brother' };
+  s.petitioners[ids[5]].vows = { stage: 'brother' };
   const fundsBefore = s.resources.funds;
   const availBefore = s.available;
-  const res = dispatchMission(s, destId, { fathers: 1, coadjutors: 2, brothers: 3 });
-  ok('dispatch returns counts', res.total === 6 && res.fathers === 1 && res.coadjutors === 2 && res.brothers === 3, JSON.stringify(res));
-  const expectedCost = 1 * 120 + 2 * 80 + 3 * 50;
-  ok('dispatch costs per grade', res.cost === expectedCost && s.resources.funds === fundsBefore - expectedCost, `cost=${res.cost}`);
-  ok('dispatch draws from the pool', s.available === availBefore - 6, `${s.available}`);
+  const res = EngineNS.queueNamedMen(s, destId, { fathers: 1, coadjutors: 2, brothers: 3 }, 'test company');
+  ok('send returns the named men', res.total === 6 && res.men.length === 6 && res.men.includes(ids[0]),
+    JSON.stringify(res.men));
+  ok('send costs nothing until they sail', s.resources.funds === fundsBefore, `${s.resources.funds}`);
+  ok('send leaves the abstract pool alone', s.available === availBefore, `${s.available}`);
+  ok('sent men leave Europe', !ids.some((id) => s.europeanLabor.some((e) => e.petitionerId === id)));
+  ok('sent men wait at the dock', ids.every((id) => s.queue.some((q) => q.petitionerId === id
+    && q.status === 'awaiting' && q.destination === destId)));
   const st1 = missionStaff(s, destId);
-  ok('dispatch adds to staffing', st1.fathers === st0.fathers + 1 && st1.coadjutors === st0.coadjutors + 2 && st1.brothers === st0.brothers + 3,
+  ok('nobody is stationed until a ship carries them',
+    st1.fathers === st0.fathers && st1.coadjutors === st0.coadjutors && st1.brothers === st0.brothers,
     JSON.stringify({ fathers: st1.fathers, coadjutors: st1.coadjutors, brothers: st1.brothers }));
 
-  // Validation: unknown dest, negative, zero total, insufficient funds/pool.
+  // Validation: negative, zero total, and men who do not exist.
   let threw = 0;
-  try { dispatchMission(s, 'nope', { fathers: 1 }); } catch { threw += 1; }
-  try { dispatchMission(s, destId, { fathers: -1 }); } catch { threw += 1; }
-  try { dispatchMission(s, destId, { fathers: 0 }); } catch { threw += 1; }
-  s.resources.funds = 10;
-  try { dispatchMission(s, destId, { brothers: 1 }); } catch { threw += 1; }
-  s.resources.funds = fundsBefore;
-  s.available = 0;
-  try { dispatchMission(s, destId, { brothers: 1 }); } catch { threw += 1; }
-  ok('dispatch validates', threw === 5, `threw=${threw}`);
-  ok('failed dispatch changes nothing', s.resources.funds === fundsBefore, `${s.resources.funds}`);
+  try { EngineNS.queueNamedMen(s, destId, { fathers: -1 }); } catch { threw += 1; }
+  try { EngineNS.queueNamedMen(s, destId, { fathers: 0 }); } catch { threw += 1; }
+  try { EngineNS.queueNamedMen(s, destId, { brothers: 1 }); } catch { threw += 1; } // Europe is empty now
+  ok('send validates', threw === 3, `threw=${threw}`);
+  ok('failed send changes nothing', s.resources.funds === fundsBefore, `${s.resources.funds}`);
 
   // Strength and voyage bonus.
   const strength = missionStrength(missionStaff(s, destId));
@@ -981,11 +1010,14 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const upkeep = missionUpkeep(missionStaff(s, destId));
   ok('upkeep scales with capacity', upkeep === Math.max(1, Math.round(st1.capacity / 2)), `${upkeep}`);
   const f2 = s.resources.funds;
+  const yearNow = s.year;
   resolveYear(s);
   const upkeepTotal = Object.keys(s.missions).reduce((n, id) => n + missionUpkeep(missionStaff(s, id)), 0);
-  // Funds = base 240 + domestic + mission income - upkeep
-  // (mission income requires 60%+ staffing, unlikely in test setup)
-  const expected = f2 + 240 - upkeepTotal;
+  // The six queued men sail this year at 60 a head — a real cost of the
+  // ships-only world that the old instant dispatch never charged here.
+  const sailed = s.voyages.filter((v) => !v.mintedStaff && v.departYear === yearNow).length;
+  // Funds = base 240 + domestic + mission income - upkeep - departures
+  const expected = f2 + 240 - upkeepTotal - 60 * sailed;
   // Allow for mission/domestic income (test setup may have some)
   ok('yearly upkeep deducted', s.resources.funds >= expected, `${s.resources.funds} >= ${expected}`);
 
@@ -995,7 +1027,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const { terna: t2 } = startYear(s2);
   decide(s2, [{ id: t2[0].petitionerId, destination: d2, companions: 1 }]);
   resolveYear(s2);
-  const v2 = s2.voyages[0];
+  const v2 = s2.voyages.find((v) => v.petitionerId === t2[0].petitionerId);
   v2.arriveYear = s2.year; v2.newsYear = s2.year;
   const stBefore = { ...missionStaff(s2, d2) };
   dbgForceOutcome(s2, v2.id, 'thriving');
@@ -1028,7 +1060,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   resolveYear(s);
   // Count souls per ship across all voyages.
   const soulsByShip = new Map();
-  for (const v of s.voyages) {
+  for (const v of s.voyages.filter((x) => !x.mintedStaff)) {
     const souls = 1 + (v.companions || 0);
     soulsByShip.set(v.shipId, (soulsByShip.get(v.shipId) || 0) + souls);
   }
@@ -1164,7 +1196,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   }
 }
 
-// --- Emergency dispatch from formation ---------------------------------------
+// --- Men in formation cannot be sent (ships only) ------------------------------
 {
   const s = newGameWithGalleons({ mode: 'campaign', seed: 'emg-test' });
   let { terna } = startYear(s);
@@ -1175,18 +1207,12 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   assignFormation(s, deniedId, 'exercises');
   const entry = s.europeanLabor.find((e) => e.petitionerId === deniedId);
   ok('man in formation', !!(entry.formation && entry.formation.until >= s.year));
-  const fundsBefore = s.resources.funds;
-  const staffBefore = missionStaffed(missionStaff(s, 'goa'));
-  // Emergency dispatch
-  const r = dispatchFromFormation(s, deniedId, 'goa');
-  ok('emergency dispatch returns', r.petitionerId === deniedId && r.destId === 'goa');
-  ok('formation forfeited', !s.europeanLabor.find((e) => e.petitionerId === deniedId));
-  ok('funds charged', s.resources.funds === fundsBefore - r.cost);
-  ok('mission staffed', missionStaffed(missionStaff(s, 'goa')) === staffBefore + 1);
-  // Cannot dispatch if not in formation
-  let threw = false;
-  try { dispatchFromFormation(s, deniedId, 'goa'); } catch (e) { threw = true; }
-  ok('cannot dispatch non-formation man', threw);
+  // There is no emergency dispatch anymore: a man in formation is not a
+  // sending candidate, and stays in Europe until his formation ends.
+  ok('formation man is not a sending candidate',
+    !EngineNS.deploymentCandidates(s).some((c) => c.petitionerId === deniedId));
+  ok('formation man stays put',
+    s.europeanLabor.some((e) => e.petitionerId === deniedId));
 }
 
 // --- Ordination and career stages --------------------------------------------
@@ -1306,10 +1332,9 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
     // Should NOT be counted as stationed at goa
     const goaStaff = missionStaffed(missionStaff(s, 'goa'));
     // (goa starts with some staff; ill should not have added)
-    // Should NOT be available for dispatch
-    let dispatchBlocked = false;
-    try { dispatchFromFormation(s, pid, 'goa'); } catch (e) { dispatchBlocked = /recovering|formation/.test(e.message); }
-    ok('ill man cannot be dispatched', dispatchBlocked);
+    // Should NOT be a candidate for sending
+    ok('ill man is not a sending candidate',
+      !EngineNS.deploymentCandidates(s).some((c) => c.petitionerId === pid));
     // Should NOT be assignable domestically
     let assignBlocked = false;
     try { assignDomestic(s, pid, 'teaching'); } catch (e) { assignBlocked = /recovering/.test(e.message); }
@@ -1319,9 +1344,9 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   }
 }
 
-// --- Dispatch from Europe (post-formation) -------------------------------------
+// --- Send to dock from Europe (ships only) -------------------------------------
 {
-  const s = newGameWithGalleons({ mode: 'campaign', seed: 'europe-dispatch-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'europe-dock-test' });
   // Deny a man to get him into europeanLabor
   const { terna } = startYear(s);
   const pid = terna[0].petitionerId;
@@ -1332,12 +1357,21 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   if (entry) {
     const goaBefore = missionStaffed(missionStaff(s, 'goa'));
     const fundsBefore = s.resources.funds;
-    const result = dispatchFromEurope(s, pid, 'goa');
-    ok('dispatch succeeds', !!result);
+    const sent = EngineNS.queueLaborMen(s, [entry], 'goa', 'test order');
+    ok('send queues the man himself', sent.length === 1 && sent[0] === pid);
     ok('man removed from europeanLabor', !(s.europeanLabor || []).some(e => e.petitionerId === pid));
-    ok('mission staffing increased', missionStaffed(missionStaff(s, 'goa')) === goaBefore + 1);
-    ok('funds decreased', s.resources.funds < fundsBefore);
-    // Ill men cannot be dispatched
+    ok('he waits at the dock, not at the mission',
+      s.queue.some((q) => q.petitionerId === pid && q.status === 'awaiting' && q.destination === 'goa')
+      && missionStaffed(missionStaff(s, 'goa')) === goaBefore);
+    ok('nothing is charged until he sails', s.resources.funds === fundsBefore);
+    // He sails with the fleet — a real voyage, in real time. No teleport.
+    const tNext = startYear(s);
+    decide(s, tNext.terna.map((c) => ({ id: c.petitionerId })));
+    resolveYear(s);
+    const voy = s.voyages.find((v) => v.petitionerId === pid);
+    ok('he sails on a ship', !!voy && voy.destination === 'goa');
+    ok('he is still at sea (Goa is two years out)', missionStaffed(missionStaff(s, 'goa')) === goaBefore);
+    // Ill men are not sending candidates.
     const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'ill-dispatch-test' });
     const t2 = startYear(s2);
     const pid2 = t2.terna[0].petitionerId;
@@ -1345,9 +1379,8 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
     resolveYear(s2);
     const voy2 = s2.voyages.find(v => v.petitionerId === pid2);
     dbgForceOutcome(s2, voy2.id, 'ill');
-    let blocked = false;
-    try { dispatchFromEurope(s2, pid2, 'goa'); } catch (e) { blocked = /recovering/.test(e.message); }
-    ok('ill man cannot dispatch from Europe', blocked);
+    ok('ill man is not a sending candidate',
+      !EngineNS.deploymentCandidates(s2).some((c) => c.petitionerId === pid2));
   }
 }
 
@@ -1387,7 +1420,11 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   resolveYear(s, { skipNatives: true }); // departures: 4 men x 60 (Model B: 4 men fit 1 hull, 1 berth → all sail)
   const sailed = s.voyages.filter(v => v.deploymentId === dep.id);
   ok('4 of 4 sail in year one (1 ship, 1 berth)', sailed.length === 4, `${sailed.length}`);
-  ok('pool decremented exactly once per sailed man', s.available === availBefore - 4 + 1, `${s.available}`);
+  // Veterans coming home rejoin the pool (+1 each) — starting staff are
+  // real men now, so some may return in the sailing year itself.
+  const vetsA1 = s.voyages.filter(v => v.veteranReturned && v.veteranYear === 1615).length;
+  ok('pool decremented exactly once per sailed man', s.available === availBefore - 4 + 1 + vetsA1,
+    `${s.available} (veterans home: ${vetsA1})`);
   // 3 deployment men x 60 at departure; the 3 denied terna cards cost 15 each (seal);
   // deployment men themselves incur no seal costs.
   const upkeep = Object.keys(s.missions).reduce((n, id) => n + missionUpkeep(missionStaff(s, id)), 0);
@@ -1474,9 +1511,15 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   ok('year 2: remaining members sail', depVoy2.length === 6, `${depVoy2.length}`);
   const st = deploymentStatus(s, s.deployments[0].id);
   ok('status in-transit until all resolved', st.status === 'in-transit' && st.awaiting === 0, JSON.stringify(st));
-  // No double-counting: pool lost exactly 6 (+1 yearly intake each year, minus terna man).
-  // (asserted loosely: pool never went negative and departures match)
-  ok('no pool anomaly', s.available >= 0 && s.available < 131);
+  // No double-counting: pool lost exactly the 7 who sailed (6 deployment
+  // + 1 terna), gained 2 yearly intakes, plus one per man who rejoined
+  // (veterans home, voyages resolved 'returned') — all counted from the
+  // voyage records themselves.
+  const rejoinsA4 = s.voyages.filter(v =>
+    (v.veteranReturned && v.veteranYear <= 1616) ||
+    (v.outcome === 'returned' && v.resolvedYear === 1616)).length;
+  ok('no pool anomaly', s.available === 131 - 7 + 2 + rejoinsA4,
+    `${s.available} (rejoins: ${rejoinsA4})`);
 }
 
 {
@@ -1516,8 +1559,11 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   ok('outcomes recorded per member',
     roster.find(m => m.petitionerId === ids[0]).state === 'returned' &&
     roster.find(m => m.petitionerId === ids[1]).state === 'thriving');
-  // Returnee rejoins pool exactly once (existing convention).
-  ok('returnee rejoins pool once', s.available === availPre + 1 + 1, `${s.available} vs ${availPre}`);
+  // Returnee rejoins pool exactly once (existing convention) — plus the
+  // year's intake, plus any veteran who came home in the same resolve.
+  const vetsA6 = s.voyages.filter(v => v.veteranReturned && v.veteranYear === 1616).length;
+  ok('returnee rejoins pool once', s.available === availPre + 1 + 1 + vetsA6,
+    `${s.available} vs ${availPre} (veterans home: ${vetsA6})`);
   const dupes = s.europeanLabor.filter(e => e.petitionerId === ids[0]);
   ok('no duplicate europeanLabor entries', dupes.length <= 1, `${dupes.length}`);
 }
@@ -1557,10 +1603,15 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   ok('report: never exposes scoreUncapped', !JSON.stringify(r).includes('scoreUncapped'));
   ok('report: JSON-safe', JSON.parse(JSON.stringify(r)).score === 37);
 
-  // Scripted campaign fragment: dispatch, novitiate, voyages.
+  // Scripted campaign fragment: men sent by request, novitiate, voyages.
   const g = newGameWithGalleons({ mode: 'campaign', seed: 'rep-script' });
   foundNovitiate(g, 'china');
-  dispatchMission(g, 'goa', { brothers: 2 });
+  // Send 2 named brothers to Goa by answering a provincial request.
+  seedLabor(g, 2, 'rep');
+  for (const id of ['test-rep-0', 'test-rep-1']) g.petitioners[id].vows = { stage: 'brother' };
+  g.provincials.east = { petitionerId: null, name: 'Test Provincial', hq: 'goa', appointedYear: g.year };
+  g.provincialRequests = { east: { regionId: 'east', year: g.year, professed: 0, fathers: 0, brothers: 2 } };
+  answerProvincialRequest(g, 'east', { professed: 0, fathers: 0, brothers: 2 });
   ok('report: dispatch counter', g.stats.missionDispatches === 2 && g.stats.missionDispatchDests.goa === 2);
   for (let y = 0; y < 3; y++) {
     const { terna } = startYear(g);
@@ -1590,7 +1641,11 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // Round-trip through serialize/deserialize preserves the report inputs.
   const g2 = newGameWithGalleons({ mode: 'campaign', seed: 'rep-ser' });
-  dispatchMission(g2, 'goa', { brothers: 3 });
+  seedLabor(g2, 3, 'reps');
+  for (const id of ['test-reps-0', 'test-reps-1', 'test-reps-2']) g2.petitioners[id].vows = { stage: 'brother' };
+  g2.provincials.east = { petitionerId: null, name: 'Test Provincial', hq: 'goa', appointedYear: g2.year };
+  g2.provincialRequests = { east: { regionId: 'east', year: g2.year, professed: 0, fathers: 0, brothers: 3 } };
+  answerProvincialRequest(g2, 'east', { professed: 0, fathers: 0, brothers: 3 });
   const back = deserialize(serialize(g2));
   const r4 = generalateReport(back);
   ok('report: survives serialize round-trip', r4.institutions.strengthenedTotal === 3);
@@ -1910,7 +1965,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     const pick = terna[0];
     decide(s, [{ id: pick.petitionerId }]);
     resolveYear(s);
-    const v = s.voyages[0];
+    const v = s.voyages.find((x) => x.petitionerId === pick.petitionerId);
     // Queue vows state for the voyager before he dies.
     s.vowsNewsInTransit = [{ petitionerId: v.petitionerId, type: 'firstVows', name: 'x', destId: v.destination, milestoneYear: s.year, arriveYear: s.year + 2, newsText: 't' }];
     s.pendingVows = [{ petitionerId: v.petitionerId, type: 'firstVows', year: s.year, name: 'x' }];
@@ -2426,6 +2481,10 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   // staging + validation
   {
     const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-t5' });
+    // Ships-only: a staged sending is fillable only while the named men
+    // actually stand free in Europe. Seed one scholastic there.
+    const g5 = seedLabor(s, 1, 'gov5');
+    s.petitioners[g5[0]].vows = { stage: 'scholastic' };
     const rep = G.queueReport(s, { kind: 'fragile', destId: 'goa', year: s.year, title: 't', body: 'b',
       facts: {}, recommendations: [{ id: 'reinforce', text: 'Reinforce', action: { type: 'dispatch', destId: 'goa', counts: { fathers: 0, coadjutors: 1, brothers: 0 } } }] });
     const sa = G.stageRecommendation(s, rep.id, 'reinforce');
@@ -2433,29 +2492,37 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     let threw = false;
     try { G.stageRecommendation(s, rep.id, 'reinforce'); } catch (e) { threw = true; }
     ok('gov: duplicate stage throws', threw);
-    // invalid: drain funds so dispatch cannot be afforded
-    s.resources.funds = 0;
+    // invalid: the one coadjutor leaves Europe, so the sending cannot be filled
+    const laborBackup = s.europeanLabor;
+    s.europeanLabor = [];
     threw = false;
     try { G.validateStagedAction(s, sa); } catch (e) { threw = true; }
-    ok('gov: validate catches insufficient funds', threw);
-    s.resources.funds = 10000;
+    ok('gov: validate catches missing men', threw);
+    s.europeanLabor = laborBackup;
     const v = G.validateStagedAction(s, sa);
-    ok('gov: validate passes when affordable', v.ok === true);
+    ok('gov: validate passes when the men stand free', v.ok === true);
     G.discardStaged(s, sa.id);
     ok('gov: discard removes staged', s.staged.length === 0);
   }
   // applyStaged: happy path + atomic rollback
   {
     const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-t6' });
-    s.resources.funds = 10000; s.available = 50;
+    s.resources.funds = 10000;
+    const g6 = seedLabor(s, 2, 'gov6');
+    s.petitioners[g6[0]].vows = { stage: 'scholastic' };
+    s.petitioners[g6[1]].vows = { stage: 'scholastic' };
     const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b',
       facts: {}, recommendations: [{ id: 'reinforce', text: 'Reinforce', action: { type: 'dispatch', destId: 'goa', counts: { fathers: 0, coadjutors: 2, brothers: 0 } } }] });
     G.stageRecommendation(s, rep.id, 'reinforce');
     const funds0 = s.resources.funds;
     const staff0 = missionStaffed(missionStaff(s, 'goa'));
     const applied = G.applyStaged(s);
-    ok('gov: apply dispatches', applied.length === 1 && s.resources.funds < funds0
-      && missionStaffed(missionStaff(s, 'goa')) === staff0 + 2);
+    // Ships-only: applying queues the two named men for the fleet — no
+    // charge and no staffing until a ship carries them.
+    ok('gov: apply sends named men to the dock', applied.length === 1 && s.resources.funds === funds0
+      && missionStaffed(missionStaff(s, 'goa')) === staff0
+      && g6.every((id) => s.queue.some((q) => q.petitionerId === id && q.status === 'awaiting' && q.destination === 'goa')),
+      JSON.stringify(s.queue.map((q) => q.petitionerId)));
     ok('gov: report marked acted', s.reports.find((r) => r.id === rep.id).status === 'acted');
     ok('gov: staged cleared', s.staged.length === 0);
     let threw = false;
@@ -2465,7 +2532,9 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   {
     // rollback: first action valid, second fails at apply time
     const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-t7' });
-    s.resources.funds = 10000; s.available = 50;
+    s.resources.funds = 10000;
+    const g7 = seedLabor(s, 1, 'gov7');
+    s.petitioners[g7[0]].vows = { stage: 'scholastic' };
     const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b',
       facts: {}, recommendations: [
         { id: 'r1', text: 'Reinforce Goa', action: { type: 'dispatch', destId: 'goa', counts: { fathers: 0, coadjutors: 1, brothers: 0 } } },
@@ -2481,7 +2550,8 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     try { G.applyStaged(s); } catch (e) { threw = true; }
     ok('gov: batch with invalid action throws', threw);
     ok('gov: rollback restored funds and staffing', s.resources.funds === funds0
-      && missionStaffed(missionStaff(s, 'goa')) === staff0);
+      && missionStaffed(missionStaff(s, 'goa')) === staff0
+      && s.queue.length === 0 && s.europeanLabor.some((e) => e.petitionerId === g7[0]));
     ok('gov: rollback kept staged + pending', s.staged.length === 2
       && s.reports.find((r) => r.id === rep.id).status === 'pending');
   }
@@ -2530,7 +2600,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     ok('gov-audit: two deaths -> two reports', deaths.length === 2);
     ok('gov-audit: deaths traceable', deaths.every((r) => r.facts.petitionerId && r.facts.voyageId)
       && new Set(deaths.map((r) => r.facts.voyageId)).size === 2);
-    ok('gov-audit: both voyages marked', s.voyages.every((v) => v.deathReported === true));
+    ok('gov-audit: both voyages marked', [1, 2].every((n) => s.voyages.find((v) => v.id === `voy-test-${n}`).deathReported === true));
     // second generation: no duplicates, no unmarking
     G.generateReports(s, s.year);
     ok('gov-audit: no duplicate death reports', s.reports.filter((r) => r.kind === 'voyage').length === 2);
@@ -2554,7 +2624,9 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   // Fix 2: two recommendations from one report staged + applied -> both recorded
   {
     const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-a2' });
-    s.resources.funds = 10000; s.available = 50;
+    s.resources.funds = 10000;
+    const ga2 = seedLabor(s, 1, 'gova2');
+    s.petitioners[ga2[0]].vows = { stage: 'scholastic' };
     const rep = G.queueReport(s, { kind: 'fragile', destId: 'goa', year: s.year, title: 't', body: 'b',
       facts: {}, recommendations: [
         { id: 'r1', text: 'Reinforce', action: { type: 'dispatch', destId: 'goa', counts: { fathers: 0, coadjutors: 1, brothers: 0 } } },
@@ -2589,13 +2661,12 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     const d = G.stageRecommendation(s, rep2.id, 'r1');
     ok('gov-audit: staged id unique after apply', ![a.id, b.id, c.id].includes(d.id));
   }
-  // Fix 4: batch conflict detected (two dispatches, each affordable alone, not together)
+  // Fix 4: batch conflict detected (two sendings, each fillable alone —
+  // 3 scholastics in Europe — but not together: they need 4 named men)
   {
     const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-a4' });
-    s.available = 50;
-    // coadjutor cost: find it
-    const cost1 = 1 * (await import('./rules.js')).MISSION_GRADES.coadjutors.cost;
-    s.resources.funds = cost1 * 3; // affords 3, not 4
+    seedLabor(s, 3, 'a4');
+    for (const id of ['test-a4-0', 'test-a4-1', 'test-a4-2']) s.petitioners[id].vows = { stage: 'scholastic' };
     const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b',
       facts: {}, recommendations: [
         { id: 'r1', text: 'Send 2', action: { type: 'dispatch', destId: 'goa', counts: { fathers: 0, coadjutors: 2, brothers: 0 } } },
@@ -2617,6 +2688,8 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   {
     const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-a4b' });
     s.resources.funds = 10000; s.available = 50;
+    seedLabor(s, 1, 'a4b');
+    s.petitioners['test-a4b-0'].vows = { stage: 'scholastic' };
     const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b',
       facts: {}, recommendations: [
         { id: 'r1', text: 'Reinforce', action: { type: 'dispatch', destId: 'goa', counts: { fathers: 0, coadjutors: 1, brothers: 0 } } },
@@ -2633,8 +2706,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     const seq0 = JSON.stringify(s.seq);
     const ledger0 = s.ledger.length;
     const repStatus0 = rep.status;
-    // sabotage sa2 after validation snapshot: make funds insufficient mid-batch
-    const origDispatch = EngineNS.dispatchMission;
+    // sabotage sa2 after validation snapshot: demand men who do not exist
     let threw = false;
     // force failure by draining funds between actions: patch via staged action that spends all
     s.staged[1].action = { type: 'dispatch', destId: 'goa', counts: { fathers: 0, coadjutors: 1000, brothers: 0 } };
@@ -2713,7 +2785,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     ok('gov-leg: recovered report has reviewable recommendation',
       rec.recommendations.length === 1 && rec.recommendations[0].action.type === 'instruct');
     ok('gov-leg: voyage flags untouched',
-      s2.voyages.every((v) => v.deathReported === true));
+      ['voy-1', 'voy-2'].every((id) => s2.voyages.find((v) => v.id === id).deathReported === true));
     ok('gov-leg: existing history not altered',
       s2.reports.find((r) => r.facts.petitionerId === 'hist-1').title === 'Death reported: Man One');
     // idempotency across save/load cycles
@@ -2772,6 +2844,8 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   {
     const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-d1' });
     s.resources.funds = 10000; s.available = 50;
+    const gd1 = seedLabor(s, 1, 'govd1');
+    s.petitioners[gd1[0]].vows = { stage: 'scholastic' };
     const rep = mkDispatchRep(s, 'goa', 'Goa asks');
     G.stageRecommendation(s, rep.id, 'r1');
     G.decideReport(s, rep.id, 'decline', 'not now');
@@ -2794,6 +2868,8 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   {
     const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-d2' });
     s.resources.funds = 10000; s.available = 50;
+    const gd2 = seedLabor(s, 2, 'govd2');
+    for (const id of gd2) s.petitioners[id].vows = { stage: 'scholastic' };
     const repA = mkDispatchRep(s, 'goa', 'Goa asks');
     const repB = mkDispatchRep(s, 'japan', 'Japan asks');
     G.stageRecommendation(s, repA.id, 'r1');
@@ -2822,6 +2898,8 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   {
     const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-d3' });
     s.resources.funds = 10000; s.available = 50;
+    const gd3 = seedLabor(s, 1, 'govd3');
+    s.petitioners[gd3[0]].vows = { stage: 'scholastic' };
     const rep = mkDispatchRep(s, 'goa', 'Goa asks');
     const sa = G.stageRecommendation(s, rep.id, 'r1');
     G.decideReport(s, rep.id, 'decline');
@@ -2833,6 +2911,8 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   {
     const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-d4' });
     s.resources.funds = 10000; s.available = 50;
+    const gd4 = seedLabor(s, 1, 'govd4');
+    s.petitioners[gd4[0]].vows = { stage: 'scholastic' };
     const rep = mkDispatchRep(s, 'goa', 'Goa asks');
     G.stageRecommendation(s, rep.id, 'r1');
     G.decideReport(s, rep.id, 'acknowledge');
@@ -2980,9 +3060,10 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     // add a man to the pool
     const e = { petitionerId: 'stage-man-1', name: 'Stage Man', year: s.year, via: 'test', assignment: null };
     s.europeanLabor.push(e);
-    s.petitioners['stage-man-1'] = { id: 'stage-man-1', name: 'Stage Man', status: 'active' };
+    s.petitioners['stage-man-1'] = { id: 'stage-man-1', name: 'Stage Man', status: 'active', vows: { stage: 'brother' } };
     const fundsBefore = s.resources.funds;
     const laborBefore = s.europeanLabor.length;
+    const hqId = s.provinceHQs.east;
     // stage an answer: nothing moves yet
     const sa = stageProvincialAnswer(s, 'east', { professed: 0, fathers: 0, brothers: 1 });
     ok('stage: stored', s.stagedAnswers.east && s.stagedAnswers.east.mix.brothers === 1);
@@ -2993,7 +3074,10 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     // year close executes it
     applyStagedAnswers(s);
     ok('stage: executed at close', s.europeanLabor.length === laborBefore - 1);
-    ok('stage: funds spent', s.resources.funds < fundsBefore);
+    ok('stage: answers are free — he pays when he sails', s.resources.funds === fundsBefore);
+    ok('stage: the named man waits at the dock for the HQ',
+      s.queue.some((q) => q.petitionerId === 'stage-man-1' && q.status === 'awaiting' && q.destination === hqId),
+      `hq=${hqId}`);
     ok('stage: request cleared', !s.provincialRequests.east);
     ok('stage: staged cleared', Object.keys(s.stagedAnswers).length === 0);
     // unstage works
@@ -3006,15 +3090,18 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   // Community traits: top 3 dispositions among stationed men.
   {
     const s = newGameWithGalleons({ mode: 'campaign', seed: 'community1' });
-    // No voyages yet → empty.
-    ok('community: empty when no one stationed', communityTraits(s, 'goa').length === 0);
+    // The starting staff are real men with arrivals — the community is
+    // the roster from day one (every man a profile, Tran 2026-10-20).
+    const roster0 = (missionStaff(s, 'goa').staffIds || []).length;
+    ok('community: starting staff are the community', roster0 > 0
+      && missionCommunity(s, 'goa').length === roster0, `${roster0}`);
     // Fake an arrived voyage.
     s.petitioners['c1'] = { id: 'c1', name: 'Community One', status: 'active' };
     s.petitioners['c2'] = { id: 'c2', name: 'Community Two', status: 'active' };
     s.voyages.push({ petitionerId: 'c1', destination: 'goa', stage: 'arrived', outcome: 'thriving' });
     s.voyages.push({ petitionerId: 'c2', destination: 'goa', stage: 'arrived', outcome: 'thriving' });
     const men = missionCommunity(s, 'goa');
-    ok('community: finds stationed men', men.length === 2 && men.includes('c1'));
+    ok('community: finds stationed men', men.length === roster0 + 2 && men.includes('c1'));
     const traits = communityTraits(s, 'goa');
     ok('community: top 3 traits', traits.length === 3);
     ok('community: sorted by avg', traits[0].avg >= traits[1].avg && traits[1].avg >= traits[2].avg);
@@ -3236,17 +3323,22 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     s.provincialRequests = { east: { regionId: 'east', year: s.year, professed: 999, fathers: 0, brothers: 0 } };
     let threw = false;
     try { answerProvincialRequest(s, 'east', { professed: 999, fathers: 0, brothers: 0 }); }
-    catch (e) { threw = /available/.test(e.message); }
-    ok('requests: cannot send more than Europe + abstract pool', threw);
+    catch (e) { threw = /free in Europe/.test(e.message); }
+    ok('requests: cannot send more than the named men in Europe', threw);
     ok('requests: failed answer keeps the request', !!s.provincialRequests.east);
   }
   {
+    // The abstract pool no longer covers a request (Tran 2026-10-20):
+    // with nobody standing in Europe, there is nobody to send.
     const s = setup('req4');
     s.europeanLabor = [];
     s.available = 10;
     s.provincialRequests = { east: { regionId: 'east', year: s.year, professed: 0, fathers: 2, brothers: 0 } };
-    const r = answerProvincialRequest(s, 'east', { professed: 0, fathers: 2, brothers: 0 });
-    ok('requests: spawns from abstract pool', r.sent === 2 && s.available === 8);
+    let threw = false;
+    try { answerProvincialRequest(s, 'east', { professed: 0, fathers: 2, brothers: 0 }); }
+    catch (e) { threw = /free in Europe/.test(e.message); }
+    ok('requests: the abstract pool sends nobody', threw && s.available === 10);
+    ok('requests: unanswered request survives', !!s.provincialRequests.east);
   }
   // asking: 3/year, energy, province check
   {
@@ -3435,30 +3527,39 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
 // --- 50. One man, one place: roster integrity ---------------------------------
 {
-  // Fresh missions are staffed by unnamed men only — no real petitioner is
-  // dealt into a staff list for a mission he never sailed to.
+  // Fresh missions are staffed by real minted men — a name, a profile,
+  // and an arrival in a past year behind every count (Tran 2026-10-20:
+  // every man must have a profile). No real petitioner is dealt into a
+  // staff list for a mission he never sailed to.
   const s = newGameWithGalleons({ mode: 'campaign', seed: 'one-place' });
-  ok('one-place: fresh staff lists hold no names',
-    Object.values(s.missions).every((m) => (m.staffIds || []).length === 0));
-  ok('one-place: fresh missions still have their unnamed staff',
-    Object.values(s.missions).some((m) => missionStaffed(m) > 0));
+  ok('one-place: every starting count has a named man',
+    Object.values(s.missions).every((m) => (m.staffIds || []).length === missionStaffed(m)));
+  ok('one-place: starting men have profiles and arrivals',
+    Object.entries(s.missions).every(([destId, m]) => (m.staffIds || []).every((id) =>
+      s.petitioners[id] && typeof s.petitioners[id].name === 'string'
+      && missionCommunity(s, destId).includes(id))));
+  ok('one-place: no petitioner is dealt into a mission',
+    Object.values(s.missions).every((m) => (m.staffIds || []).every((id) => id.startsWith('staff-'))));
 
-  // Dispatch: the man himself joins the mission (name on the roster, out
-  // of the spare pool), not just its headcount.
+  // Sending a man from Europe: he waits at the dock and sails — he does
+  // NOT appear at the mission until his ship arrives (no teleporting).
   const { terna } = startYear(s);
   decide(s, []); // all denied -> europeanLabor
   const pid = terna[0].petitionerId;
   s.resources.funds = 5000;
   const availBefore = s.available;
   const japanBefore = missionStaffed(missionStaff(s, 'japan'));
-  dispatchFromEurope(s, pid, 'japan');
+  const entry = s.europeanLabor.find((e) => e.petitionerId === pid);
+  EngineNS.queueLaborMen(s, [entry], 'japan', 'test order');
   const jst = missionStaff(s, 'japan');
-  ok('one-place: dispatched man is on the mission roster', jst.staffIds.includes(pid));
-  ok('one-place: dispatched man raises the headcount by one',
-    missionStaffed(jst) === japanBefore + 1);
-  ok('one-place: dispatched man leaves the spare pool', s.available === availBefore - 1);
-  ok('one-place: dispatched man leaves European labor',
+  ok('one-place: a sent man is not yet on the roster', !jst.staffIds.includes(pid));
+  ok('one-place: the headcount does not move until he arrives',
+    missionStaffed(jst) === japanBefore);
+  ok('one-place: the spare pool keeps him until he sails', s.available === availBefore);
+  ok('one-place: sent man leaves European labor',
     !s.europeanLabor.some((e) => e.petitionerId === pid));
+  ok('one-place: sent man waits at the dock',
+    s.queue.some((q) => q.petitionerId === pid && q.status === 'awaiting' && q.destination === 'japan'));
 
   // Removal takes the man's OWN grade bucket, not "fathers first".
   const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'one-place-2' });
@@ -3496,6 +3597,24 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   ok('one-place: the held man is still at the dock',
     s3.queue.some((q) => q.petitionerId === rid && q.status === 'awaiting' && q.held));
 
+  // Station a named man at a mission through the real arrival path
+  // (an arrived voyage, resolved by staffArrival).
+  const stationMan = (st, pid, destId) => {
+    st.europeanLabor = st.europeanLabor.filter((e) => e.petitionerId !== pid);
+    const v = { id: `voy-test-${pid}-${destId}`, petitionerId: pid,
+      name: (st.petitioners[pid] || {}).name || pid, destination: destId,
+      stage: 'arrived', outcome: 'thriving', departYear: st.year - 2,
+      arriveYear: st.year, companions: 0, companionIds: [] };
+    st.voyages.push(v);
+    const rec = st.petitioners[pid];
+    if (rec) {
+      rec.status = 'active';
+      if (!Array.isArray(rec.voyages)) rec.voyages = [];
+      rec.voyages.push(v.id);
+    }
+    EngineNS.staffArrival(st, v);
+  };
+
   // Disease death: the man dies in his record as well as the ledger, and
   // leaves the roster. (A sickMen entry from last year ripens this year.)
   const s4 = newGameWithGalleons({ mode: 'campaign', seed: 'one-place-4' });
@@ -3503,7 +3622,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   decide(s4, []);
   const did = t4[0].petitionerId;
   s4.resources.funds = 5000;
-  dispatchFromEurope(s4, did, 'peru');
+  stationMan(s4, did, 'peru');
   s4.sickMen = { [did]: { since: s4.year - 1, destId: 'peru' } };
   resolveYear(s4);
   ok('one-place: disease death marks the record deceased',
@@ -3520,7 +3639,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   decide(s5, []);
   const hid = t5[0].petitionerId;
   s5.resources.funds = 5000;
-  dispatchFromEurope(s5, hid, 'peru');
+  stationMan(s5, hid, 'peru');
   missionStaff(s5, 'peru').fragileYears = 3;
   EngineNS.disbandMission(s5, 'peru');
   ok('one-place: disbanded man is back laboring in Europe',
@@ -3551,7 +3670,10 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   ok('repair: duplicate queue entries collapse to one',
     s6b.queue.filter((q) => q.petitionerId === xid && q.status === 'awaiting').length === 1);
   ok('repair: phantom staff removed', !missionStaff(s6b, 'japan').staffIds.includes(xid));
-  ok('repair: closed mission fragility cleared', missionStaff(s6b, 'peru').fragileYears === 0);
+  // A closed mission's fragility clock is frozen, not erased: repair
+  // preserves the recorded counter (save round-trip must be identical),
+  // and the live engine never advances it while the mission stays closed.
+  ok('repair: closed mission fragility frozen, not rewritten', missionStaff(s6b, 'peru').fragileYears === 4);
 
   // Companions show their own names, not a generic label.
   const s7 = newGameWithGalleons({ mode: 'campaign', seed: 'one-place-7' });
@@ -3593,85 +3715,82 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   ok('export: payload restores as a game', restored.seed === s.seed && restored.year === s.year);
 }
 
-// --- 52. Send from the dock: relief valve for the departure queue ------------
+// --- 52. Ships only: every man a profile (Tran 2026-10-20) ---------------------
 {
-  // A queued man can be sent straight to his destination on arranged
-  // passage: off the dock, into the mission roster, out of the spare pool.
-  const s = newGameWithGalleons({ mode: 'campaign', seed: 'dock-send' });
-  const { terna } = startYear(s);
-  decide(s, [{ id: terna[0].petitionerId }]);
-  const pid = terna[0].petitionerId;
-  const destId = s.queue.find((q) => q.petitionerId === pid).destination;
+  // The dispatch actions are gone — no arranged passage, no teleport,
+  // no abstract man. Every way overseas is a ship.
+  ok('ships-only: no dispatch actions exist',
+    typeof EngineNS.dispatchFromEurope === 'undefined'
+    && typeof EngineNS.dispatchFromFormation === 'undefined'
+    && typeof EngineNS.dispatchFromDock === 'undefined'
+    && typeof EngineNS.dockSendCost === 'undefined'
+    && typeof EngineNS.dispatchMission === 'undefined');
+
+  // Founding: the company is named men who queue; a founding with no men
+  // in Europe fails clean and changes nothing.
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'found-1' });
+  s.destState.peru.collapsed = true;
   s.resources.funds = 5000;
-  const fundsBefore = s.resources.funds;
-  const availBefore = s.available;
-  const staffBefore = missionStaffed(missionStaff(s, destId));
-  const info = EngineNS.dockSendCost(s, pid);
-  ok('dock-send: price is quoted for a queued man', info && info.cost > 0, JSON.stringify(info));
-  const res = EngineNS.dispatchFromDock(s, pid);
-  ok('dock-send: receipt names man, destination, price', res.petitionerId === pid && res.destId === destId && res.cost === info.cost);
-  ok('dock-send: off the dock', !s.queue.some((q) => q.petitionerId === pid && q.status === 'awaiting'));
-  ok('dock-send: on the mission roster', missionStaff(s, destId).staffIds.includes(pid));
-  ok('dock-send: headcount rises by one', missionStaffed(missionStaff(s, destId)) === staffBefore + 1);
-  ok('dock-send: chest charged the quoted price', s.resources.funds === fundsBefore - info.cost);
-  ok('dock-send: spare pool loses him', s.available === availBefore - 1);
-  ok('dock-send: ledger records the arranged passage',
-    s.ledger.some((e) => e.type === 'dispatch' && e.decision === 'dock' && e.petitionerId === pid));
-  ok('dock-send: quoted price is null once he has sailed away', EngineNS.dockSendCost(s, pid) === null);
-
-  // Companions ride along at the usual companion prices.
-  const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'dock-send-2' });
-  const { terna: t2 } = startYear(s2);
-  decide(s2, [{ id: t2[0].petitionerId }]);
-  const pid2 = t2[0].petitionerId;
-  const q2 = s2.queue.find((x) => x.petitionerId === pid2);
-  q2.companions = 2;
-  q2.companionGrades = { brother: 2 };
-  const rec2 = s2.petitioners[pid2];
-  if (!rec2.vows) rec2.vows = {};
-  rec2.vows.stage = 'brother';
-  s2.resources.funds = 5000;
-  const info2 = EngineNS.dockSendCost(s2, pid2);
-  ok('dock-send: party price = man + companions', info2.cost === 50 + 2 * 50, `${info2.cost}`);
-  const st2 = missionStaff(s2, q2.destination);
-  const bBefore = st2.brothers;
-  EngineNS.dispatchFromDock(s2, pid2);
-  ok('dock-send: the party joins the mission', st2.brothers === bBefore + 3);
-
-  // Guards: not at the dock, closed destination, short chest.
-  const s3 = newGameWithGalleons({ mode: 'campaign', seed: 'dock-send-3' });
   let threw = false;
-  try { EngineNS.dispatchFromDock(s3, 'nobody'); } catch (e) { threw = /not waiting at the dock/.test(e.message); }
-  ok('dock-send: no dock entry, no sailing', threw);
-  const { terna: t3 } = startYear(s3);
-  decide(s3, [{ id: t3[0].petitionerId }]);
-  const pid3 = t3[0].petitionerId;
-  const dest3 = s3.queue.find((x) => x.petitionerId === pid3).destination;
-  s3.destState[dest3].access = 'closed';
-  const funds3 = s3.resources.funds;
-  let closedThrew = false;
-  try { EngineNS.dispatchFromDock(s3, pid3); } catch (e) { closedThrew = /closed to new men/.test(e.message); }
-  ok('dock-send: closed destination refused', closedThrew);
-  ok('dock-send: refusal leaves the man in the queue', s3.queue.some((x) => x.petitionerId === pid3 && x.status === 'awaiting'));
-  ok('dock-send: refusal touches nothing', s3.resources.funds === funds3);
-  s3.destState[dest3].access = 'open';
-  s3.resources.funds = 1;
-  let brokeThrew = false;
-  try { EngineNS.dispatchFromDock(s3, pid3); } catch (e) { brokeThrew = /scudi needed/.test(e.message); }
-  ok('dock-send: insufficient funds refused', brokeThrew);
+  try { EngineNS.foundMission(s, 'peru', { brothers: 1 }); } catch (e) { threw = /free in Europe/.test(e.message); }
+  ok('founding: no men in Europe, no founding', threw);
+  ok('founding: failed founding changes nothing',
+    s.resources.funds === 5000 && !!s.destState.peru.collapsed);
+  seedLabor(s, 1, 'found');
+  s.petitioners['test-found-0'].vows = { stage: 'brother' };
+  const availBefore = s.available;
+  const res = EngineNS.foundMission(s, 'peru', { brothers: 1 });
+  ok('founding: costs 1000 and opens the mission',
+    res.cost === 1000 && s.resources.funds === 4000 && s.destState.peru.access === 'open' && !s.destState.peru.collapsed);
+  ok('founding: the founder is a named man at the dock',
+    res.men.length === 1 && res.men[0] === 'test-found-0'
+    && s.queue.some((q) => q.petitionerId === 'test-found-0' && q.status === 'awaiting' && q.destination === 'peru'));
+  ok('founding: he is not stationed until he sails',
+    !missionStaff(s, 'peru').staffIds.includes('test-found-0'));
+  ok('founding: the abstract pool is untouched', s.available === availBefore);
 
-  // A held man can be sent straight from the dock — that is the point.
-  const s4 = newGameWithGalleons({ mode: 'campaign', seed: 'dock-send-4' });
-  const { terna: t4 } = startYear(s4);
-  decide(s4, [{ id: t4[0].petitionerId }]);
-  const pid4 = t4[0].petitionerId;
-  s4.resources.funds = 5000;
-  EngineNS.setDockHold(s4, pid4, true);
-  ok('dock-send: held man is docked', s4.queue.some((x) => x.petitionerId === pid4 && x.held));
-  const res4 = EngineNS.dispatchFromDock(s4, pid4);
-  ok('dock-send: held man sails on arranged passage',
-    res4.petitionerId === pid4 && !s4.queue.some((x) => x.petitionerId === pid4));
+  // Prices: ships and berths carry the whole load now, so they cost less.
+  ok('prices: ship tiers cut', EngineNS.RESOURCES.SHIP_TIERS.caravel.cost === 100
+    && EngineNS.RESOURCES.SHIP_TIERS.carrack.cost === 200 && EngineNS.RESOURCES.SHIP_TIERS.galleon.cost === 400);
+  const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'price-1' });
+  s2.resources.funds = 5000;
+  const b0 = s2.resources.berths;
+  EngineNS.expandBerths(s2);
+  ok('prices: berth expansion costs 200', s2.resources.funds === 4800 && s2.resources.berths === b0 + 1,
+    `${s2.resources.funds}`);
+
+  // Legacy transit: men already at sea under the old rules step ashore
+  // as real men — names join the roster with profiles and arrivals.
+  const s3 = newGameWithGalleons({ mode: 'campaign', seed: 'transit-1' });
+  const goa0 = missionStaff(s3, 'goa');
+  const beforeIds = new Set(goa0.staffIds || []);
+  s3.missionTransit = { goa: [{ arrivalYear: s3.year, grades: { brothers: 2 } }] };
+  const { terna: t3 } = startYear(s3);
+  decide(s3, t3.map((c) => ({ id: c.petitionerId })));
+  resolveYear(s3);
+  const goa1 = missionStaff(s3, 'goa');
+  const newIds = (goa1.staffIds || []).filter((id) => !beforeIds.has(id));
+  ok('transit: abstract arrivals become named men',
+    newIds.length === 2 && newIds.every((id) => s3.petitioners[id] && s3.petitioners[id].staffMinted),
+    newIds.join(','));
+  ok('transit: the new men are in the community',
+    newIds.every((id) => missionCommunity(s3, 'goa').includes(id)));
+
+  // Native vocations in old saves: a stationed native with no arrival
+  // record gains one on load, and joins his mission's community.
+  const s4 = newGameWithGalleons({ mode: 'campaign', seed: 'native-1' });
+  const jst = missionStaff(s4, 'japan');
+  const nid = 'native-japan-1615-9';
+  s4.petitioners[nid] = { id: nid, name: 'Paulo Miki', fictional: true, native: true,
+    culture: 'japanese', grade: 'brother', status: 'active', history: [], historyV: 1,
+    genYear: 1615, nativeTo: 'japan' };
+  jst.staffIds.push(nid);
+  jst.brothers += 1;
+  const back = deserialize(serialize(s4));
+  ok('natives: a stationed native counts as arrived after load',
+    missionCommunity(back, 'japan').includes(nid));
 }
+
 
 // --- 53. Auto packing punches up as a last resort ------------------------------
 {

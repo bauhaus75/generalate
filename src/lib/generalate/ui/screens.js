@@ -674,23 +674,18 @@ function formationListHTML(app, year) {
       <strong>${esc(e.name)}</strong> ${gradeChip(app, e.petitionerId)}
       <span class="form-via">${esc(e.via)} ${e.year}</span>
       ${reserveTag}
-      ${e.ill ? `<span class="disp-mini ill-badge" title="Recovering from illness suffered on voyage. Not available for assignment or dispatch.">🤒 recovering (ill ${e.illYear})</span>` : ''}
+      ${e.ill ? `<span class="disp-mini ill-badge" title="Recovering from illness suffered on voyage. Not available for assignment.">🤒 recovering (ill ${e.illYear})</span>` : ''}
       ${stage ? `<span class="disp-mini">${esc(stage)}</span>` : ''}
       <span class="disp-mini">${dispLine(app, e.petitionerId)}</span>
       ${e.ill ? `<span class="disp-mini">No actions available while recovering.</span>`
       : asg ? `<span class="form-active">Assigned: ${esc(asg.name)} (since ${e.assignedYear || year})</span>
         <button class="gbtn small ghost domestic-release" data-id="${esc(e.petitionerId)}">Release</button>`
-      : inForm ? `<span class="form-active">In formation: ${esc(fName)} until ${e.formation.until}</span>
-        <label class="form-pick">Emergency dispatch:
-          <select class="emg-dest" data-id="${esc(e.petitionerId)}" aria-label="Emergency dispatch destination for ${esc(e.name)}">
+      : inForm ? `<span class="form-active">In formation: ${esc(fName)} until ${e.formation.until}</span>`
+        : `<label class="form-pick">Send to dock for:
+          <select class="europe-dest" data-id="${esc(e.petitionerId)}" aria-label="Destination for ${esc(e.name)}">
             ${(app.Engine.DESTINATIONS ? Object.values(app.Engine.DESTINATIONS) : []).filter(d => d && d.id && (app.state.destState[d.id] || {}).access !== 'closed').map(d => `<option value="${d.id}">${esc(d.name || d.id)}</option>`).join('')}
           </select></label>
-        <button class="gbtn small warn emg-dispatch" data-energy="1" data-id="${esc(e.petitionerId)}" title="Interrupt formation (forfeits progress) and dispatch directly. Normal dispatch cost applies.">Dispatch</button>`
-        : `<label class="form-pick">Dispatch to mission:
-          <select class="europe-dest" data-id="${esc(e.petitionerId)}" aria-label="Dispatch destination for ${esc(e.name)}">
-            ${(app.Engine.DESTINATIONS ? Object.values(app.Engine.DESTINATIONS) : []).filter(d => d && d.id && (app.state.destState[d.id] || {}).access !== 'closed').map(d => `<option value="${d.id}">${esc(d.name || d.id)}</option>`).join('')}
-          </select></label>
-        <button class="gbtn small primary europe-dispatch" data-energy="1" data-id="${esc(e.petitionerId)}" title="Send this man directly to a mission. Normal dispatch cost applies.">Dispatch</button><br>
+        <button class="gbtn small primary europe-todock" data-id="${esc(e.petitionerId)}" title="He waits at the dock and sails on the fleet — every man travels by ship.">Send to dock</button><br>
         <label class="form-pick">Domestic:
           <select class="domestic-role" data-id="${esc(e.petitionerId)}" aria-label="Domestic assignment for ${esc(e.name)}">
             <option value="">— available —</option>${roleOpts}
@@ -849,7 +844,7 @@ export function renderHouse(app, root) {
   <section class="gscreen">
     <p class="kicker px">THE HOUSE OF FORMATION</p>
     <h2 class="year-head px">ANNO ${year}</h2>
-    <p class="howto-note">Here the men laboring in Europe are formed — and from here the General may send formed men straight to the missions, with the indipetae or by direct dispatch (see the Missions tab).</p>
+    <p class="howto-note">Here the men laboring in Europe are formed. From here the General may also send a man to the dock for a chosen mission — he sails on the fleet like everyone else.</p>
     ${inForm.length ? `<p class="howto-note">🕯️ ${inForm.length} ${inForm.length === 1 ? 'man is' : 'men are'} in formation now.</p>` : ''}
     <h3 class="sect">Formation</h3>
     <p class="howto-note">A year of formation (20 scudi) deepens a man's disposition. He must be laboring in Europe and free — no double-booking. A formed man sits out one year's indipetae, then may petition again.</p>
@@ -910,37 +905,18 @@ export function renderHouse(app, root) {
       }
     });
   });
-  root.querySelectorAll('.emg-dispatch').forEach(btn => {
-    btn.addEventListener('click', () => {
-      try {
-        const sel = root.querySelector(`.emg-dest[data-id="${btn.dataset.id}"]`);
-        const dest = sel ? sel.value : '';
-        if (!dest) { alert('Choose a destination first.'); return; }
-        const name = btn.closest('.formation-row')?.querySelector('strong')?.textContent || 'This man';
-        if (!confirm(`${name} is in formation. Emergency dispatch will INTERRUPT formation (forfeiting progress and the 20 scudi cost) and send him directly to the mission at normal dispatch cost. Proceed?`)) return;
-        app.Engine.dispatchFromFormation(app.state, btn.dataset.id, dest);
-        app.Engine.refreshBriefing(app.state);
-        app.save();
-        app.sound('coin');
-        app.go('house');
-      } catch (e) {
-        app.sound('error');
-        alert(e.message);
-      }
-    });
-  });
-  root.querySelectorAll('.europe-dispatch').forEach(btn => {
+  root.querySelectorAll('.europe-todock').forEach(btn => {
     btn.addEventListener('click', () => {
       try {
         const sel = root.querySelector(`.europe-dest[data-id="${btn.dataset.id}"]`);
         const dest = sel ? sel.value : '';
         if (!dest) { alert('Choose a destination first.'); return; }
-        const name = btn.closest('.formation-row')?.querySelector('strong')?.textContent || 'This man';
-        if (!confirm(`Send ${name} directly to the mission? Normal dispatch cost applies. Proceed?`)) return;
-        app.Engine.dispatchFromEurope(app.state, btn.dataset.id, dest);
+        const entry = (app.state.europeanLabor || []).find((e) => e.petitionerId === btn.dataset.id);
+        if (!entry) { alert('That man is no longer laboring in Europe.'); return; }
+        app.Engine.queueLaborMen(app.state, [entry], dest, 'sent from Europe at the General’s order');
         app.Engine.refreshBriefing(app.state);
         app.save();
-        app.sound('coin');
+        app.sound('page');
         app.go('house');
       } catch (e) {
         app.sound('error');
@@ -1479,7 +1455,7 @@ export function renderGovernance(app, root) {
       });
       if (!frontier.length) return '';
       return `<h3 class="sect">Found a mission</h3>
-      <p class="howto-note">Frontier fields await the Society — 1000 scudi and men to send. Collapsed missions can be rebuilt.</p>
+      <p class="howto-note">Frontier fields await the Society — 1000 scudi, and a brother laboring in Europe to sail as the founding company. He is named from Europe and waits at the dock for a ship. Collapsed missions can be rebuilt the same way.</p>
       <div class="frontier-list">
         ${frontier.map((d) => `
         <div class="frontier-item">
@@ -1615,9 +1591,9 @@ function renderProvincialPage(app, root, regionId) {
   const avail = {};
   for (const c of E.REQUEST_GRADES) {
     try {
-      const specific = E.requestGradeAvailable(app.state, c);
-      const abstract = Math.max(0, app.state.available || 0);
-      avail[c] = specific + abstract;
+      // Named men only — a request can only be filled by men who
+      // actually stand in Europe.
+      avail[c] = E.requestGradeAvailable(app.state, c);
     } catch { avail[c] = 0; }
   }
   const canAgree = req && E.REQUEST_GRADES.every((c) => (req[c] || 0) <= avail[c]);
@@ -1632,9 +1608,9 @@ function renderProvincialPage(app, root, regionId) {
     ${req ? `
     <h3 class="sect">His request <span class="disp-mini">anno ${req.year}</span></h3>
     <p><strong>Requests ${esc(reqLine)}.</strong></p>
-    <p class="howto-note">In Europe: ${E.REQUEST_GRADES.map((c) => `${avail[c]} ${c}`).join(', ')}. Cost to agree: ${E.requestAnswerCost({ professed: req.professed, fathers: req.fathers, brothers: req.brothers })} scudi.</p>
+    <p class="howto-note">Free in Europe: ${E.REQUEST_GRADES.map((c) => `${avail[c]} ${c}`).join(', ')}. Agreeing costs nothing now — the men are named from Europe, wait at the dock, and pay the usual 60 scudi each when they sail to his HQ.</p>
     ${staged ? `
-    <p class="howto-note"><strong>Staged:</strong> ${staged.mix && Object.values(staged.mix).every((v) => v === 0) ? 'send no men' : `send ${E.REQUEST_GRADES.filter((c) => staged.mix[c] > 0).map((c) => plural(staged.mix[c], c === 'brothers' ? 'brother' : c.slice(0, -1), c)).join(', ')}`} — ${staged.cost} scudi. Takes effect at year close.</p>
+    <p class="howto-note"><strong>Staged:</strong> ${staged.mix && Object.values(staged.mix).every((v) => v === 0) ? 'send no men' : `send ${E.REQUEST_GRADES.filter((c) => staged.mix[c] > 0).map((c) => plural(staged.mix[c], c === 'brothers' ? 'brother' : c.slice(0, -1), c)).join(', ')}`}. Takes effect at year close.</p>
     ${staged.men && Object.values(staged.men).some((a) => a.length) ? `
     <ul class="news-list">${E.REQUEST_GRADES.flatMap((c) => (staged.men[c] || []).map((pid) => {
       const e = (app.state.europeanLabor || []).find((x) => x.petitionerId === pid);
@@ -2398,27 +2374,23 @@ function renderQueueAssignment(app, ships, tiers) {
       const sel = q.shipId === s.id ? ' selected' : '';
       return `<option value="${s.id}"${sel}>${esc(s.name)} (${ti.label})</option>`;
     }).join('');
-    const send = app.Engine.dockSendCost ? app.Engine.dockSendCost(app.state, q.petitionerId) : null;
-    const sendBtn = `<button class="gbtn small dock-send-btn" data-pid="${esc(q.petitionerId)}">Send now${send ? ` (${send.cost} scudi)` : ''}</button>`;
     return `<div class="queue-row${q.held ? ' held' : ''}">
       <span class="queue-name">${nameLink(app, q.petitionerId, q.petitionerName || q.petitionerId)}</span>
       <span class="queue-dest">→ ${esc(destName(q.destination))}</span>
       ${q.held
         ? `<span class="queue-held-note">⚓ held at dock — laboring in the port</span>
-           <button class="gbtn small ghost dock-hold-btn" data-pid="${esc(q.petitionerId)}" data-held="1">Release</button>
-           ${sendBtn}`
+           <button class="gbtn small ghost dock-hold-btn" data-pid="${esc(q.petitionerId)}" data-held="1">Release</button>`
         : `<select class="queue-ship" data-pid="${esc(q.petitionerId)}" aria-label="Assign ship">
         <option value="">Auto</option>
         ${options}
       </select>
       ${assignedShip ? `<span class="queue-assigned">on ${esc(assignedShip.name)}</span>` : ''}
-      <button class="gbtn small ghost dock-hold-btn" data-pid="${esc(q.petitionerId)}" data-held="0">Hold at dock</button>
-      ${sendBtn}`}
+      <button class="gbtn small ghost dock-hold-btn" data-pid="${esc(q.petitionerId)}" data-held="0">Hold at dock</button>`}
     </div>`;
   }).join('');
 
   return `<div class="queue-list">${rows}</div>
-    <p class="disp-mini">Assign men to ships, or leave on Auto. If a ship is full at departure, excess men wait. Men held at dock do not board — they labor in the port and earn their grade income until released; the first ${(app.Engine.RESOURCES && app.Engine.RESOURCES.DOCK_WAGE_CAP) ?? 8} held men in the queue are paid, the rest wait unpaid. Send now puts a man on arranged passage at the dispatch price — no ship, berth, or queue turn needed.</p>`;
+    <p class="disp-mini">Assign men to ships, or leave on Auto. If a ship is full at departure, excess men wait. Men held at dock do not board — they labor in the port and earn their grade income until released; the first ${(app.Engine.RESOURCES && app.Engine.RESOURCES.DOCK_WAGE_CAP) ?? 8} held men in the queue are paid, the rest wait unpaid.</p>`;
 }
 
 /* ---------------- map screen ---------------- */
@@ -2686,18 +2658,7 @@ export function renderLogistics(app, root) {
       }
     });
   });
-  root.querySelectorAll('.dock-send-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      try {
-        app.Engine.dispatchFromDock(app.state, btn.dataset.pid);
-        app.save();
-        app.sound('page');
-        app.go('logistics'); // refresh
-      } catch (e) {
-        app.toast(e.message);
-      }
-    });
-  });
+
   root.querySelectorAll('[data-reserve-call]').forEach((btn) => {
     btn.addEventListener('click', () => {
       try {

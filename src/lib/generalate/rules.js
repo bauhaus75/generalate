@@ -113,14 +113,14 @@ export const RESOURCES = Object.freeze({
    * (travelYears <= range). Only galleons reach the Far East.
    */
   SHIP_TIERS: Object.freeze({
-    caravel: Object.freeze({ range: 1, capacity: 4, cost: 150, label: 'Caravel' }),
-    carrack: Object.freeze({ range: 2, capacity: 8, cost: 300, label: 'Carrack' }),
-    galleon: Object.freeze({ range: 3, capacity: 12, cost: 600, label: 'Galleon' }),
+    caravel: Object.freeze({ range: 1, capacity: 4, cost: 100, label: 'Caravel' }),
+    carrack: Object.freeze({ range: 2, capacity: 8, cost: 200, label: 'Carrack' }),
+    galleon: Object.freeze({ range: 3, capacity: 12, cost: 400, label: 'Galleon' }),
   }),
   /** Starting fleet: 2 carracks + 1 caravel. */
   STARTING_FLEET: Object.freeze(['carrack', 'carrack', 'caravel']),
   /** Cost to charter an additional hull (permanent). Now per-tier; this is the default (carrack). */
-  SHIP_CHARTER_COST: 300,
+  SHIP_CHARTER_COST: 200,
   /** The Society at Vitelleschi's election (Jan 1615): 13,112 members in
    *  32 provinces and 559 houses (Catholic Encyclopedia, s.v. Aquaviva).
    *  Only a percentage can ever be spared for the missions. */
@@ -165,7 +165,9 @@ export const RESOURCES = Object.freeze({
   /** Soft cap on the departure queue; older entries sail first. */
   MAX_QUEUE: 40,
   /** Cost to commission +2 berths/year (expand mission capacity). */
-  BERTH_EXPANSION_COST: 400,
+  // Cut from 400 (Tran 2026-10-20): with dispatch abolished, ships and
+  // berths carry every man overseas — the expedition chain got cheaper.
+  BERTH_EXPANSION_COST: 200,
   BERTH_EXPANSION_AMOUNT: 1, // one dock space per expansion
   /** Cost to found a novitiate (house of formation) at an open mission. */
   NOVITIATE_COST: 800,

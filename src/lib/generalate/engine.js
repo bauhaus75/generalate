@@ -129,12 +129,11 @@ function initMissions(destinations, petitioners) {
     const total = Math.max(2, Math.round(capacity * 0.35)); // min 2 men, avoids <25% trap
     const fathers = Math.round(total * 0.2);
     const coadjutors = Math.round(total * 0.3);
-    // The starting staff are UNNAMED men: they exist only as grade counts.
-    // A real petitioner's name enters a mission's staffIds only when he
-    // actually arrives there (staffArrival, dispatch, native spawn) — one
-    // man, one place. (Previously this dealt real petitioner ids out as
-    // starting staff, so men still in Europe were rolled for disease and
-    // persecution at missions they had never visited.)
+    // Starting counts only: newGame mints a real named man (profile +
+    // backdated arrival) behind every one of these counts — every man a
+    // profile (Tran 2026-10-20). Real petitioner ids are never dealt out
+    // as starting staff (the old phantom bug: men still in Europe were
+    // rolled for disease at missions they had never visited).
     ms[id] = {
       fathers,
       coadjutors,
@@ -173,6 +172,135 @@ export function missionStaffed(st) {
   return rules.MISSION_GRADE_IDS.reduce((n, gid) => n + (st[gid] || 0), 0);
 }
 
+// ---------------------------------------------------------------------------
+// Every man a profile (Tran 2026-10-20): no count at a mission may exist
+// without a named man behind it. Men who were stationed before the game
+// (starting staff, legacy abstract arrivals, roster placeholders) are
+// minted as real fictional men — a profile, a disposition, and a voyage
+// record showing an arrival in a past year — so the fruit system, the
+// roster, disease and persecution all see the same person the counts
+// describe. Minting is deterministic per man (seeded from his own id)
+// and never touches the grade counts: callers own the counts.
+// ---------------------------------------------------------------------------
+const STAFF_CULTURES = ['italian', 'spanish', 'portuguese'];
+const STAFF_STAGE = { fathers: 'professed', coadjutors: 'scholastic', brothers: 'brother' };
+
+/** Create one real man stationed at a mission, arrived in `arriveYear`.
+ *  Adds his profile, his arrival voyage, and his name to the roster.
+ *  Does NOT change the mission's grade counts. Returns his id. */
+export function mintMissionMan(state, destId, bucket, arriveYear) {
+  if (!state._staffSeq) state._staffSeq = 0;
+  const pid = `staff-${destId}-${++state._staffSeq}`;
+  const rng = makeRng(`${state.seed}:staff:${pid}`);
+  const culture = rng.pick(STAFF_CULTURES);
+  const name = `${rng.pick(FIRST_NAMES[culture])} ${rng.pick(LAST_NAMES[culture])}`;
+  const g = ensureData();
+  const dest = (g.destinations || []).find((d) => d.id === destId);
+  const travel = (dest && dest.travelYears) || 2;
+  const entryYear = arriveYear - rng.int(3, 22);
+  const voyage = {
+    id: `voy-${pid}`, petitionerId: pid, name, destination: destId,
+    stage: 'arrived', outcome: 'thriving', staffGrade: bucket,
+    departYear: arriveYear - travel, arriveYear,
+    companions: 0, companionIds: [], mintedStaff: true,
+  };
+  state.voyages.push(voyage);
+  const rec = {
+    id: pid, name, fictional: true, culture,
+    status: 'active', history: [], historyV: HISTORY_VERSION,
+    voyages: [voyage.id],
+    entryYear, genYear: entryYear, staffMinted: true,
+    trueEntryYear: entryYear,
+    totalYearsInSociety: Math.max(0, state.year - entryYear),
+    ageInReligion: Math.max(0, state.year - entryYear),
+    vows: { stage: STAFF_STAGE[bucket] || 'brother', firstVows: true },
+    age: rng.int(17, 27) + Math.max(0, state.year - entryYear),
+  };
+  rec.history.push({ year: arriveYear, kind: 'mission', event: 'arrival',
+    text: `${name} arrived at ${(dest && dest.name) || destId} in ${arriveYear}.` });
+  state.petitioners[pid] = rec;
+  const st = missionStaff(state, destId);
+  if (!st.staffIds) st.staffIds = [];
+  if (!st.staffIds.includes(pid)) st.staffIds.push(pid);
+  return pid;
+}
+
+/** Give a profile to a rostered id that has none (legacy placeholder ids
+ *  like "dispatched-<dest>-<year>-<n>" from before this rule). The man
+ *  keeps his id; he gains a name, a record, and an arrival voyage. */
+function profileRosteredId(state, destId, pid, bucket) {
+  const rng = makeRng(`${state.seed}:staff:${pid}`);
+  const culture = rng.pick(STAFF_CULTURES);
+  const name = `${rng.pick(FIRST_NAMES[culture])} ${rng.pick(LAST_NAMES[culture])}`;
+  const g = ensureData();
+  const dest = (g.destinations || []).find((d) => d.id === destId);
+  const travel = (dest && dest.travelYears) || 2;
+  const arriveYear = Math.max((dest && dest.foundedYear) || 1615, state.year - rng.int(0, 6));
+  const entryYear = arriveYear - rng.int(3, 22);
+  const voyage = {
+    id: `voy-${pid}`, petitionerId: pid, name, destination: destId,
+    stage: 'arrived', outcome: 'thriving', staffGrade: bucket,
+    departYear: arriveYear - travel, arriveYear,
+    companions: 0, companionIds: [], mintedStaff: true,
+  };
+  state.voyages.push(voyage);
+  state.petitioners[pid] = {
+    id: pid, name, fictional: true, culture,
+    status: 'active', history: [{ year: arriveYear, kind: 'mission', event: 'arrival',
+      text: `${name} arrived at ${(dest && dest.name) || destId} in ${arriveYear}.` }],
+    historyV: HISTORY_VERSION,
+    voyages: [voyage.id],
+    entryYear, genYear: entryYear, staffMinted: true,
+    trueEntryYear: entryYear,
+    totalYearsInSociety: Math.max(0, state.year - entryYear),
+    ageInReligion: Math.max(0, state.year - entryYear),
+    vows: { stage: STAFF_STAGE[bucket] || 'brother', firstVows: true },
+    age: rng.int(17, 27) + Math.max(0, state.year - entryYear),
+  };
+  return pid;
+}
+
+/**
+ * Bring every open mission's roster into line with its counts: any count
+ * without a named man behind it gets one (minted), and any rostered id
+ * without a profile gets one. Idempotent — once names match counts there
+ * is nothing to do. Runs at newGame (starting staff) and on save load
+ * (legacy saves whose staff were counts or placeholders). Closed
+ * (never-founded frontier) fields are skipped: their counts are a field
+ * not yet gathered, and their first real men arrive with the founding.
+ * Returns the number of men minted or profiled.
+ */
+export function mintUnnamedStaff(state) {
+  let made = 0;
+  for (const destId of Object.keys(state.missions || {})) {
+    const dst = (state.destState || {})[destId] || {};
+    if (dst.access === 'closed') continue;
+    const st = missionStaff(state, destId);
+    const named = { fathers: 0, coadjutors: 0, brothers: 0 };
+    for (const pid of [...(st.staffIds || [])]) {
+      const bucket = stationedGradeFor(state, destId, pid);
+      if (!state.petitioners[pid]) {
+        profileRosteredId(state, destId, pid, bucket);
+        made += 1;
+      }
+      if (named[bucket] != null) named[bucket] += 1;
+    }
+    for (const bucket of rules.MISSION_GRADE_IDS) {
+      let gap = (st[bucket] || 0) - (named[bucket] || 0);
+      while (gap > 0) {
+        gap -= 1;
+        const rng = makeRng(`${state.seed}:staffback:${destId}:${bucket}:${gap}:${state._staffSeq || 0}`);
+        const founded = typeof st.foundedYear === 'number' ? st.foundedYear : 1606;
+        const span = Math.max(0, state.year - Math.max(1606, founded - 5));
+        const arriveYear = state.year - (span > 0 ? rng.int(0, Math.min(9, span)) : 0);
+        mintMissionMan(state, destId, bucket, arriveYear);
+        made += 1;
+      }
+    }
+  }
+  return made;
+}
+
 /**
  * Remove a named man from a mission's stationed strength.
  * The name leaves the roster AND the matching grade bucket loses one man,
@@ -185,7 +313,12 @@ export function removeStationedMan(state, st, petitionerId) {
     const idx = st.staffIds.indexOf(petitionerId);
     if (idx >= 0) st.staffIds.splice(idx, 1);
   }
-  const bucket = staffGradeFor(state, petitionerId);
+  // His count lives in his arrival bucket (see stationedGradeFor).
+  let bucket = null;
+  for (const [destId, m] of Object.entries(state.missions || {})) {
+    if (m === st) { bucket = stationedGradeFor(state, destId, petitionerId); break; }
+  }
+  if (!bucket) bucket = staffGradeFor(state, petitionerId);
   if (st[bucket] > 0) st[bucket] -= 1;
   else if (st.fathers > 0) st.fathers -= 1;
   else if (st.coadjutors > 0) st.coadjutors -= 1;
@@ -207,7 +340,8 @@ export function releaseVoyageStation(state, v) {
     const idx = mst.staffIds.indexOf(v.petitionerId);
     if (idx >= 0) mst.staffIds.splice(idx, 1);
   }
-  if (v.staffGrade) mst[v.staffGrade] = Math.max(0, (mst[v.staffGrade] || 0) - 1);
+  const grade = v.staffGrade || staffGradeFor(state, v.petitionerId);
+  if (grade) mst[grade] = Math.max(0, (mst[grade] || 0) - 1);
   if (state.sickMen) delete state.sickMen[v.petitionerId];
   if (v.staffCompanions) {
     let cids = Array.isArray(v.companionIds) ? [...v.companionIds] : [];
@@ -221,6 +355,22 @@ export function releaseVoyageStation(state, v) {
       }
     }
   }
+}
+
+/**
+ * The grade bucket a stationed man's COUNT lives in at a mission: the
+ * bucket stamped on his arrival voyage. A man's current grade can drift
+ * (a scholastic is ordained in the field), but his count stays in the
+ * bucket it arrived in — removals and roster accounting must use the
+ * stamp, not the man's present grade.
+ */
+export function stationedGradeFor(state, destId, petitionerId) {
+  for (const v of state.voyages || []) {
+    if (v.petitionerId === petitionerId && v.destination === destId && v.staffGrade) {
+      return v.staffGrade;
+    }
+  }
+  return staffGradeFor(state, petitionerId);
 }
 
 /** Mission strength: grade-weighted station strength (fathers 3, coadjutors 2, brothers 1). */
@@ -399,17 +549,17 @@ export function generateProvincialRequests(state, y) {
 /**
  * Answer a provincial's manpower request.
  * mix: { professed, fathers, brothers } — the numbers to send. All zeros =
- * "send no men". Must not exceed the available pool per grade.
- * The men leave Europe for the province; the chest pays passage.
+ * "send no men". Must not exceed the named men free in Europe per grade.
+ * The men are named from Europe and queued for the provincial's HQ
+ * mission; they sail on the fleet and cost the usual departure charge
+ * when they sail — answering itself is free.
  */
-/** Scudi cost of a request answer mix, without executing it. */
+/** Scudi cost of a request answer mix, without executing it. Answering
+ *  costs nothing (Tran 2026-10-20, ships only): the men wait at the dock
+ *  and pay the usual departure charge when they sail. Kept as a named
+ *  zero so the UI and staged answers have one honest figure to show. */
 export function requestAnswerCost(mix) {
-  let cost = 0;
-  for (const cat of REQUEST_GRADES) {
-    const v = mix[cat] ?? 0;
-    cost += v * rules.MISSION_GRADES[requestGradeToStaffGrade(cat)].cost;
-  }
-  return cost;
+  return 0;
 }
 
 /** Validate a request answer mix against the current Europe pool. Returns normalized counts. */
@@ -423,9 +573,10 @@ function validateRequestMix(state, regionId, mix) {
     const v = mix[cat] ?? 0;
     if (!Number.isInteger(v) || v < 0) throw new Error(`"${cat}" must be a whole number ≥ 0.`);
     const pool = requestGradePool(state, cat);
-    // Specific named men first; the abstract European pool covers the rest (spawned on send).
-    const maxAvail = pool.length + Math.max(0, state.available || 0);
-    if (v > maxAvail) throw new Error(`only ${maxAvail} ${cat} available in Europe.`);
+    // Named men only (Tran 2026-10-20): a request can only be filled by
+    // men who actually stand in Europe — no abstract pool covers the rest.
+    const maxAvail = pool.length;
+    if (v > maxAvail) throw new Error(`only ${maxAvail} ${cat} free in Europe.`);
     n[cat] = v;
   }
   return n;
@@ -488,61 +639,53 @@ export function answerProvincialRequest(state, regionId, mix, earmarked = null) 
     return { sent: 0, cost: 0 };
   }
 
-  let cost = 0;
+  // Ships only (Tran 2026-10-20): the men sent are named men from Europe
+  // who wait at the dock and sail to the provincial's HQ mission. Nothing
+  // is charged until they sail, like any other men in the queue.
+  if (regionId === 'europe') {
+    // The European provincial resides at Rome; there is no mission to
+    // receive his men. Answering leaves the men at their posts in Europe.
+    delete state.provincialRequests[regionId];
+    addLedger(state, { year: state.year, type: 'provincial-request', decision: 'answered',
+      text: `${prov.name} (${region ? region.name : regionId}) asked for men; the General leaves the European men at their posts.` });
+    return { sent: 0, cost: 0 };
+  }
+  if (!hqDest) {
+    throw new Error(`answerProvincialRequest: ${region ? region.name : regionId} has no mission HQ to receive men — set an HQ for the province first.`);
+  }
+  if (!isDestOpen(state, hqDest)) {
+    throw new Error(`answerProvincialRequest: the HQ mission is closed to new men.`);
+  }
+
+  const chosen = [];
   for (const cat of REQUEST_GRADES) {
+    if (!n[cat]) continue;
     const pool = requestGradePool(state, cat);
-    let chosen;
     if (earmarked && earmarked[cat]) {
       // The staged men, by name — verify each is still free in Europe.
-      chosen = [];
       for (const pid of earmarked[cat]) {
         const e = pool.find((x) => x.petitionerId === pid);
         if (!e) throw new Error(`answerProvincialRequest: ${pid} is no longer free in Europe.`);
         chosen.push(e);
       }
     } else {
-      chosen = pool.slice(0, n[cat]);
-    }
-    const staffGrade = requestGradeToStaffGrade(cat);
-    cost += n[cat] * rules.MISSION_GRADES[staffGrade].cost;
-    for (const entry of chosen) {
-      state.europeanLabor = state.europeanLabor.filter((e) => e !== entry);
-    }
-    if (hqDest) {
-      // Men travel by sea — they arrive after the voyage, not instantly.
-      const g = getGameData();
-      const dest = g ? (g.destinations || []).find((d) => d.id === hqDest) : null;
-      const travelYears = (dest && dest.travelYears) || 2;
-      if (!state.missionTransit) state.missionTransit = {};
-  // Migration: Model B berths (static port capacity). Old saves have berthsPerYear.
-  if (state.resources && state.resources.berthsPerYear != null && state.resources.berths == null) {
-    state.resources.berths = state.resources.berthsPerYear;
-    delete state.resources.berthsPerYear;
-  }
-  // Migration: ship tiers. Old ships have no tier -> default to carrack.
-  if (state.resources && Array.isArray(state.resources.ships)) {
-    for (const sh of state.resources.ships) {
-      if (!sh.tier) sh.tier = 'carrack';
+      chosen.push(...pool.slice(0, n[cat]));
     }
   }
-      if (!state.missionTransit[hqDest]) state.missionTransit[hqDest] = [];
-      state.missionTransit[hqDest].push({
-        arrivalYear: state.year + travelYears,
-        grades: { [staffGrade]: n[cat] },
-      });
-    }
-  }
-  if (state.resources.funds < cost) {
-    throw new Error(`answerProvincialRequest: ${cost} scudi needed, the chest holds ${state.resources.funds}.`);
-  }
-  spendFunds(state, cost, 'provincial-requests');
-  state.available = Math.max(0, (state.available || 0) - total);
+  const men = queueLaborMen(state, chosen, hqDest,
+    `sent at the request of the ${region ? region.name : regionId} provincial`);
+  const sent = men.length;
+  if (!state.stats) state.stats = {};
+  state.stats.missionDispatches = (state.stats.missionDispatches || 0) + sent;
+  if (!state.stats.missionDispatchDests) state.stats.missionDispatchDests = {};
+  state.stats.missionDispatchDests[hqDest] = (state.stats.missionDispatchDests[hqDest] || 0) + sent;
 
   delete state.provincialRequests[regionId];
   const parts = REQUEST_GRADES.filter((c) => n[c] > 0).map((c) => `${n[c]} ${c}`);
+  const hqName = (g.destinations.find((d) => d.id === hqDest) || {}).name || hqDest;
   addLedger(state, { year: state.year, type: 'provincial-request', decision: 'answered',
-    text: `${prov.name} (${region ? region.name : regionId}) asked for men; the General sends ${parts.join(', ')} — ${cost} scudi.` });
-  return { sent: total, cost };
+    text: `${prov.name} (${region ? region.name : regionId}) asked for men; the General sends ${parts.join(', ')} — they wait at the dock for a ship to ${hqName}.` });
+  return { sent, cost: 0, men };
 }
 
 /**
@@ -641,55 +784,10 @@ export function gainFunds(state, amount, category) {
   logFunds(state, 'in', category, amount);
 }
 
-export function dispatchMission(state, destId, counts = {}) {
-  const g = ensureData();
-  const dest = g.destinations.find((d) => d.id === destId);
-  if (!dest) throw new Error(`dispatchMission: unknown destination "${destId}"`);
-  const dst = state.destState[destId];
-  if (dst && dst.access === 'closed') throw new Error(`dispatchMission: ${dest.name || destId} is closed to new men`);
-  const n = {};
-  let total = 0;
-  let cost = 0;
-  for (const gid of rules.MISSION_GRADE_IDS) {
-    const v = counts[gid] ?? 0;
-    if (!Number.isInteger(v) || v < 0) throw new Error(`dispatchMission: "${gid}" must be a whole number ≥ 0`);
-    n[gid] = v;
-    total += v;
-    cost += v * rules.MISSION_GRADES[gid].cost;
-  }
-  if (total <= 0) throw new Error('dispatchMission: choose at least one man to send');
-  if (state.resources.funds < cost) {
-    throw new Error(`dispatchMission: ${cost} scudi needed, the chest holds ${state.resources.funds}`);
-  }
-  if ((state.available || 0) < total) {
-    throw new Error(`dispatchMission: only ${state.available || 0} men can be spared`);
-  }
-  spendFunds(state, cost, 'dispatches');
-  state.available -= total;
-  spendEnergy(state, 1, 'dispatching men');
-  const st = missionStaff(state, destId);
-  for (const gid of rules.MISSION_GRADE_IDS) st[gid] += n[gid];
-  // Report-card instrumentation (additive only): record mission-strengthening
-  // investments for the end-of-generalate report. Never affects rules.
-  if (!state.stats) state.stats = {};
-  state.stats.missionDispatches = (state.stats.missionDispatches || 0) + total;
-  if (!state.stats.missionDispatchDests || typeof state.stats.missionDispatchDests !== 'object') {
-    state.stats.missionDispatchDests = {};
-  }
-  state.stats.missionDispatchDests[destId] =
-    (state.stats.missionDispatchDests[destId] || 0) + total;
-  const parts = rules.MISSION_GRADE_IDS.filter((gid) => n[gid] > 0)
-    .map((gid) => `${n[gid]} ${rules.MISSION_GRADES[gid].short.toLowerCase()}`);
-  state.ledger.unshift({
-    seq: ++state.seq.ledger, year: state.year, type: 'dispatch',
-    text: `Dispatched ${parts.join(', ')} to ${dest.name || destId} — ${cost} scudi from the chest.`,
-  });
-  return { destId, ...n, total, cost };
-}
-
 /**
  * Found a frontier mission. Costs 1000 scudi + 3 energy + at least 1 man.
- * The mission opens with the dispatched men stationed.
+ * The founding company is named men from Europe, queued to sail for it;
+ * the mission opens at once, its men arrive by ship.
  */
 export function foundMission(state, destId, counts = {}) {
   const g = ensureData();
@@ -713,27 +811,30 @@ export function foundMission(state, destId, counts = {}) {
     total += v;
   }
   if (total <= 0) throw new Error('foundMission: send at least one man to found the mission');
-  if ((state.available || 0) < total) {
-    throw new Error(`foundMission: only ${state.available || 0} men can be spared`);
-  }
+  // The founding company is named men from Europe who wait at the dock
+  // and sail — ships only (Tran 2026-10-20). Picked (and the shortfall
+  // thrown) BEFORE any money moves, so a failed founding changes nothing.
+  const { men } = queueNamedMen(state, destId, n, 'founding company');
+  if (!state.stats) state.stats = {};
+  state.stats.missionDispatches = (state.stats.missionDispatches || 0) + total;
+  if (!state.stats.missionDispatchDests) state.stats.missionDispatchDests = {};
+  state.stats.missionDispatchDests[destId] = (state.stats.missionDispatchDests[destId] || 0) + total;
   spendFunds(state, FOUND_COST, 'foundations');
   spendEnergy(state, FOUND_ENERGY, 'founding a mission');
   // Clear collapsed flag if rebuilding
   if (state.destState[destId]) {
     delete state.destState[destId].collapsed;
   }
-  state.available -= total;
   if (!state.destState[destId]) state.destState[destId] = {};
   state.destState[destId].access = 'open';
   const st = missionStaff(state, destId);
   st.fragileYears = 0; // a (re)foundation starts with a clean fragility clock
   st.fragile = false;
-  for (const gid of rules.MISSION_GRADE_IDS) st[gid] += n[gid];
   const parts = rules.MISSION_GRADE_IDS.filter((gid) => n[gid] > 0)
     .map((gid) => `${n[gid]} ${rules.MISSION_GRADES[gid].short.toLowerCase()}`);
   addLedger(state, { year: state.year, type: 'foundation',
-    text: `Founded the ${dest.name || destId} mission with ${parts.join(', ')} — ${FOUND_COST} scudi from the chest.` });
-  return { destId, ...n, total, cost: FOUND_COST };
+    text: `Founded the ${dest.name || destId} mission — ${parts.join(', ')} named from Europe wait at the dock to sail for it. ${FOUND_COST} scudi from the chest.` });
+  return { destId, ...n, total, cost: FOUND_COST, men };
 }
 
 /**
@@ -813,7 +914,7 @@ export function staffGradeFor(state, petitionerId) {
  * who sailed with him stay on as brothers. Tracked on the voyage so a later
  * homecoming can release them.
  */
-function staffArrival(state, v) {
+export function staffArrival(state, v) {
   const sg = staffGradeFor(state, v.petitionerId);
   const mst = missionStaff(state, v.destination);
   mst[sg] += 1;
@@ -1841,191 +1942,6 @@ export function callReserveToDock(state, petitionerId) {
   return true;
 }
 
-/**
- * Emergency dispatch: send a man directly from the formation house to a mission.
- * Interrupts his formation (forfeits the 20 scudi cost and any disposition gain;
- * formation is a fixed 1-year commitment with no partial progress).
- * Applies normal dispatch costs and mission staffing rules. No voyage — the man
- * arrives directly, as with dispatchMission. The man must be otherwise eligible
- * (correct grade for the mission, destination open).
- * Returns {petitionerId, destId, grade, cost}.
- */
-export function dispatchFromFormation(state, petitionerId, destId) {
-  const entry = (state.europeanLabor || []).find((e) => e.petitionerId === petitionerId);
-  if (!entry) throw new Error('Emergency dispatch is for men laboring in Europe.');
-  if (entry.ill) {
-    throw new Error(`${entry.name} is recovering from illness and cannot be dispatched.`);
-  }
-  if (!entry.formation || entry.formation.until < state.year) {
-    throw new Error(`${entry.name} is not currently in formation.`);
-  }
-  if (entry.assignment) {
-    throw new Error(`${entry.name} holds a domestic assignment; release him first.`);
-  }
-  const g = ensureData();
-  const dest = g.destinations.find((d) => d.id === destId);
-  if (!dest) throw new Error(`dispatchFromFormation: unknown destination "${destId}"`);
-  const dst = state.destState[destId];
-  if (dst && dst.access === 'closed') throw new Error(`dispatchFromFormation: ${dest.name || destId} is closed to new men`);
-  const grade = staffGradeFor(state, petitionerId);
-  const cost = rules.MISSION_GRADES[grade].cost;
-  if (state.resources.funds < cost) {
-    throw new Error(`dispatchFromFormation: ${cost} scudi needed, the chest holds ${state.resources.funds}`);
-  }
-  // Interrupt formation: forfeit cost and benefit (fixed 1-year, no partial progress).
-  const fName = entry.formation.focus;
-  entry.formation = null;
-  // Remove from European labor; he is now at the mission.
-  state.europeanLabor = state.europeanLabor.filter((e) => e.petitionerId !== petitionerId);
-  spendFunds(state, cost, 'dispatches');
-  const st = missionStaff(state, destId);
-  st[grade] += 1;
-  // Same accounting as dispatchFromEurope: name onto the staff list, and
-  // out of the spare-men pool.
-  if (!st.staffIds) st.staffIds = [];
-  if (!st.staffIds.includes(petitionerId)) st.staffIds.push(petitionerId);
-  state.available = Math.max(0, (state.available || 0) - 1);
-  // Mark the petitioner record as active overseas.
-  const rec = ensureRecord(state, petitionerId, false);
-  rec.status = STATUS.ACTIVE;
-  rec.history.push({ year: state.year, decision: 'emergency-dispatch', destination: destId, fromFormation: fName });
-  addLedger(state, {
-    year: state.year, type: 'dispatch', petitionerId, decision: 'emergency',
-    text: `${entry.name} dispatched from formation to ${dest.name || destId} — formation interrupted (forfeited), ${cost} scudi from the chest.`,
-  });
-  return { petitionerId, destId, grade, cost, forfeitedFormation: fName };
-}
-
-/**
- * Dispatch a man from European labor directly to a mission.
- * For men who have completed formation or were never in formation.
- * Unlike terna approvals, this does not create a voyage — the man
- * is placed directly at the mission (representing arranged travel).
- * The man must not be ill, in formation, or holding a domestic assignment.
- */
-export function dispatchFromEurope(state, petitionerId, destId) {
-  const entry = (state.europeanLabor || []).find((e) => e.petitionerId === petitionerId);
-  if (!entry) throw new Error('Dispatch is for men laboring in Europe.');
-  if (entry.ill) throw new Error(`${entry.name} is recovering from illness and cannot be dispatched.`);
-  if (entry.formation && entry.formation.until >= state.year) {
-    throw new Error(`${entry.name} is in formation until ${entry.formation.until}; use emergency dispatch or wait.`);
-  }
-  if (entry.assignment) {
-    throw new Error(`${entry.name} holds a domestic assignment; release him first.`);
-  }
-  const g = ensureData();
-  const dest = g.destinations.find((d) => d.id === destId);
-  if (!dest) throw new Error(`dispatchFromEurope: unknown destination "${destId}"`);
-  const dst = state.destState[destId];
-  if (dst && dst.access === 'closed') throw new Error(`dispatchFromEurope: ${dest.name || destId} is closed to new men`);
-  const grade = staffGradeFor(state, petitionerId);
-  const cost = rules.MISSION_GRADES[grade].cost;
-  if (state.resources.funds < cost) {
-    throw new Error(`dispatchFromEurope: ${cost} scudi needed, the chest holds ${state.resources.funds}`);
-  }
-  state.europeanLabor = state.europeanLabor.filter((e) => e.petitionerId !== petitionerId);
-  spendFunds(state, cost, 'dispatches');
-  const st = missionStaff(state, destId);
-  st[grade] += 1;
-  // The man himself joins the mission, not just its headcount: his name
-  // goes on the staff list (roster, grade tallies, disease/persecution all
-  // read it), and the spare-men pool loses him — previously the count rose
-  // but the man appeared on no roster and a ghost stayed in the pool.
-  if (!st.staffIds) st.staffIds = [];
-  if (!st.staffIds.includes(petitionerId)) st.staffIds.push(petitionerId);
-  state.available = Math.max(0, (state.available || 0) - 1);
-  const rec = ensureRecord(state, petitionerId, false);
-  rec.status = STATUS.ACTIVE;
-  rec.history.push({ year: state.year, decision: 'dispatch-europe', destination: destId });
-  addLedger(state, {
-    year: state.year, type: 'dispatch', petitionerId, decision: 'europe',
-    text: `${entry.name} dispatched from Europe to ${dest.name || destId} — ${cost} scudi from the chest.`,
-  });
-  return { petitionerId, destId, grade, cost };
-}
-
-/**
- * The price of sending a queued man straight from the dock: his own
- * arranged-passage fare by grade plus his companions at the usual prices.
- * Pure: no mutation. Returns null when the man is not awaiting departure.
- */
-export function dockSendCost(state, petitionerId) {
-  const q = (state.queue || []).find((x) => x.petitionerId === petitionerId && x.status === 'awaiting');
-  if (!q) return null;
-  const grade = staffGradeFor(state, petitionerId);
-  let cost = rules.MISSION_GRADES[grade].cost;
-  const gradesMap = (q.companionGrades && typeof q.companionGrades === 'object') ? q.companionGrades : {};
-  let graded = 0;
-  for (const [gn, n] of Object.entries(gradesMap)) {
-    const nn = Math.max(0, n || 0);
-    if (!nn) continue;
-    cost += nn * ((rules.RESOURCES.COMPANION_GRADE_COST || {})[gn] ?? rules.RESOURCES.COMPANION_COST);
-    graded += nn;
-  }
-  const compTotal = Math.max(q.companions || 0, graded);
-  if (compTotal > graded) cost += (compTotal - graded) * rules.RESOURCES.COMPANION_COST;
-  return { cost, companions: compTotal, grade };
-}
-
-/**
- * Send a man waiting at the dock straight to his destination on arranged
- * passage — the relief valve for the departure queue. Unlike the year-end
- * sailing he does not need a ship, a berth, or the queue's turn; he pays
- * the same arranged-passage price as a dispatch from Europe, and his
- * companions (retained on the queue entry) ride along at the usual
- * companion prices. The man and his party join the mission like any
- * dispatched men, and he leaves the spare-men pool. Held or unheld, the
- * dock is his only home — he cannot petition or be dispatched twice.
- * Returns {petitionerId, destId, grade, cost, companions}.
- */
-export function dispatchFromDock(state, petitionerId) {
-  const qi = (state.queue || []).findIndex((q) => q.petitionerId === petitionerId && q.status === 'awaiting');
-  if (qi < 0) throw new Error('That man is not waiting at the dock.');
-  const q = state.queue[qi];
-  const destId = q.destination;
-  const g = ensureData();
-  const dest = g.destinations.find((d) => d.id === destId);
-  if (!dest) throw new Error(`dispatchFromDock: unknown destination "${destId}"`);
-  const dst = state.destState[destId];
-  if (dst && (dst.access === 'closed' || dst.collapsed)) {
-    throw new Error(`dispatchFromDock: ${dest.name || destId} is closed to new men`);
-  }
-  const compBucket = { professed: 'fathers', father: 'fathers', scholastic: 'coadjutors', brother: 'brothers' };
-  const compCounts = { fathers: 0, coadjutors: 0, brothers: 0 };
-  const gradesMap = (q.companionGrades && typeof q.companionGrades === 'object') ? q.companionGrades : {};
-  for (const [gn, n] of Object.entries(gradesMap)) {
-    const b = compBucket[gn];
-    const nn = Math.max(0, n || 0);
-    if (!b || !nn) continue;
-    compCounts[b] += nn;
-  }
-  const { cost, companions: compTotal, grade } = dockSendCost(state, petitionerId);
-  // Companions beyond the graded tally ride as brothers (same fallback
-  // the year-end arrival uses).
-  const gradedTotal = compCounts.fathers + compCounts.coadjutors + compCounts.brothers;
-  if (compTotal > gradedTotal) compCounts.brothers += compTotal - gradedTotal;
-  if (state.resources.funds < cost) {
-    throw new Error(`dispatchFromDock: ${cost} scudi needed, the chest holds ${state.resources.funds}`);
-  }
-  // Off the dock.
-  state.queue.splice(qi, 1);
-  spendFunds(state, cost, 'dispatches');
-  const st = missionStaff(state, destId);
-  for (const gid of rules.MISSION_GRADE_IDS) if (compCounts[gid]) st[gid] = (st[gid] || 0) + compCounts[gid];
-  st[grade] += 1;
-  if (!st.staffIds) st.staffIds = [];
-  if (!st.staffIds.includes(petitionerId)) st.staffIds.push(petitionerId);
-  state.available = Math.max(0, (state.available || 0) - (1 + compTotal));
-  const rec = ensureRecord(state, petitionerId, false);
-  rec.status = STATUS.ACTIVE;
-  rec.history.push({ year: state.year, decision: 'dispatch-dock', destination: destId });
-  const name = q.petitionerName || personName(state, petitionerId);
-  addLedger(state, {
-    year: state.year, type: 'dispatch', petitionerId, decision: 'dock',
-    text: `${name} sent from the dock to ${dest.name || destId} on arranged passage${compTotal ? `, with ${compTotal} ${compTotal === 1 ? 'companion' : 'companions'}` : ''} — ${cost} scudi from the chest.`,
-  });
-  return { petitionerId, destId, grade, cost, companions: compTotal };
-}
 
 // ---------------------------------------------------------------------------
 // Collective deployment (Stage 1)
@@ -2111,6 +2027,60 @@ export function selectDeploymentMembers(state, sel = {}) {
     picked = sorted.slice(0, count);
   }
   return picked.map((c) => c.petitionerId);
+}
+
+/**
+ * Move specific European-labor entries into the departure queue for a
+ * destination. The men sail on the fleet like any approved men — there
+ * is no other way overseas (Tran 2026-10-20: dispatched men don't exist;
+ * every man travels by ship, with his profile). Returns the men's ids.
+ */
+export function queueLaborMen(state, entries, destId, note) {
+  const sent = [];
+  for (const entry of entries) {
+    state.europeanLabor = (state.europeanLabor || []).filter((e) => e !== entry);
+    enqueueAwaiting(state, {
+      petitionerId: entry.petitionerId, petitionerName: entry.name,
+      destination: destId, status: 'awaiting', approvedYear: state.year,
+      companions: 0, note: note || null,
+    });
+    const rec = ensureRecord(state, entry.petitionerId, false);
+    if (rec) rec.history.push({ year: state.year, decision: 'queued', destination: destId });
+    sent.push(entry.petitionerId);
+  }
+  return sent;
+}
+
+/**
+ * Fill grade counts with named men from Europe and queue them for a
+ * destination. Deterministic pick: deployment-eligible men, longest in
+ * Europe first, then by id (the deployment convention). Throws BEFORE
+ * mutating when the men do not exist — counts are never fulfilled by
+ * abstract men. Returns { men: [ids], total }.
+ */
+export function queueNamedMen(state, destId, counts = {}, note) {
+  const picked = [];
+  for (const gid of rules.MISSION_GRADE_IDS) {
+    const want = counts[gid] ?? 0;
+    if (!Number.isInteger(want) || want < 0) {
+      throw new Error(`queueNamedMen: "${gid}" must be a whole number ≥ 0`);
+    }
+    if (!want) continue;
+    const have = deploymentCandidates(state)
+      .filter((c) => c.staffGrade === gid)
+      .sort(sortCandidates);
+    if (have.length < want) {
+      throw new Error(`only ${have.length} ${gid} free in Europe, ${want} requested — the men must be named men in Europe (deny letters, recall assignments, or wait).`);
+    }
+    picked.push(...have.slice(0, want));
+  }
+  if (!picked.length) {
+    throw new Error('queueNamedMen: no men requested — a sending must name at least one man.');
+  }
+  const entries = picked.map((c) => (state.europeanLabor || [])
+    .find((e) => e.petitionerId === c.petitionerId));
+  const men = queueLaborMen(state, entries, destId, note);
+  return { men, total: men.length };
 }
 
 /** Order a collective deployment of named eligible men to a destination. */
@@ -2955,15 +2925,20 @@ export function discardStaged(state, stagedId) {
 }
 
 function stagedDispatchCost(state, action) {
-  let cost = 0, total = 0;
+  // Ships only (Tran 2026-10-20): a staged "dispatch" sends named men
+  // from Europe to the dock; nothing is charged until they sail. What
+  // validation must prove is that the men exist.
+  let total = 0;
+  const cands = deploymentCandidates(state);
   for (const gid of rules.MISSION_GRADE_IDS) {
     const v = (action.counts || {})[gid] ?? 0;
     if (!Number.isInteger(v) || v < 0) throw new Error(`staged dispatch: "${gid}" must be a whole number ≥ 0.`);
     total += v;
-    cost += v * rules.MISSION_GRADES[gid].cost;
+    const have = cands.filter((c) => c.staffGrade === gid).length;
+    if (have < v) throw new Error(`staged dispatch: only ${have} ${gid} free in Europe, ${v} requested.`);
   }
   if (total <= 0) throw new Error('staged dispatch: choose at least one man to send.');
-  return { cost, total };
+  return { cost: 0, total };
 }
 
 /**
@@ -2986,8 +2961,6 @@ export function validateStagedAction(state, sa) {
     if (!dest) throw new Error(`staged dispatch: unknown destination "${a.destId}".`);
     if (!isDestOpen(state, a.destId)) throw new Error(`staged dispatch: ${dest.name || a.destId} is closed to new men.`);
     const { cost, total } = stagedDispatchCost(state, a);
-    if (state.resources.funds < cost) throw new Error(`staged dispatch: ${cost} scudi needed, the chest holds ${state.resources.funds}.`);
-    if ((state.available || 0) < total) throw new Error(`staged dispatch: only ${state.available || 0} men can be spared.`);
     return { ok: true, cost, total };
   }
   if (a.type === 'instruct') {
@@ -3006,8 +2979,12 @@ export function validateStagedAction(state, sa) {
 function applyStagedAction(state, sa) {
   const a = sa.action;
   if (a.type === 'dispatch') {
-    const res = dispatchMission(state, a.destId, a.counts);
-    return `Dispatched ${res.total} to ${a.destId} (${res.cost} scudi).`;
+    const res = queueNamedMen(state, a.destId, a.counts || {}, 'sent by the General’s order');
+    if (!state.stats) state.stats = {};
+    state.stats.missionDispatches = (state.stats.missionDispatches || 0) + res.total;
+    if (!state.stats.missionDispatchDests) state.stats.missionDispatchDests = {};
+    state.stats.missionDispatchDests[a.destId] = (state.stats.missionDispatchDests[a.destId] || 0) + res.total;
+    return `Sent ${res.total} named men to wait for a ship to ${a.destId}.`;
   }
   if (a.type === 'instruct') {
     issueInstruction(state, a.destId, a.instructionType);
@@ -3438,6 +3415,9 @@ export function newGame({ mode = 'campaign', seed = 'generalate', data = null } 
   state.energy = ENERGY_PER_YEAR;
   state.questionsAsked = 0;
   state.provinceHQs = { europe: 'Rome' }; // the European provincial resides at Rome
+  // Every man a profile: the starting staff are real named men with
+  // arrivals in past years, not bare counts.
+  mintUnnamedStaff(state);
   return state;
 }
 
@@ -4336,16 +4316,23 @@ function deliverNews(state, g, voyage, outcomes) {
   trackScoreDelta(state, fruitDelta);
   let returnNote = '';
   if (voyage.outcome === 'returned') {
-    addEuropeanLabor(state, voyage.petitionerId, petName, 'returned');
-    // A failed voyage humbles or discourages, per the man's humility.
-    const d = ensureDisposition(state, voyage.petitionerId);
-    const hum = d.current.humility || 3;
-    if (hum >= 4 && d.current.prudence < 5) {
-      d.current.prudence += 1;
-      returnNote = ' The failure has taught him caution.';
-    } else if (hum <= 2 && d.current.zeal > 1) {
-      d.current.zeal -= 1;
-      returnNote = ' The failure has cooled his zeal.';
+    // The word of a return travels slowly: the man may have died of old
+    // age while it was still at sea (mortality does not wait for news).
+    // His death is already recorded — he does not take up labor in Europe.
+    const recNow = (state.petitioners || {})[voyage.petitionerId];
+    const gone = recNow && (recNow.status === STATUS.DECEASED || recNow.status === STATUS.DISMISSED);
+    if (!gone) {
+      addEuropeanLabor(state, voyage.petitionerId, petName, 'returned');
+      // A failed voyage humbles or discourages, per the man's humility.
+      const d = ensureDisposition(state, voyage.petitionerId);
+      const hum = d.current.humility || 3;
+      if (hum >= 4 && d.current.prudence < 5) {
+        d.current.prudence += 1;
+        returnNote = ' The failure has taught him caution.';
+      } else if (hum <= 2 && d.current.zeal > 1) {
+        d.current.zeal -= 1;
+        returnNote = ' The failure has cooled his zeal.';
+      }
     }
   }
   const entry = addLedger(state, {
@@ -4385,6 +4372,33 @@ function archiveVoyages(state) {
       v.summarized = true;
       delete v.petitionerName; // drop display detail; ids + outcome suffice
     }
+  }
+  // Bound the store itself: a summarized voyage whose man is gone (dead
+  // or dismissed, rostered nowhere, his news long delivered) is pure
+  // history — the ledger and the man's own record keep his story, so the
+  // stub can go. Living men's voyages are never dropped: a stationed
+  // man's arrival record is his place in the mission community.
+  if (state.voyages.length > 1000) {
+    const rostered = new Set();
+    for (const st of Object.values(state.missions || {})) {
+      for (const id of st.staffIds || []) rostered.add(id);
+    }
+    const droppable = state.voyages
+      .filter((v) => {
+        if (v.stage !== 'arrived' || !v.summarized || !v.newsDelivered) return false;
+        if (rostered.has(v.petitionerId)) return false;
+        const rec = (state.petitioners || {})[v.petitionerId];
+        return rec && (rec.status === STATUS.DECEASED || rec.status === STATUS.DISMISSED || rec.status === 'apostate');
+      })
+      .sort((a, b) => (a.resolvedYear || a.arriveYear || 0) - (b.resolvedYear || b.arriveYear || 0));
+    let excess = state.voyages.length - 1000;
+    const drop = new Set();
+    for (const v of droppable) {
+      if (excess <= 0) break;
+      drop.add(v);
+      excess -= 1;
+    }
+    if (drop.size) state.voyages = state.voyages.filter((v) => !drop.has(v));
   }
 }
 
@@ -4622,6 +4636,10 @@ export function resolveYear(state, opts = {}) {
         for (const t of arrived) {
           for (const [grade, n] of Object.entries(t.grades || {})) {
             mst[grade] = (mst[grade] || 0) + n;
+            // Every man a profile (Tran 2026-10-20): legacy abstract
+            // arrivals (men sent before the ships-only rule) step ashore
+            // as real named men with profiles and arrival records.
+            for (let i = 0; i < n; i++) mintMissionMan(state, destId, grade, y);
           }
         }
         const totalArrived = arrived.reduce((s, t) => s + Object.values(t.grades || {}).reduce((a, b) => a + b, 0), 0);
@@ -5173,8 +5191,29 @@ function spawnNativeVocations(state, mainRng, opts = {}) {
         id: pid, name, fictional: true, native: true, culture,
         grade: isScholastic ? 'scholastic' : 'brother',
         status: 'active', history: [], historyV: HISTORY_VERSION,
+        voyages: [],
         genYear: state.year, nativeTo: destId,
       };
+    }
+    // He is home, not a traveler — but the mission community is reckoned
+    // by arrivals, so his joining is recorded as an arrival at his own
+    // mission (Tran 2026-10-20: every man a profile, counted like any
+    // other). Without this he bore no fruit all his life.
+    {
+      const rec = state.petitioners[pid];
+      const hasArrival = (state.voyages || []).some((v) => v.petitionerId === pid && v.destination === destId && v.stage === 'arrived');
+      if (!hasArrival) {
+        const voyage = {
+          id: `voy-${pid}`, petitionerId: pid, name, destination: destId,
+          stage: 'arrived', outcome: 'thriving',
+          staffGrade: isScholastic ? 'coadjutors' : 'brothers',
+          departYear: state.year, arriveYear: state.year,
+          companions: 0, companionIds: [], nativeJoining: true,
+        };
+        state.voyages.push(voyage);
+        if (!Array.isArray(rec.voyages)) rec.voyages = [];
+        if (!rec.voyages.includes(voyage.id)) rec.voyages.push(voyage.id);
+      }
     }
     const destName = (g.destinations || []).find((d) => d.id === destId)?.name || destId;
     addLedger(state, {
@@ -5893,6 +5932,26 @@ function repairRosterIntegrity(state) {
     if (!Array.isArray(rec.history)) rec.history = [];
     if (rec.native && !rec.status) rec.status = 'active';
   }
+  // Native vocations stationed at a mission count as arrived there (their
+  // joining IS their arrival); older saves recorded no arrival for them,
+  // leaving them invisible to the mission community. Backfill it.
+  for (const [destId, st] of Object.entries(state.missions || {})) {
+    for (const pid of (st && st.staffIds) || []) {
+      const rec = (state.petitioners || {})[pid];
+      if (!rec || !rec.native) continue;
+      const hasArrival = (state.voyages || []).some((v) => v.petitionerId === pid && v.destination === destId && v.stage === 'arrived');
+      if (hasArrival) continue;
+      const voyage = {
+        id: `voy-${pid}`, petitionerId: pid, name: rec.name || pid, destination: destId,
+        stage: 'arrived', outcome: 'thriving', staffGrade: staffGradeFor(state, pid),
+        departYear: rec.genYear || state.year, arriveYear: rec.genYear || state.year,
+        companions: 0, companionIds: [], nativeJoining: true,
+      };
+      state.voyages.push(voyage);
+      if (!Array.isArray(rec.voyages)) rec.voyages = [];
+      if (!rec.voyages.includes(voyage.id)) rec.voyages.push(voyage.id);
+    }
+  }
   // One queue entry per man.
   if (Array.isArray(state.queue)) {
     const seenQ = new Set();
@@ -5934,8 +5993,9 @@ function repairRosterIntegrity(state) {
       rosteredElsewhere.set(pid, destId);
       return true;
     });
-    const dst = (state.destState || {})[destId] || {};
-    if (dst.access === 'closed') { st.fragileYears = 0; st.fragile = false; }
+    // A closed mission's fragility clock is FROZEN, not erased: the live
+    // engine never advances it (and a refounding resets it), so repair
+    // leaves the counter as the save recorded it.
   }
   // Illness entries for men no longer stationed anywhere are void.
   if (state.sickMen) {
@@ -5958,7 +6018,12 @@ export function deserialize(obj) {
   if (!('novitiates' in state)) state.novitiates = [];
   if (!state.missions || typeof state.missions !== 'object') state.missions = initMissions();
   else for (const id of Object.keys(state.missions)) missionStaff(state, id); // normalize shape
+  // Every man a profile (Tran 2026-10-20): profile any roster placeholder
+  // and mint men for counts that have none — then repair prunes true
+  // ghosts (men provably elsewhere), and a second pass fills their slots.
+  mintUnnamedStaff(state);
   repairRosterIntegrity(state);
+  mintUnnamedStaff(state);
   if (!('europeanLabor' in state)) state.europeanLabor = [];
   if(!Array.isArray(state.pendingVows))state.pendingVows=[];
   if(!Array.isArray(state.vowsNewsInTransit))state.vowsNewsInTransit=[];
@@ -6196,10 +6261,21 @@ export function soakTest({ rounds = 100, seed = 'soak', mode = 'endless' } = {})
       check(`round ${i}: score in range after decide`, getScore(state) >= 0 && getScore(state) <= 100);
 
       // A real General rebuilds: reopen a collapsed mission when the chest
-      // and the spare men allow (the world otherwise decays shut).
+      // allows, with a small company of whichever named men Europe can
+      // actually spare (the world otherwise decays shut).
       const collapsedDest = Object.entries(state.destState || {}).find(([, ds]) => ds && ds.collapsed);
-      if (collapsedDest && state.resources.funds >= 1100 && (state.available || 0) >= 1) {
-        try { foundMission(state, collapsedDest[0], { fathers: 1 }); } catch { /* try again next year */ }
+      if (collapsedDest && state.resources.funds >= 1100) {
+        for (const mix of [{ fathers: 1, coadjutors: 1, brothers: 1 }, { fathers: 1 }, { coadjutors: 1 }, { brothers: 1 }]) {
+          try { foundMission(state, collapsedDest[0], mix); break; } catch { /* try another mix */ }
+        }
+      }
+      // A real General keeps the fleet sailing: when men crowd the dock
+      // and the chest allows, charter another hull and a berth for it —
+      // otherwise the queue strangles every mission's reinforcement.
+      const awaitingNow = (state.queue || []).filter((q) => q.status === 'awaiting').length;
+      if (awaitingNow > 12 && state.resources.funds >= 900) {
+        try { expandBerths(state); } catch { /* no room */ }
+        try { charterShip(state); } catch { /* ignore */ }
       }
       const r = resolveYear(state);
       check(`round ${i}: score in range after resolve`, getScore(state) >= 0 && getScore(state) <= 100);

@@ -36,7 +36,7 @@ import {
 } from './engine.js';
 import * as EngineNS from './engine.js';
 import { yearsInSociety as vowsYearsInSociety } from './vows.js';
-import { buildDiagnosticReport } from './ui/playtest.js';
+import { buildDiagnosticReport, buildSaveExport } from './ui/playtest.js';
 import { GRADES as MEM_GRADES } from './dispositions.js';
 import { RESOURCES } from './rules.js';
 import { d20check, degreeFor, exposition, probAtLeast, DEGREES } from './dice.js';
@@ -3569,6 +3569,29 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   EngineNS.releaseVoyageStation(s8, { petitionerId: 'fic-vet', destination: 'china', staffGrade: 'brothers', staffCompanions: 1, companionIds: ['companion-china-1617-1'], arriveYear: 1617 });
   ok('one-place: station release strikes both names', st8.staffIds.length === 0);
   ok('one-place: station release balances the count', st8.brothers === 0);
+}
+
+// --- 51. End-of-game data export ----------------------------------------------
+{
+  // The ending screen's "Export game data" button downloads the full save
+  // (buildSaveExport over the engine). The payload must be the whole game:
+  // ledger history, people, missions, finance — a restorable state.
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'export-data' });
+  const { terna } = startYear(s);
+  decide(s, [{ id: terna[0].petitionerId }]);
+  resolveYear(s);
+  endGame(s);
+  const before = JSON.stringify(s);
+  const { filename, json } = buildSaveExport(EngineNS, s);
+  ok('export: building the payload does not mutate the game', JSON.stringify(s) === before);
+  ok('export: filename is a dated game-data JSON', /^generalate-save-\d{4}-\d{2}-\d{2}-anno\d+\.json$/.test(filename), filename);
+  const data = JSON.parse(json);
+  ok('export: payload is a version-1 save', data.version === 1);
+  ok('export: payload carries the ledger history', Array.isArray(data.ledger) && data.ledger.length > 0);
+  ok('export: payload carries people, missions and finance',
+    !!data.petitioners && !!data.missions && !!data.financeYears);
+  const restored = deserialize(data);
+  ok('export: payload restores as a game', restored.seed === s.seed && restored.year === s.year);
 }
 
 console.log(`\n${failures === 0 ? 'ALL TESTS PASSED' : failures + ' FAILURES'}`);

@@ -2997,11 +2997,16 @@ export function renderEnding(app, root, end) {
     <div class="title-buttons">
       <button class="gbtn primary" id="again-campaign">New Historical Campaign</button>
       <button class="gbtn primary" id="again-endless">New Endless Generalate</button>
+      <button class="gbtn ghost" id="export-data">Export game data</button>
       <button class="gbtn ghost" id="to-title">Title</button>
     </div>
   </section>`;
   root.querySelector('#again-campaign').addEventListener('click', () => app.newGame('campaign'));
   root.querySelector('#again-endless').addEventListener('click', () => app.newGame('endless'));
+  root.querySelector('#export-data').addEventListener('click', () => {
+    const { filename, json } = Playtest.buildSaveExport(app.Engine, app.state);
+    Playtest.downloadJson(filename, json);
+  });
   root.querySelector('#to-title').addEventListener('click', () => { app.clearSave(); app.go('title'); });
 }
 

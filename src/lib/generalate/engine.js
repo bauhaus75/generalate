@@ -163,7 +163,7 @@ export function missionStaff(state, destId) {
   for (const gid of rules.MISSION_GRADE_IDS) if (typeof st[gid] !== 'number' || st[gid] < 0) st[gid] = 0;
   if (typeof st.capacity !== 'number' || st.capacity < 1) st.capacity = rules.MISSION_CAPACITY[destId] ?? 5;
   if (typeof st.fragileYears !== 'number' || st.fragileYears < 0) st.fragileYears = 0;
-  if (typeof st.fragile !== 'boolean') st.fragile = st.fragileYears >= 3;
+  if (typeof st.fragile !== 'boolean') st.fragile = st.fragileYears >= 5;
   if (typeof st.thrivingCount !== 'number' || st.thrivingCount < 0) st.thrivingCount = 0;
   return st;
 }
@@ -2539,7 +2539,7 @@ export function generateReports(state, y) {
     const st = missionStaff(state, d.id);
     const facts = reportFacts(state, g, d.id);
     // 1. Newly fragile mission: fragileYears just reached 3.
-    if (st.fragile && (st.fragileYears || 0) === 3) {
+    if (st.fragile && (st.fragileYears || 0) === 5) {
       queueReport(state, {
         kind: 'fragile', destId: d.id, year: y,
         title: `The mission at ${facts.destName || d.name} is fragile`,
@@ -2555,7 +2555,7 @@ export function generateReports(state, y) {
     }
     // 2. Understaffed mission asking for men (below 60% staffed, not fragile-reporting).
     const ratio = facts.staffed / (facts.capacity || 5);
-    if (ratio < 0.6 && !(st.fragile && (st.fragileYears || 0) === 3) && facts.access !== 'closed') {
+    if (ratio < 0.6 && !(st.fragile && (st.fragileYears || 0) === 5) && facts.access !== 'closed') {
       const want = facts.capacity - facts.staffed;
       if (want > 0) {
         queueReport(state, {
@@ -4784,6 +4784,29 @@ function spawnNativeVocations(state, mainRng, opts = {}) {
  */
 function resolveMartyrdomAndDisease(state, rng) {
   const g = ensureData();
+  // Tran 2026-10-19: the ill die the NEXT year. Men who fell ill in a prior
+  // year now succumb.
+  if (!state.sickMen) state.sickMen = {};
+  for (const [pid, info] of Object.entries(state.sickMen)) {
+    if (info.since >= state.year) continue;
+    const st = missionStaff(state, info.destId);
+    const idx = (st.staffIds || []).indexOf(pid);
+    if (idx >= 0) {
+      st.staffIds.splice(idx, 1);
+      if (st.fathers > 0) st.fathers--;
+      else if (st.coadjutors > 0) st.coadjutors--;
+      else if (st.brothers > 0) st.brothers--;
+      const dest = (g.destinations || []).find((d) => d.id === info.destId);
+      const destName = dest?.name || info.destId;
+      const name = personName(state, pid);
+      state.stats.deaths = (state.stats.deaths || 0) + 1;
+      addLedger(state, {
+        year: state.year, type: 'death', destination: info.destId,
+        text: `${name} died of disease at ${destName}, after a year's illness.`,
+      });
+    }
+    delete state.sickMen[pid];
+  }
   for (const destId of Object.keys(state.missions || {})) {
     const st = missionStaff(state, destId);
     const dst = state.destState[destId] || {};
@@ -4813,12 +4836,17 @@ function resolveMartyrdomAndDisease(state, rng) {
       }
       
       // Disease roll (separate, reduced per balance audit 2026-10-19: 3%/6%)
-      if (!died) {
+      // The ill do not die at once: they sicken this year and die the next.
+      if (!died && !state.sickMen[pid]) {
         const roll = rng.int(1, 100);
         const threshold = tropical ? 6 : 3;
         if (roll <= threshold) {
-          diseased.push(pid);
-          died = true;
+          state.sickMen[pid] = { since: state.year, destId };
+          const name = personName(state, pid);
+          addLedger(state, {
+            year: state.year, type: 'ill', destination: destId,
+            text: `${name} has fallen ill at ${destName}.`,
+          });
         }
       }
       
@@ -4832,6 +4860,7 @@ function resolveMartyrdomAndDisease(state, rng) {
         else if (st.brothers > 0) st.brothers--;
         
         const name = personName(state, pid);
+        if (state.sickMen) delete state.sickMen[pid];
         if (martyr) {
           state.stats.martyrs = (state.stats.martyrs || 0) + 1;
           addLedger(state, {
@@ -4924,7 +4953,7 @@ function collapseMission(state, destId) {
     const ratio = missionStaffed(st) / (st.capacity || 5);
     if (ratio < 0.25) {
       st.fragileYears += 1;
-      if (st.fragileYears === 2) {
+      if (st.fragileYears === 4) {
         // Warning: one year from collapse
         const g2 = ensureData();
         const dName = (g2.destinations || []).find((d) => d.id === destId)?.name || destId;
@@ -4933,7 +4962,7 @@ function collapseMission(state, destId) {
           text: `Collapse imminent: the mission at ${dName} will collapse next year unless reinforced (${missionStaffed(st)} of ${st.capacity || 5} places filled).`,
         });
       }
-      if (st.fragileYears >= 3) {
+      if (st.fragileYears >= 5) {
         st.fragile = true;
         collapseMission(state, destId);
       }

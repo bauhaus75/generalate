@@ -1015,13 +1015,21 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   resolveYear(s);
   ok('counter increments again below 25%', missionStaff(s, 'japan').fragileYears === 2);
   ok('not fragile at 2 years', missionStaff(s, 'japan').fragile === false);
-  // Year 3: counter 3 -> COLLAPSE (not just fragile)
+  // Year 3: counter 3 -> still no collapse under the 5-year clock
+  ({ terna } = startYear(s));
+  decide(s, []);
+  resolveYear(s);
+  ok('not collapsed at 3 years', (s.destState.japan || {}).collapsed !== true);
+  // Years 4 and 5: at 5 -> COLLAPSE
+  ({ terna } = startYear(s));
+  decide(s, []);
+  resolveYear(s);
   ({ terna } = startYear(s));
   decide(s, []);
   resolveYear(s);
   const st3 = missionStaff(s, 'japan');
-  // At 3 years below 25%, the mission COLLAPSES (not just fragile)
-  ok('mission collapses at 3 years below 25%', (s.destState.japan || {}).collapsed === true,
+  // At 5 years below 25%, the mission COLLAPSES (not just fragile)
+  ok('mission collapses at 5 years below 25%', (s.destState.japan || {}).collapsed === true,
     `collapsed=${(s.destState.japan || {}).collapsed}`);
   ok('staffing cleared on collapse', missionStaffed(st3) === 0);
   // Staff up to 60%+: 8/12 = 67% -> reset
@@ -2308,7 +2316,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-t2' });
     const st = missionStaff(s, 'goa');
     st.fathers = 0; st.coadjutors = 1; st.brothers = 0; st.capacity = 5;
-    st.fragileYears = 3; st.fragile = true;
+    st.fragileYears = 5; st.fragile = true;
     // silence other missions' request reports by staffing them
     for (const d of ['japan', 'china', 'peru', 'philippines']) {
       const m = missionStaff(s, d); m.fathers = 2; m.coadjutors = 2; m.brothers = 1;
@@ -3235,6 +3243,36 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     const rep = (s.ledger || []).find((e) => e.type === 'society-report');
     ok('society report: stored in ledger', !!rep && /State of the Society/.test(rep.text || ''));
     ok('society report: has detail', !!rep.detail && typeof rep.detail.funds === 'number');
+  }
+
+
+  // Two-stage illness: sick this year, dies next year
+  {
+    const s = setup('sick1');
+    let terna;
+    const pid = 'fic-sick-1';
+    s.petitioners[pid] = {
+      id: pid, fictional: true, status: 'active', name: 'Sick Test Man',
+      entryYear: 1615, vows: { stage: 'brother', firstVows: true }, age: 30,
+    };
+    const mst = missionStaff(s, 'brazil'); // capacity 8
+    mst.capacity = 8;
+    mst.brothers = 4; mst.fathers = 0; mst.coadjutors = 0;
+    mst.staffIds = [pid, 'x1', 'x2', 'x3'];
+    for (const x of ['x1','x2','x3']) {
+      s.petitioners[x] = { id: x, fictional: true, status: 'active', name: 'X'+x, entryYear: 1615, vows: { stage: 'brother', firstVows: true }, age: 30 };
+    }
+    // Mark the man sick this year
+    s.sickMen = { [pid]: { since: s.year, destId: 'brazil' } };
+    ({ terna } = startYear(s)); decide(s, []); resolveYear(s);
+    const stillThere = (missionStaff(s, 'brazil').staffIds || []).includes(pid);
+    ok('illness: sick man stays staffed in illness year', stillThere);
+    // Next year: he dies
+    ({ terna } = startYear(s)); decide(s, []); resolveYear(s);
+    const gone = !(missionStaff(s, 'brazil').staffIds || []).includes(pid);
+    ok('illness: sick man dies the next year', gone);
+    const deathNote = (s.ledger || []).find((e) => e.type === 'death' && /Sick Test Man/.test(e.text || ''));
+    ok('illness: death recorded in ledger', !!deathNote, deathNote ? deathNote.text : 'none');
   }
 
   // Scripture bank validation

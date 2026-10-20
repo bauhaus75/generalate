@@ -570,7 +570,7 @@ app.go = function (screen, params = {}) {
           // Collapse imminent popup (fragileYears === 2)
           const imminent = [];
           for (const [mid, st] of Object.entries(app.state.missions || {})) {
-            if (st.fragileYears === 2 && !(app.state.destState[mid] || {}).collapsed) {
+            if (st.fragileYears === 4 && !(app.state.destState[mid] || {}).collapsed) {
               const d = (Engine.DESTINATIONS || {})[mid];
               const staffed = Engine.missionStaffed ? Engine.missionStaffed(st) : (st.staffIds || []).length;
               imminent.push({ name: d ? (d.name || mid) : mid, staffed, capacity: st.capacity || 5 });

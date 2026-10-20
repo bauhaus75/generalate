@@ -4930,7 +4930,9 @@ function resolveMartyrdomAndDisease(state, rng) {
           removeMan();
           martyred.push(pid);
           state.stats.martyrs = (state.stats.martyrs || 0) + 1;
-          if (state.petitioners[pid]) state.petitioners[pid].status = 'deceased';
+          // NB: do NOT set status='deceased' here — a martyred man's later
+          // indipetae can still surface in a terna, and addEuropeanLabor
+          // throws for the deceased. The ledger is the record of his death.
           addLedger(state, {
             year: state.year, type: 'martyrdom', destination: destId,
             text: `${name} was seized at ${destName} and won the glorious crown of the martyrs.`,

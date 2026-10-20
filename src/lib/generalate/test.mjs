@@ -888,7 +888,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   ok('grade preserved (professed father, ordained)', g1.grade === 'professed-of-the-4th-vow' && g1.ordained === true, JSON.stringify(g1));
   const gB = gradeFor(a, 'hist-3');
   ok('grade preserved (brother, not ordained)', gB.grade === 'brother' && gB.ordained === false, JSON.stringify(gB));
-  const gU = gradeFor(a, 'hist-6');
+  const gU = gradeFor(a, 'hist-23');
   ok('undetermined grade stays unspecified', gU.grade === 'undetermined' && gU.ordained === null, JSON.stringify(gU));
 
   // Formation: deny all → assign → complete.
@@ -4084,6 +4084,35 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     const bq = s3.queue.find((q) => q.petitionerId === t3b[1].petitionerId);
     ok('routes: auto-assignment keeps brazil off the india ship',
       !bq.shipId || bq.shipId !== carrack.id, `shipId ${bq.shipId}`);
+  }
+
+  // ================================================================
+  console.log('\n60. Name prefixes — Fr. / Br. / none');
+  {
+    const s = deserialize(serialize(newGame({ mode: 'campaign', seed: 'prefix-60' })));
+    const withStage = (stage) => {
+      const c = deserialize(serialize(s));
+      c.petitioners['test-prefix-1'] = { id: 'test-prefix-1', name: 'Test Man', vows: { stage, firstVows: true } };
+      return EngineNS.namePrefix(c, 'test-prefix-1');
+    };
+    ok('prefix: the professed are Fr.', withStage('professed') === 'Fr.');
+    ok('prefix: ordained scholastics are Fr.', withStage('ordained') === 'Fr.');
+    ok('prefix: spiritual coadjutors are Fr.', withStage('coadjutor') === 'Fr.');
+    ok('prefix: brothers are Br.', withStage('brother') === 'Br.');
+    ok('prefix: unordained scholastics carry no prefix', withStage('scholastic') === '');
+    const c2 = deserialize(serialize(s));
+    c2.petitioners['test-prefix-1'] = { id: 'test-prefix-1', name: 'Test Man', vows: { stage: 'professed', firstVows: true } };
+    ok('prefix: displayName joins prefix and name',
+      EngineNS.displayName(c2, 'test-prefix-1') === 'Fr. Test Man',
+      EngineNS.displayName(c2, 'test-prefix-1'));
+    // The Armillei correction (Tran, translator of the letters): he is a
+    // brother in the table, and the prefix follows the brother track
+    // even when a save carries a scholastic stage seeded earlier.
+    ok('prefix: Armillei is a brother in the table', EngineNS.gradeFor(s, 'hist-6').grade === 'brother');
+    const c3 = deserialize(serialize(s));
+    if (c3.petitioners['hist-6']) c3.petitioners['hist-6'].vows = { stage: 'scholastic', firstVows: true };
+    ok('prefix: a brother is Br. even with a scholastic stage on his record',
+      EngineNS.namePrefix(c3, 'hist-6') === 'Br.', EngineNS.namePrefix(c3, 'hist-6'));
   }
 }
 

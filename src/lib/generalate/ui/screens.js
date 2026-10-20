@@ -23,11 +23,22 @@ function esc(s) {
 }
 
 /**
+ * A man's name with his prefix: Fr. for ordained priests and the
+ * professed, Br. for brothers, nothing for unordained scholastics.
+ */
+function pname(app, petitionerId, name) {
+  const base = name || (app.Engine.personName ? app.Engine.personName(app.state, petitionerId) : null) || petitionerId;
+  const p = app.Engine.namePrefix ? app.Engine.namePrefix(app.state, petitionerId) : '';
+  const s = String(base);
+  return p && !s.startsWith(`${p} `) ? `${p} ${s}` : s;
+}
+
+/**
  * Renders a clickable person name that opens their profile (inspector).
  * Use this for EVERY mention of a person's name in the UI.
  */
 function nameLink(app, petitionerId, name) {
-  const displayName = name || (app.Engine.personName ? app.Engine.personName(app.state, petitionerId) : null) || petitionerId;
+  const displayName = pname(app, petitionerId, name);
   // Don't show raw hist- IDs; fall back to a generic label
   const clean = String(displayName).startsWith('hist-') ? 'A petitioner' : displayName;
   return `<button class="name-link" data-pid="${esc(petitionerId)}" data-name="${esc(clean)}">${esc(clean)}</button>`;
@@ -118,6 +129,7 @@ function letterSectionHTML(app, petitionerId) {
 
 /** Four-layer inspector: evidence / seeded initial / current / observed. */
 export function showInspector(app, petitionerId, name) {
+  name = pname(app, petitionerId, name);
   const d = app.Engine.ensureDisposition(app.state, petitionerId);
   const g = app.Engine.gradeFor(app.state, petitionerId);
   const ordNote = g.ordained === true ? 'Ordained priest.'
@@ -671,7 +683,7 @@ function formationListHTML(app, year) {
     const ordElig = app.Engine.ordinationEligible ? app.Engine.ordinationEligible(app.state, e.petitionerId) : false;
     const reserveTag = e.reservedFor ? `<span class="disp-mini reserve-badge" title="Reserved for ${esc(e.reservedForName || e.reservedFor)}">reserved: ${esc(e.reservedForName || e.reservedFor)}</span>` : '';
     return `<li class="formation-row">
-      <strong>${esc(e.name)}</strong> ${gradeChip(app, e.petitionerId)}
+      <strong>${esc(pname(app, e.petitionerId, e.name))}</strong> ${gradeChip(app, e.petitionerId)}
       <span class="form-via">${esc(e.via)} ${e.year}</span>
       ${reserveTag}
       ${e.ill ? `<span class="disp-mini ill-badge" title="Recovering from illness suffered on voyage. Not available for assignment.">🤒 recovering (ill ${e.illYear})</span>` : ''}
@@ -693,7 +705,7 @@ function formationListHTML(app, year) {
           <button class="gbtn small domestic-assign" data-id="${esc(e.petitionerId)}">Assign</button>
 
         `}
-      <button class="gbtn small ghost inspect-btn" data-id="${esc(e.petitionerId)}" data-name="${esc(e.name)}">Inspect</button>
+      <button class="gbtn small ghost inspect-btn" data-id="${esc(e.petitionerId)}" data-name="${esc(pname(app, e.petitionerId, e.name))}">Inspect</button>
     </li>`;
   }).join('')}</ul>`;
 }
@@ -717,7 +729,7 @@ export function renderUnassigned(app, root) {
     <p class="howto-note">Men in Europe with no posting. Send them to formation, give them domestic work, or reserve them for a foreign mission.</p>
     <ul class="formation-list">${list.map((e) => `
       <li class="formation-row">
-        <strong>${esc(e.name)}</strong> ${gradeChip(app, e.petitionerId)}
+        <strong>${esc(pname(app, e.petitionerId, e.name))}</strong> ${gradeChip(app, e.petitionerId)}
         <span class="disp-mini">${dispLine(app, e.petitionerId)}</span>
         <div class="unassigned-actions">
           <label class="form-pick">Formation:
@@ -734,7 +746,7 @@ export function renderUnassigned(app, root) {
             </select></label>
           <button class="gbtn small ghost unassigned-to-reserve" data-id="${esc(e.petitionerId)}">Reserve</button>
         </div>
-        <button class="gbtn small ghost inspect-btn" data-id="${esc(e.petitionerId)}" data-name="${esc(e.name)}">Inspect</button>
+        <button class="gbtn small ghost inspect-btn" data-id="${esc(e.petitionerId)}" data-name="${esc(pname(app, e.petitionerId, e.name))}">Inspect</button>
       </li>`).join('') || '<p class="disp-mini">No unassigned men. All are posted.</p>'}</ul>
     <div class="btn-row">
       <button class="gbtn ghost" id="unassigned-back">← Back</button>
@@ -793,7 +805,7 @@ export function renderDomesticMissions(app, root) {
       const asg = e.assignment ? roles[e.assignment] : null;
       const reserveTag = e.reservedFor ? `<span class="disp-mini reserve-badge">reserved: ${esc(e.reservedForName || e.reservedFor)}</span>` : '';
       return `<li class="formation-row">
-        <strong>${esc(e.name)}</strong> ${gradeChip(app, e.petitionerId)}
+        <strong>${esc(pname(app, e.petitionerId, e.name))}</strong> ${gradeChip(app, e.petitionerId)}
         ${reserveTag}
         ${asg ? `<span class="form-active">Assigned: ${esc(asg.name)} (since ${e.assignedYear || year})</span>
           <button class="gbtn small ghost domestic-release" data-id="${esc(e.petitionerId)}">Release</button>`
@@ -802,7 +814,7 @@ export function renderDomesticMissions(app, root) {
               <option value="">— available —</option>${roleOpts}
             </select></label>
             <button class="gbtn small domestic-assign" data-id="${esc(e.petitionerId)}">Assign</button>`}
-        <button class="gbtn small ghost inspect-btn" data-id="${esc(e.petitionerId)}" data-name="${esc(e.name)}">Inspect</button>
+        <button class="gbtn small ghost inspect-btn" data-id="${esc(e.petitionerId)}" data-name="${esc(pname(app, e.petitionerId, e.name))}">Inspect</button>
       </li>`;
     }).join('') || '<p class="disp-mini">No men in domestic missions.</p>'}</ul>
     <div class="btn-row">
@@ -1339,7 +1351,7 @@ function provincialReplacementHTML(app, regionId) {
     </div>
     <p><label>Or name another professed priest:
       <select id="rep-roster"><option value="">— choose —</option>
-      ${roster.filter((p) => !rep.candidates.includes(p.petitionerId)).map((p) => `<option value="${esc(p.petitionerId)}">${esc(p.name)} (${esc(p.location || '')})</option>`).join('')}
+      ${roster.filter((p) => !rep.candidates.includes(p.petitionerId)).map((p) => `<option value="${esc(p.petitionerId)}">${esc(pname(app, p.petitionerId, p.name))} (${esc(p.location || '')})</option>`).join('')}
       </select></label></p>
     ${hasRecord ? `<p><label>Where does ${esc(prov.name)} go?
       <select id="rep-outgoing">
@@ -1891,7 +1903,7 @@ function formationDecisionsHTML(app) {
   const E = app.Engine;
   const rows = pending.map((p) => {
     const entry = (app.state.europeanLabor || []).find((e) => e.petitionerId === p.petitionerId);
-    const name = entry ? entry.name : p.petitionerId;
+    const name = pname(app, p.petitionerId, entry ? entry.name : null);
     const suffix = E.rankSuffix ? E.rankSuffix(app.state, p.petitionerId) : '';
     const label = VOWS_MILESTONE_LABELS[p.type] || p.type;
     if (p.type === 'finalVowsGrade') {
@@ -2069,7 +2081,7 @@ export function renderDesk(app, root, terna) {
     const byDest = {};
     for (const id of approved) {
       const d = ds[id].destination;
-      (byDest[d] = byDest[d] || []).push(terna.find(c => c.id === id).name);
+      (byDest[d] = byDest[d] || []).push(pname(app, id, terna.find(c => c.id === id).name));
     }
     const teams = Object.entries(byDest).filter(([, ns]) => ns.length >= 2);
     let text;
@@ -2092,7 +2104,7 @@ export function renderDesk(app, root, terna) {
         const c = terna.find(x => x.id === id);
         const dn = (openDests.find(d => d.id === ds[id].destination) || {}).name || ds[id].destination;
         const comps = compTotal(ds[id].companions);
-        return `${c.name} → ${dn}${comps ? ` (+${comps} companion${comps === 1 ? '' : 's'}${compBreakdown(ds[id].companions)})` : ''}`;
+        return `${pname(app, c.id, c.name)} → ${dn}${comps ? ` (+${comps} companion${comps === 1 ? '' : 's'}${compBreakdown(ds[id].companions)})` : ''}`;
       });
       const sealTotal = approved.length * ((app.Engine.RESOURCES && app.Engine.RESOURCES.SEAL_COST) ?? 0);
       // Grade-based companion cost (shared pricing)
@@ -2583,7 +2595,7 @@ export function renderLogistics(app, root) {
     const portRoute = isFree && portDests.length > 1 ? app.Engine.routeName(app.Engine.routeOf(portDests[0])) : null;
     // Show assigned men names for ships in port
     const assignedNames = isFree && assigned > 0
-      ? queue.filter((q) => q.shipId === s.id && q.status === 'awaiting').map((q) => esc(q.petitionerName || q.petitionerId)).join(', ')
+      ? queue.filter((q) => q.shipId === s.id && q.status === 'awaiting').map((q) => esc(pname(app, q.petitionerId, q.petitionerName))).join(', ')
       : '';
     return `
     <div class="logi-ship">

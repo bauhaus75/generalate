@@ -5651,6 +5651,33 @@ function collapseMission(state, destId) {
 /**
  * Get a person's display name from their ID. Never returns a raw hist- ID.
  */
+/**
+ * A man's prefix (Tran 2026-10-20): 'Fr.' for ordained priests and the
+ * professed, 'Br.' for brothers (temporal coadjutors, incl. novice
+ * brothers), and nothing for unordained scholastics. One source of
+ * truth — his formation stage and track — so every screen agrees on
+ * what a man is. (The Armillei case: his archive grade is undetermined
+ * and the screens disagreed about him; the prefix follows the track.)
+ */
+export function namePrefix(state, petitionerId) {
+  const rec = state.petitioners ? state.petitioners[petitionerId] : null;
+  const stage = rec && rec.vows ? rec.vows.stage : null;
+  if (stage === 'professed' || stage === 'ordained' || stage === 'coadjutor') return 'Fr.';
+  const g = gradeFor(state, petitionerId);
+  if (!stage && g.ordained === true) return 'Fr.';
+  const track = (rec && rec.vowsTrack) || (String((g && g.grade) || '').toLowerCase() === 'brother' ? 'brother' : null);
+  if (stage === 'brother' || track === 'brother' || String((g && g.grade) || '').toLowerCase() === 'brother'
+    || String((g && g.grade) || '').toLowerCase() === 'temporal-coadjutor') return 'Br.';
+  return '';
+}
+
+/** personName with the man's prefix, for display. */
+export function displayName(state, petitionerId) {
+  const p = namePrefix(state, petitionerId);
+  const n = personName(state, petitionerId);
+  return p && !n.startsWith(`${p} `) ? `${p} ${n}` : n;
+}
+
 export function personName(state, petitionerId) {
   const pid = String(petitionerId);
   if (pid.startsWith('dispatched-')) return 'A missionary';

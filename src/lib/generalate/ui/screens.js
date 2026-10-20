@@ -2809,6 +2809,19 @@ export function showLedgerOverlay(app) {
     byYear[y].push(e);
   }
   const years = Object.keys(byYear).sort((a, b) => b - a);
+  // Score breakdown: where the tally came from, by source and by year.
+  const sb = app.Engine.scoreBreakdown(app.state);
+  const signed = (n) => (n > 0 ? `+${n}` : `${n}`);
+  const breakdownHtml = `
+    <div class="ledger-score">
+      <div class="ledger-score-head">SCORE ${sb.displayed} <span class="ledger-score-uncapped">(${signed(sb.uncapped - sb.start)} on the tally)</span></div>
+      ${sb.rows.map(r => `
+        <div class="ledger-score-row"><span>${esc(r.label)}</span><span>${signed(r.total)}</span></div>
+      `).join('')}
+      ${sb.unrecorded !== 0 ? `
+        <div class="ledger-score-row"><span>Earlier play (not itemized)</span><span>${signed(sb.unrecorded)}</span></div>
+      ` : ''}
+    </div>`;
 
   const ov = document.createElement('div');
   ov.className = 'overlay';
@@ -2817,10 +2830,11 @@ export function showLedgerOverlay(app) {
     <button class="overlay-close" aria-label="Close ledger">✕</button>
     <h2 class="px">THE LEDGER</h2>
     <p class="ledger-sub">A chronicle of the Generalate, year by year.</p>
+    ${breakdownHtml}
     <div class="ledger-pages">
       ${years.map(y => `
         <section class="ledger-year">
-          <h3 class="ledger-year-head">Anno ${y}</h3>
+          <h3 class="ledger-year-head">Anno ${y}${sb.byYear[y] ? ` <span class="ledger-year-score">score ${signed(sb.byYear[y])}</span>` : ''}</h3>
           <div class="ledger-entries">
             ${byYear[y].map(e => `
               <div class="ledger-entry ledger-${esc(e.type || 'event')}">

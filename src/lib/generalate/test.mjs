@@ -3862,6 +3862,45 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   ok('dock cap: the capped wage reaches the chest at year end', dockC === expectedC, `${dockC}`);
 }
 
+// --- 55. Score breakdown: the ledger reconciles with the tally ---------------
+{
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'breakdown' });
+  foundNovitiate(s, 'goa'); // +4 founding, recorded under 'novitiate'
+  const { terna } = startYear(s);
+  decide(s, [{ id: terna[0].petitionerId }]);
+  resolveYear(s);
+  const v = s.voyages.find((x) => x.petitionerId === terna[0].petitionerId);
+  dbgForceOutcome(s, v.id, 'thriving'); // +4 voyage news, recorded under 'voyage-thriving'
+  for (let i = 0; i < 6; i++) {
+    const { terna: t } = startYear(s);
+    decide(s, t.slice(0, 3).map((c) => ({ id: c.petitionerId })));
+    resolveYear(s);
+  }
+  const sb = EngineNS.scoreBreakdown(s);
+  ok('breakdown: displayed matches getScore', sb.displayed === getScore(s), `${sb.displayed}`);
+  ok('breakdown: rows reconcile with the tally', sb.start + sb.recorded + sb.unrecorded === sb.uncapped,
+    `${sb.start}+${sb.recorded}+${sb.unrecorded} vs ${sb.uncapped}`);
+  ok('breakdown: nothing unrecorded in a fully-instrumented game', sb.unrecorded === 0,
+    `unrecorded=${sb.unrecorded} rows=${JSON.stringify(sb.rows)}`);
+  const nov = sb.rows.find((r) => r.source === 'novitiate');
+  ok('breakdown: novitiate founding + yearly growth tallied', !!nov && nov.total >= 4 + 7,
+    JSON.stringify(nov)); // +4 founding, +1 for each of the 7 resolved years
+  const thr = sb.rows.find((r) => r.source === 'voyage-thriving');
+  ok('breakdown: thriving voyage tallied', !!thr && thr.total >= 4, JSON.stringify(thr));
+  const yearSum = Object.values(sb.byYear).reduce((n, x) => n + x, 0);
+  ok('breakdown: per-year nets sum to the recorded total', yearSum === sb.recorded,
+    `${yearSum} vs ${sb.recorded}`);
+  // Old saves: play recorded before deltas existed shows as unrecorded,
+  // never as a wrong row.
+  const old = deserialize(serialize(s));
+  for (const e of old.ledger) { delete e.delta; delete e.scoreParts; delete e.scoreSource; }
+  old.scoreUncapped = s.scoreUncapped;
+  const sbOld = EngineNS.scoreBreakdown(old);
+  ok('breakdown: pre-record play is unrecorded, not invented', sbOld.rows.length === 0
+    && sbOld.unrecorded === sbOld.uncapped - sbOld.start,
+    `rows=${sbOld.rows.length} unrecorded=${sbOld.unrecorded}`);
+}
+
 console.log(`\n${failures === 0 ? 'ALL TESTS PASSED' : failures + ' FAILURES'}`);
 process.exit(failures === 0 ? 0 : 1);
 

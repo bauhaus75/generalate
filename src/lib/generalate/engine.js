@@ -3084,6 +3084,7 @@ function resolveInstructions(state, y) {
     const dName = dest ? dest.name || destId : destId;
     // Effects depend on instruction type and outcome.
     let effectText = '';
+    let scoreDelta = 0;
     if (inst.type === 'expand') {
       if (outcome === 'obeyed') {
         // Growth: small chance of a new vocation joining the mission
@@ -3096,6 +3097,7 @@ function resolveInstructions(state, y) {
         // Reckless overreach: costs score
         state.score = rules.addScore(state.score, -1);
         trackScoreDelta(state, -1);
+        scoreDelta = -1;
         effectText = ' Reckless overreach causes scandal (-1 score).';
       } else if (outcome === 'adapted') {
         effectText = ' The superior adapts prudently to local conditions.';
@@ -3104,6 +3106,7 @@ function resolveInstructions(state, y) {
       if (outcome === 'disobeyed') {
         state.score = rules.addScore(state.score, -1);
         trackScoreDelta(state, -1);
+        scoreDelta = -1;
         effectText = ' The superior ignores caution and overextends (-1 score).';
       } else {
         effectText = outcome === 'obeyed' ? ' The mission steadies.' : ' The superior adapts prudently.';
@@ -3136,6 +3139,7 @@ function resolveInstructions(state, y) {
         if (erng.chance(0.4)) {
           state.score = rules.addScore(state.score, 1);
           trackScoreDelta(state, 1);
+          scoreDelta = 1;
           effectText = ' The brethren take heart; their fervor bears fruit (+1 score).';
         } else {
           effectText = ' The brethren receive the encouragement gladly.';
@@ -3150,6 +3154,7 @@ function resolveInstructions(state, y) {
       } else if (outcome === 'disobeyed') {
         state.score = rules.addScore(state.score, -1);
         trackScoreDelta(state, -1);
+        scoreDelta = -1;
         effectText = ' The admonition is resented; discipline suffers (-1 score).';
       } else {
         effectText = ' The admonition produces a partial amendment.';
@@ -3158,6 +3163,7 @@ function resolveInstructions(state, y) {
     state.ledger.unshift({
       seq: ++state.seq.ledger, year: y, type: 'instruction',
       text: `From ${dName}: instruction ${outcome}.${effectText}`,
+      ...(scoreDelta ? { delta: scoreDelta, scoreSource: 'instruction' } : {}),
     });
   }
 }
@@ -4262,6 +4268,7 @@ export function foundNovitiate(state, destinationId) {
   state.stats.novitiates += 1;
   addLedger(state, {
     year: state.year, type: 'novitiate', destination: destinationId,
+    delta: rules.SCORE.NOVITIATE_FOUND_BONUS, scoreSource: 'novitiate',
     note: `A novitiate is founded at ${dest.name || destinationId}; formation steadies the mission (danger now ${st.danger}).`,
   });
   return {
@@ -4339,7 +4346,7 @@ function deliverNews(state, g, voyage, outcomes) {
     year: state.year, type: 'outcome',
     petitionerId: voyage.petitionerId, destination: voyage.destination,
     decision: 'approved', status: voyage.outcome,
-    counterfactual: true, delta: fruitDelta,
+    counterfactual: true, delta: fruitDelta, scoreSource: 'voyage',
     note: note + diminishNote + returnNote,
   });
   outcomes.push({
@@ -4611,7 +4618,17 @@ export function buildSocietyReport(state, y, outcomes, statsBefore, fruits = nul
       income: fin.income, expenses: fin.expenses, funds: state.resources?.funds || 0,
       score: state.score },
   };
-  addLedger(state, { year: y, type: 'society-report', text: report.text, detail: report.detail });
+  addLedger(state, {
+    year: y, type: 'society-report', text: report.text, detail: report.detail,
+    // Score parts for the ledger breakdown: the year's fruit of souls,
+    // quota shortfalls, and novitiate growth — the same amounts resolveYear
+    // applied to the score alongside this report.
+    scoreParts: {
+      fruit: Math.floor(((fruits && fruits.totalNew) || 0) / 500),
+      quota: -((fruits && fruits.quotaPenalty) || 0),
+      novitiate: (state.novitiates || []).length * rules.SCORE.NOVITIATE_YEARLY,
+    },
+  });
   return report;
 }
 
@@ -5043,7 +5060,7 @@ export function resolveYear(state, opts = {}) {
       year: y, type: 'veteran',
       petitionerId: v.petitionerId, destination: v.destination,
       decision: 'approved', status: 'veteran',
-      counterfactual: true, delta: rules.VETERAN.SCORE,
+      counterfactual: true, delta: rules.VETERAN.SCORE, scoreSource: 'veteran',
       note,
     });
     outcomes.push({
@@ -5410,6 +5427,7 @@ function collapseMission(state, destId) {
   if (state.scoreUncapped != null) state.scoreUncapped -= 10;
   addLedger(state, {
     year: state.year, type: 'collapse', destination: destId,
+    delta: -10, scoreSource: 'collapse',
     text: `The mission at ${destName} has collapsed. ${lost} men lost. (-10 score)`,
   });
 }
@@ -5612,6 +5630,59 @@ export function getScore(state) {
   const raw = typeof state.scoreUncapped === 'number' ? state.scoreUncapped : state.score;
   const t = (raw - FLOOR) / (CEILING - FLOOR);
   return Math.max(0, Math.min(100, Math.round(t * 100)));
+}
+
+const SCORE_SOURCE_LABELS = {
+  'voyage-thriving': 'Thriving voyages',
+  'voyage-returned': 'Returned voyages',
+  'voyage-ill': 'Ill voyages',
+  'voyage-deceased': 'Voyages lost',
+  'voyage-reassigned': 'Reassigned voyages',
+  veteran: 'Veterans come home',
+  fruit: 'Fruit of souls',
+  quota: 'Quota shortfalls',
+  novitiate: 'Novitiates',
+  instruction: 'Instructions',
+  collapse: 'Missions collapsed',
+};
+
+/**
+ * Score breakdown for the ledger (Tran 2026-10-20): where the score came
+ * from, tallied from the ledger's own structured records — outcome and
+ * veteran entries carry their delta, the yearly society report carries
+ * its parts (fruit, quota, novitiate growth), novitiate foundings and
+ * instruction outcomes carry theirs. Anything the uncapped tally holds
+ * beyond the recorded sum (play from before this record existed) is
+ * reported honestly as `unrecorded`, so the rows always reconcile:
+ * start + recorded + unrecorded = uncapped.
+ */
+export function scoreBreakdown(state) {
+  const bySource = {};
+  const byYear = {};
+  let recorded = 0;
+  const add = (src, year, delta) => {
+    if (!delta) return;
+    bySource[src] = (bySource[src] || 0) + delta;
+    if (typeof year === 'number') byYear[year] = (byYear[year] || 0) + delta;
+    recorded += delta;
+  };
+  for (const e of state.ledger || []) {
+    if (typeof e.delta === 'number' && e.delta !== 0) {
+      const src = e.scoreSource === 'voyage' || e.type === 'outcome'
+        ? `voyage-${e.status || 'other'}`
+        : e.scoreSource || (e.type === 'veteran' ? 'veteran' : e.type);
+      add(src, e.year, e.delta);
+    }
+    if (e.scoreParts) {
+      for (const [k, v] of Object.entries(e.scoreParts)) add(k, e.year, v || 0);
+    }
+  }
+  const uncapped = typeof state.scoreUncapped === 'number' ? state.scoreUncapped : rules.SCORE.START;
+  const unrecorded = (uncapped - rules.SCORE.START) - recorded;
+  const rows = Object.entries(bySource)
+    .map(([source, total]) => ({ source, label: SCORE_SOURCE_LABELS[source] || source, total }))
+    .sort((a, b) => Math.abs(b.total) - Math.abs(a.total));
+  return { displayed: getScore(state), uncapped, start: rules.SCORE.START, recorded, unrecorded, rows, byYear };
 }
 
 /**

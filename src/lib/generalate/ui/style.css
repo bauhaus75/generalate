@@ -851,6 +851,35 @@ body > .overlay .hist-loc, body > .overlay .hist-text { opacity: .75; }
   margin-bottom: 1.5rem;
   color: #5a4a30;
 }
+.ledger-score {
+  border: 1px solid #d4c5a0;
+  border-left: 3px solid #8a7340;
+  padding: 0.6rem 0.9rem;
+  margin-bottom: 1.5rem;
+}
+.ledger-score-head {
+  font-weight: bold;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.4rem;
+  color: #1a1410;
+}
+.ledger-score-uncapped {
+  font-weight: normal;
+  color: #5a4a30;
+  font-size: 0.9em;
+}
+.ledger-score-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  line-height: 1.5;
+  color: #2a2018;
+}
+.ledger-year-score {
+  font-size: 0.85rem;
+  color: #5a4a30;
+  font-weight: normal;
+}
 .ledger-year {
   margin-bottom: 2rem;
   border-bottom: 1px solid #d4c5a0;

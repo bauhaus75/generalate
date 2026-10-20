@@ -101,7 +101,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 {
   const s = newGameWithGalleons({ mode: 'campaign', seed: 'walkthrough' });
   ok('newGame year', s.year === CAMPAIGN_START);
-  ok('newGame score 50', getScore(s) === 50);
+  ok('newGame score: uncapped 50, displayed 37 (floor -500, ceiling +1000)', s.score === 50 && getScore(s) === 37);
   const { year, briefing, terna } = startYear(s);
   ok('startYear year', year === 1615);
   ok('terna length 3, distinct ids', terna.length === 3 && new Set(terna.map(c => c.petitionerId)).size === 3);
@@ -117,7 +117,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   ok('decide returns approved+2 denied', res.approved[0].petitionerId === chosenId && res.denied.length === 2);
   ok('decide report summary/detail', typeof res.report.summary === 'string' && typeof res.report.detail === 'string');
   ok('decide scoreDelta = 0 (no points for sending)', res.scoreDelta === 0, `delta=${res.scoreDelta}`);
-  ok('score unchanged at 50 after decide', getScore(s) === 50);
+  ok('score unchanged after decide', getScore(s) === 37);
   ok('currentYear decided flag', s.currentYear.decided === true);
   let threw = false;
   try { decide(s, [{ id: chosenId }]); } catch { threw = true; }
@@ -129,10 +129,10 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
     && rr.yearReport.outcomes.every(o => typeof o.text === 'string' && typeof o.result === 'string')
     && rr.yearReport.eventsFired.every(e => typeof e.title === 'string' && typeof e.text === 'string'));
   const end = endGame(s);
-  ok('endGame title band', end.title === 'The Steady General', end.title);
+  ok('endGame title band', end.title === 'The Reluctant Steward', end.title);
   ok('endGame stats aliases (UI)', end.stats.yearsRuled === 1 && end.stats.approved === 1
     && end.stats.denied === 2 && end.stats.departed === 1 && typeof end.stats.arrived === 'number'
-    && typeof end.stats.lost === 'number' && end.stats.finalScore === 50 && end.stats.seed === 'walkthrough');
+    && typeof end.stats.lost === 'number' && end.stats.finalScore === 37 && end.stats.seed === 'walkthrough');
   ok('reflection is non-empty string', typeof end.reflection === 'string' && end.reflection.length > 50);
 }
 
@@ -304,7 +304,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const r = foundNovitiate(s, 'goa');
   ok('novitiate costs 800', s.resources.funds === fundsBefore - 800, `${s.resources.funds}`);
   ok('novitiate reduces danger by 1', r.danger === Math.max(0, goaDangerBefore - 1), `${goaDangerBefore}→${r.danger}`);
-  ok('novitiate +4 score', getScore(s) === 54, `${getScore(s)}`);
+  ok('novitiate +4 score', s.score === 54, `${s.score}`);
   ok('novitiate recorded', s.novitiates.length === 1 && s.novitiates[0].destination === 'goa');
   let dup = false; try { foundNovitiate(s, 'goa'); } catch { dup = true; }
   ok('novitiate duplicate throws', dup);
@@ -313,12 +313,12 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   try { foundNovitiate(s, 'japan'); } catch { closed = true; }
   ok('novitiate at closed mission throws', closed);
   // Yearly fruit: +1 score per novitiate at resolveYear.
-  const scoreBefore = getScore(s);
+  const scoreBefore = s.score;
   const { terna } = startYear(s);
   decide(s, [{ id: terna[0].petitionerId }]);
   resolveYear(s);
-  ok('novitiate yearly +1 score', getScore(s) === scoreBefore + 1,
-    `before=${scoreBefore} after=${getScore(s)}`); // decide gives nothing; +1 novitiate
+  ok('novitiate yearly +1 score', s.score === scoreBefore + 1,
+    `before=${scoreBefore} after=${s.score}`); // decide gives nothing; +1 novitiate
   ok('ledger has novitiate entry', getLedger(s, { type: 'novitiate' }).length === 1);
   // Mid-terna founding is refused.
   startYear(s);
@@ -466,29 +466,26 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   s.resources.ships.push({ id: 'ship-test-galleon', name: 'Test Galleon', tier: 'galleon', freeYear: 0 });
   const { terna } = startYear(s);
   decide(s, [{ id: terna[0].petitionerId }]);
-  ok('dispatch earns nothing', getScore(s) === 50);
+  ok('dispatch earns nothing', s.score === 50);
   resolveYear(s); // sails
   const v = s.voyages[0];
   const out1 = dbgForceOutcome(s, v.id, 'thriving');
-  ok('thriving news: +4', getScore(s) === 54, `${getScore(s)}`);
+  ok('thriving news: +4', s.score === 54, `${s.score}`);
   ok('outcome ledger carries fruit delta', out1.delta === 4, `${out1.delta}`);
   // A second voyage, resolved deceased.
   const { terna: t2 } = startYear(s);
   decide(s, [{ id: t2[0].petitionerId }]);
   resolveYear(s);
   const v2 = s.voyages.find(x => x.id !== v.id && x.stage === 'transit');
-  const before = getScore(s);
+  const before = s.score;
   const out2 = dbgForceOutcome(s, v2.id, 'deceased');
-  ok('deceased news: -5', getScore(s) === before - 5, `${before}→${getScore(s)}`);
+  ok('deceased news: -5', s.score === before - 5, `${before}→${s.score}`);
   ok('deceased delta shown', out2.delta === -5);
-  // Score clamps at 0.
-  s.score = 2;
-  const { terna: t3 } = startYear(s);
-  decide(s, [{ id: t3[0].petitionerId }]);
-  resolveYear(s);
-  const v3 = s.voyages.find(x => x.stage === 'transit');
-  dbgForceOutcome(s, v3.id, 'deceased');
-  ok('score clamps at MIN', getScore(s) === 0, `${getScore(s)}`);
+  // Display score clamps to 0-100 (floor -500 -> 0, ceiling +1000 -> 100).
+  s.score = -2000;
+  ok('score display clamps at 0', getScore(s) === 0, `${getScore(s)}`);
+  s.score = 3000;
+  ok('score display clamps at 100', getScore(s) === 100, `${getScore(s)}`);
 }
 
 // --- 20. European fruit: denied and returned men labor in Europe ----------------
@@ -498,15 +495,15 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   // Approve the first; the other two are denied by omission.
   decide(s, [{ id: terna[0].petitionerId }]);
   const deniedIds = [terna[1].petitionerId, terna[2].petitionerId];
-  ok('decide with one approval: score unchanged', getScore(s) === 50);
+  ok('decide with one approval: score unchanged', s.score === 50);
   ok('two denied men labor in Europe',
     s.europeanLabor.length === 2 && deniedIds.every((id) => s.europeanLabor.some((e) => e.petitionerId === id && e.via === 'denied')),
     JSON.stringify(s.europeanLabor.map((e) => e.via)));
   resolveYear(s); // the approved man sails
   const v = s.voyages[0];
-  const before = getScore(s);
+  const before = s.score;
   const out = dbgForceOutcome(s, v.id, 'returned');
-  ok('returned news: +1 (European fruit)', getScore(s) === before + 1, `${before}→${getScore(s)}`);
+  ok('returned news: +1 (European fruit)', s.score === before + 1, `${before}→${s.score}`);
   ok('returned man joins European labor',
     s.europeanLabor.some((e) => e.petitionerId === v.petitionerId && e.via === 'returned'));
   ok('outcome delta shown for returned', out.delta === 1);
@@ -1485,7 +1482,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   // Fresh game: zeros, treasury 1000/1000, no missing-data flags on new saves.
   const s = newGameWithGalleons({ mode: 'campaign', seed: 'rep-fresh' });
   const r = generalateReport(s);
-  ok('report: fresh game score 50', r.score === 50 && r.scoreTitle === 'The Steady General');
+  ok('report: fresh game score normalized 37', r.score === 37 && r.scoreTitle === 'The Reluctant Steward');
   ok('report: fresh game zeros', r.outcomes.thriving === 0 && r.personnel.dispatched === 0
     && r.institutions.novitiates.length === 0 && r.events.length === 0);
   ok('report: treasury 1000/1000/net 0', r.treasury.start === 1000 && r.treasury.end === 1000 && r.treasury.net === 0);
@@ -1494,7 +1491,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   ok('report: narrative is prose, no judgments', typeof r.narrative === 'string' && r.narrative.length > 40
     && !/wasteful|inefficient|prudent|imprudent/i.test(r.narrative));
   ok('report: never exposes scoreUncapped', !JSON.stringify(r).includes('scoreUncapped'));
-  ok('report: JSON-safe', JSON.parse(JSON.stringify(r)).score === 50);
+  ok('report: JSON-safe', JSON.parse(JSON.stringify(r)).score === 37);
 
   // Scripted campaign fragment: dispatch, novitiate, voyages.
   const g = newGameWithGalleons({ mode: 'campaign', seed: 'rep-script' });
@@ -1525,7 +1522,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   ok('report: missing dispatch data -> null, flagged unknown', r3.institutions.strengthened === null
     && r3.institutions.strengthenedUnknown === true && r3.institutions.strengthenedTotal === null);
   ok('report: narrative notes unavailable data', /not recorded/.test(r3.narrative));
-  ok('report: old save still renders numbers', r3.score === 50 && r3.treasury.start === 1000);
+  ok('report: old save still renders numbers', r3.score === 37 && r3.treasury.start === 1000);
 
   // Round-trip through serialize/deserialize preserves the report inputs.
   const g2 = newGameWithGalleons({ mode: 'campaign', seed: 'rep-ser' });

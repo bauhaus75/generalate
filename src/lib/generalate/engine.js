@@ -5214,7 +5214,13 @@ export function cardName(state, g, id) {
 
 /** @param {object} state @returns {number} 0..100 */
 export function getScore(state) {
-  return Math.max(rules.SCORE.MIN, Math.min(rules.SCORE.MAX, state.score));
+  // Display normalization (Tran 2026-10-19, option B): the uncapped tally
+  // (state.score) is the internal truth. The shown score stretches it
+  // linearly: -500 -> 0 (total ruin), +1000 -> 100 (a great reign).
+  const FLOOR = -500;
+  const CEILING = 1000;
+  const t = (state.score - FLOOR) / (CEILING - FLOOR);
+  return Math.max(0, Math.min(100, Math.round(t * 100)));
 }
 
 /**

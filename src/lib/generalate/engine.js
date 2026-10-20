@@ -2219,7 +2219,12 @@ export function provincialTermComplete(state, regionId) {
 /** A professed priest: ordained and professed, alive, not dismissed. */
 export function isProfessedPriest(state, petitionerId) {
   const rec = (state.petitioners || {})[petitionerId];
-  if (!rec || rec.status === STATUS.DISMISSED || rec.status === STATUS.DECEASED) return false;
+  if (!rec || rec.status === STATUS.DISMISSED || rec.status === STATUS.DECEASED || rec.status === 'apostate') return false;
+  // The formation system (vows stage) is the rank of record: men who reached
+  // the professed stage in play ARE professed priests, even where gradeFor's
+  // static table predates their profession. (Tran 2026-10-19: professed men
+  // were missing from the provincial succession roster.)
+  if (rec.vows && rec.vows.stage === 'professed') return true;
   if (staffGradeFor(state, petitionerId) !== 'fathers') return false;
   const gr = gradeFor(state, petitionerId);
   const grade = gr && gr.grade;

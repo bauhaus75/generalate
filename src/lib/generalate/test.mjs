@@ -822,6 +822,27 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   ok('reserve: held at dock he does not sail', !!q2 && q2.status === 'awaiting');
 }
 
+// --- 24d. Professed men appear in the provincial succession roster ---------------
+{
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'succession-professed' });
+  const { terna } = startYear(s);
+  decide(s, []); // all denied: they labor in Europe
+  const pid = terna[0].petitionerId;
+  ok('succession: novice-stage man not yet professed',
+    !EngineNS.professedPriests(s).some((p) => p.petitionerId === pid));
+  // He professes final vows in play.
+  const rec = s.petitioners[pid];
+  if (!rec.vows) rec.vows = {};
+  rec.vows.stage = 'professed';
+  const entry = s.europeanLabor.find((e) => e.petitionerId === pid);
+  if (entry) { entry.vows = rec.vows; }
+  ok('succession: professed in play -> isProfessedPriest', EngineNS.isProfessedPriest(s, pid) === true);
+  ok('succession: professed in play -> on the roster',
+    EngineNS.professedPriests(s).some((p) => p.petitionerId === pid));
+  rec.status = 'apostate';
+  ok('succession: apostate excluded', EngineNS.isProfessedPriest(s, pid) === false);
+}
+
 // --- 25. Phase 2: dispositions & formation --------------------------------------
 {
   // Determinism: same seed + same man → same initial disposition.

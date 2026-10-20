@@ -184,7 +184,7 @@ export function missionStrength(st) {
  * Masses of its priests — offered for the missions and the Father General —
  * were the engine of the whole enterprise. Strength = living ordained priests
  * (mission fathers + ordained men in Europe) + the martyrs, who intercede
- * from heaven. Bonus: +0.1 per unit of strength, uncapped.
+ * from heaven. Bonus: +0.15 per unit of strength, uncapped.
  * The General sets ONE intention: a mission (voyage bonus there) or the
  * Society as a whole (+zeal to all men that year).
  */
@@ -200,8 +200,8 @@ export function engineStrength(state) {
   return { priests, martyrs: state.stats?.martyrs || 0, total: priests + (state.stats?.martyrs || 0) };
 }
 export function engineBonus(state) {
-  // Tran 2026-10-19: +0.1 per martyr (and per priest's Mass), uncapped.
-  return Math.round(engineStrength(state).total * 0.1 * 100) / 100;
+  // Tran 2026-10-19: +0.15 per martyr (and per priest's Mass), uncapped.
+  return Math.round(engineStrength(state).total * 0.15 * 100) / 100;
 }
 export function setIntention(state, target) {
   state.intention = { target: target || 'society', year: state.year };

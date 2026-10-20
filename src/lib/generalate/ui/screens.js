@@ -1874,7 +1874,7 @@ function engineHTML(app) {
     .filter(([id]) => !(app.state.destState[id] || {}).collapsed)
     .map(([id]) => id);
   return `<h3 class="sect">The engine of the Society</h3>
-  <p class="howto-note">The old Society held the Masses of its priests — offered for the missions and the Father General — to be the engine of the whole enterprise. ${es.priests} living priests offer Mass; ${es.martyrs} martyrs intercede from heaven. Each gives +0.1 — the Society's blessing is +${bonus}.</p>
+  <p class="howto-note">The old Society held the Masses of its priests — offered for the missions and the Father General — to be the engine of the whole enterprise. ${es.priests} living priests offer Mass; ${es.martyrs} martyrs intercede from heaven. Each gives +0.15 — the Society's blessing is +${bonus}.</p>
   <div class="engine-list">
     <button class="gbtn small ${cur === 'society' ? 'primary' : 'ghost'} engine-intention" data-target="society">The Society — +${bonus} zeal to all men for one year</button>
     ${openMissions.map((id) => {

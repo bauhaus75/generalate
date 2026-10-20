@@ -414,7 +414,7 @@ export function showHowTo(app) {
       <p><strong>2. The indipetae.</strong> Ten petitioners lay their letters on your desk. The card shows the man; tap his name to read the full letter and his dossier. No choice is marked; the weight is yours.</p>
       <p><strong>3. The decision.</strong> Select one petitioner, review your choice, and confirm. The seal falls: <em>APPROVED</em> on one, <em>DENIED</em> on two.</p>
       <p><strong>4. The year turns.</strong> Your chosen man sails. Storms, war, plague, and politics decide what your seal began. The ledger records everything.</p>
-      <p><strong>5. The account.</strong> Your SCORE starts at 50. You are judged by fruit, not dispatches: score moves when voyage news arrives and through lasting foundations. Each approval costs 30 scudi for the seal. Campaign ends in 1645; in Endless mode, you lay down the office when you choose.</p>
+      <p><strong>5. The account.</strong> Your SCORE starts at 50. You are judged by fruit, not dispatches: score moves when voyage news arrives and through lasting foundations. Approvals cost nothing; men cost when they sail. Campaign ends in 1645; in Endless mode, you lay down the office when you choose.</p>
 
     </div>
   </div>`;
@@ -2117,7 +2117,7 @@ export function renderDesk(app, root, terna) {
         const comps = compTotal(ds[id].companions);
         return `${c.name} → ${dn}${comps ? ` (+${comps} companion${comps === 1 ? '' : 's'}${compBreakdown(ds[id].companions)})` : ''}`;
       });
-      const sealTotal = approved.length * ((app.Engine.RESOURCES && app.Engine.RESOURCES.SEAL_COST) || 30);
+      const sealTotal = approved.length * ((app.Engine.RESOURCES && app.Engine.RESOURCES.SEAL_COST) ?? 0);
       // Grade-based companion cost (shared pricing)
       const gradeCost = (app.Engine.RESOURCES && app.Engine.RESOURCES.COMPANION_GRADE_COST) || {};
       const flatCost = (app.Engine.RESOURCES && app.Engine.RESOURCES.COMPANION_COST) || 40;

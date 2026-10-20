@@ -6170,8 +6170,7 @@ export function soakTest({ rounds = 100, seed = 'soak', mode = 'endless' } = {})
       // Approve a random subset (0–3) of the terna; sometimes redirect one.
       // Approve ~half, but never more than the chest can seal (30/man) —
       // a real General denies more when the treasury is thin.
-      const affordable = Math.max(0, Math.floor(state.resources.funds / 30));
-      const approvals = terna.filter(() => decider.chance(0.5)).slice(0, affordable).map((c) => ({ id: c.petitionerId }));
+      const approvals = terna.filter(() => decider.chance(0.5)).map((c) => ({ id: c.petitionerId }));
       if (approvals.length && decider.chance(0.25)) {
         const openDests = Object.keys(state.destState).filter((d) => isDestOpen(state, d));
         if (openDests.length) approvals[0].destination = decider.pick(openDests);

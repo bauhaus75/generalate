@@ -728,35 +728,34 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   ok('old save migrates society=13112', deserialize(old).society === 13112);
 }
 
-// --- 24. The seal costs 30 per approval; berths bind -------------------------
+// --- 24. Approvals are free (the seal charges nothing); berths bind ----------
 {
-  // Approve 1 + deny 2 → 30 scudi.
+  // Removed 2026-10-20 (Tran): the 30-scudi seal duplicated the sending
+  // charge. Approving costs nothing, rich or broke; men cost when they sail.
   const s = newGameWithGalleons({ mode: 'campaign', seed: 'sealcost' });
   const { terna } = startYear(s);
   const r = decide(s, [{ id: terna[0].petitionerId }]);
-  ok('seal costs 30 per approval', s.resources.funds === 970, `${s.resources.funds}`);
-  ok('report carries sealCost 30', r.report.sealCost === 30, `${r.report.sealCost}`);
+  ok('approving is free', s.resources.funds === 1000, `${s.resources.funds}`);
+  ok('report carries sealCost 0', r.report.sealCost === 0, `${r.report.sealCost}`);
 
-  // Approve-all → 90. Deny-all → free.
   const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'sealcost2' });
   const { terna: t2 } = startYear(s2);
   decide(s2, t2.map((c) => ({ id: c.petitionerId })));
-  ok('approve-all seal costs 300', s2.resources.funds === 700, `${s2.resources.funds}`);
+  ok('approve-all is free', s2.resources.funds === 1000, `${s2.resources.funds}`);
   const s3 = newGameWithGalleons({ mode: 'campaign', seed: 'sealcost3' });
   startYear(s3);
   decide(s3, []);
   ok('deny-all seal is free', s3.resources.funds === 1000, `${s3.resources.funds}`);
 
-  // A broke General cannot seal approvals (30 each) but can still deny for free.
+  // A broke General can approve now — the chest is only charged at sailing.
   const s4 = newGameWithGalleons({ mode: 'campaign', seed: 'sealcost4' });
   s4.resources.funds = 10;
   const { terna: t4 } = startYear(s4);
   let threw = false;
-  try { decide(s4, [{ id: t4[0].petitionerId }]); } catch (e) { threw = /seal needs/.test(e.message); }
-  ok('broke General cannot seal approvals', threw);
-  ok('funds untouched by failed seal', s4.resources.funds === 10);
-  decide(s4, []);
-  ok('broke General can deny for free', s4.resources.funds === 10);
+  try { decide(s4, [{ id: t4[0].petitionerId }]); } catch (e) { threw = true; }
+  ok('broke General can approve', !threw);
+  ok('approval touches no funds', s4.resources.funds === 10);
+  ok('the approved man waits at the dock', s4.queue.some((q) => q.petitionerId === t4[0].petitionerId && q.status === 'awaiting'));
 
   // Model B: berths = ships in port. 6 men to 3 destinations need 3 ships = 3 berths.
   // All sail if destinations group into <=3 ships.

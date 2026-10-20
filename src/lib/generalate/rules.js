@@ -134,7 +134,10 @@ export const RESOURCES = Object.freeze({
    *  A professed priest costs as a father; a scholastic as a coadjutor. */
   COMPANION_COST: 40,
   /** The seal is not free: every approval costs the mission chest. */
-  SEAL_COST: 30,
+  // Approvals are free: the seal charges nothing (Tran 2026-10-20 — the
+  // 30-scudi seal duplicated the sending charge and taxed the game's core
+  // act; men cost when they sail, not when they are approved).
+  SEAL_COST: 0,
   COMPANION_GRADE_COST: Object.freeze({
     professed: 120,
     father: 120,

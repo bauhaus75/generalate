@@ -182,7 +182,7 @@ function syncFooter() {
     const flatCost = (app.Engine.RESOURCES && app.Engine.RESOURCES.COMPANION_COST) || 40;
     for (const d of Object.values(decisions)) {
       if (d && d.verdict === 'approve') {
-        pendingSeal += (app.Engine.RESOURCES && app.Engine.RESOURCES.SEAL_COST) || 30;
+        pendingSeal += (app.Engine.RESOURCES && app.Engine.RESOURCES.SEAL_COST) ?? 0;
         const comps = d.companions;
         if (typeof comps === 'number' && comps > 0) {
           pendingComp += comps * flatCost;

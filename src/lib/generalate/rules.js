@@ -66,6 +66,47 @@ export function fruitMultiplierFor(destId) {
  * service. His homecoming stirs zeal for the missions — a temporary bonus to
  * voyage checks — and scores for the fruit of his testimony.
  */
+/**
+ * Historical sailing routes (Tran 2026-10-20). A ship sails ONE route
+ * per voyage and may carry men for every stop on it: the India run
+ * (the Carreira da Índia) takes India men, then Macao and Nagasaki
+ * men, on one hull. Destinations on no route sail alone. Brazil and
+ * the East Indies can never share a ship — different oceans, different
+ * fleets: Brazil is its own Lisbon run, the Indies ride the India run.
+ * Corridors follow each destination's own ports in the data.
+ */
+export const ROUTES = Object.freeze({
+  india: Object.freeze({
+    name: 'India run',
+    destinations: Object.freeze(['mozambique', 'india', 'aethiopia', 'east-indies', 'siam', 'madagascar', 'china', 'japan', 'vietnam', 'tonkin', 'cambodia', 'philippines']),
+  }),
+  spanish: Object.freeze({
+    name: 'Spanish Atlantic',
+    destinations: Object.freeze(['west-indies', 'new-granada', 'mexico', 'guatemala', 'peru', 'quito', 'chile', 'paraguay']),
+  }),
+  africa: Object.freeze({
+    name: 'West Africa run',
+    destinations: Object.freeze(['angola', 'congo']),
+  }),
+  brazil: Object.freeze({
+    name: 'Brazil run',
+    destinations: Object.freeze(['brazil']),
+  }),
+});
+
+/** The route a destination sails on, or null when it sails alone. */
+export function routeOf(destId) {
+  for (const [id, route] of Object.entries(ROUTES)) {
+    if (route.destinations.includes(destId)) return id;
+  }
+  return null;
+}
+
+/** Display name of a route, or null for a solo destination. */
+export function routeName(routeId) {
+  return (ROUTES[routeId] || {}).name || null;
+}
+
 export const VETERAN = Object.freeze({
   /** Minimum full years in the mission before a return is possible. */
   MIN_YEARS: 3,

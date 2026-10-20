@@ -3740,10 +3740,10 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   s.petitioners['test-found-0'].vows = { stage: 'brother' };
   const availBefore = s.available;
   const res = EngineNS.foundMission(s, 'peru', { brothers: 1 });
-  ok('founding: costs 100 per place (peru: 6 places, 600) and opens the mission',
-    res.cost === 600 && s.resources.funds === 4400 && s.destState.peru.access === 'open' && !s.destState.peru.collapsed);
-  ok('founding: the price scales with capacity',
-    EngineNS.foundCost(s, 'peru') === 600 && EngineNS.foundCost(s, 'japan') === 1200,
+  ok('founding: costs no coin and opens the mission',
+    res.cost === 0 && s.resources.funds === 5000 && s.destState.peru.access === 'open' && !s.destState.peru.collapsed);
+  ok('founding: the price is gone at every size',
+    EngineNS.foundCost(s, 'peru') === 0 && EngineNS.foundCost(s, 'japan') === 0,
     `${EngineNS.foundCost(s, 'peru')}/${EngineNS.foundCost(s, 'japan')}`);
   ok('founding: the founder is a named man at the dock',
     res.men.length === 1 && res.men[0] === 'test-found-0'
@@ -4014,6 +4014,76 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     ok('evacuation: they land in Europe and labor there',
       gmen.every((pid) => (s2.europeanLabor || []).some((e) => e.petitionerId === pid)),
       JSON.stringify((s2.europeanLabor || []).map((e) => e.petitionerId)));
+  }
+
+  // ================================================================
+  console.log('\n59. Routes — one ship, one historical run, several stops');
+  {
+    // The route table itself: Brazil and the East Indies never share.
+    ok('routes: brazil and the east indies are different runs',
+      EngineNS.routeOf('brazil') === 'brazil' && EngineNS.routeOf('east-indies') === 'india'
+      && EngineNS.routeOf('japan') === 'india' && EngineNS.routeOf('china') === 'india'
+      && EngineNS.routeOf('peru') === 'spanish' && EngineNS.routeOf('england') === null);
+
+    // One hull carries the whole India run: japan + china + aethiopia
+    // (all fixture members of the india route) on a single galleon,
+    // each man arriving on his own leg's year.
+    const s = deserialize(serialize(newGame({ mode: 'campaign', seed: 'routes-59' })));
+    const { terna } = startYear(s);
+    decide(s, [
+      { id: terna[0].petitionerId, destination: 'japan' },
+      { id: terna[1].petitionerId, destination: 'china' },
+      { id: terna[2].petitionerId, destination: 'aethiopia' },
+    ]);
+    resolveYear(s);
+    const vs = s.voyages.filter((v) => v.departYear === 1615);
+    ok('routes: three stops of one run share a single hull',
+      vs.length === 3 && new Set(vs.map((v) => v.shipId)).size === 1,
+      JSON.stringify(vs.map((v) => `${v.destination}:${v.shipId}`)));
+    const hull = s.resources.ships.find((x) => x.id === vs[0].shipId);
+    ok('routes: the hull is away for her farthest leg',
+      hull.freeYear === 1615 + 3 && vs.find((v) => v.destination === 'aethiopia').arriveYear === 1615 + 2,
+      `freeYear ${hull.freeYear}`);
+
+    // Brazil is another ocean: its men never board the India ship.
+    const s2 = deserialize(serialize(newGame({ mode: 'campaign', seed: 'routes-59b' })));
+    const t2 = startYear(s2).terna;
+    decide(s2, [
+      { id: t2[0].petitionerId, destination: 'japan' },
+      { id: t2[1].petitionerId, destination: 'brazil' },
+      { id: t2[2].petitionerId, destination: 'brazil' },
+    ]);
+    resolveYear(s2);
+    const vs2 = s2.voyages.filter((v) => v.departYear === 1615);
+    ok('routes: brazil sails its own hull',
+      vs2.length === 3 && new Set(vs2.map((v) => v.shipId)).size === 2,
+      JSON.stringify(vs2.map((v) => `${v.destination}:${v.shipId}`)));
+
+    // Manual assignment enforces the route; auto-assignment too.
+    const s3 = deserialize(serialize(newGame({ mode: 'campaign', seed: 'routes-59c' })));
+    const t3 = startYear(s3).terna;
+    decide(s3, [
+      { id: t3[0].petitionerId, destination: 'japan' },
+      { id: t3[1].petitionerId, destination: 'china' },
+      { id: t3[2].petitionerId, destination: 'brazil' },
+    ]);
+    resolveYear(s3); // sail them off; fresh queue next year
+    const t3b = startYear(s3).terna;
+    decide(s3, [
+      { id: t3b[0].petitionerId, destination: 'aethiopia' },
+      { id: t3b[1].petitionerId, destination: 'brazil' },
+    ]);
+    // Both galleons are at sea in 1616; a free carrack (range 2) serves.
+    const carrack = s3.resources.ships.find((x) => (x.freeYear || 0) <= s3.year
+      && (EngineNS.RESOURCES.SHIP_TIERS[x.tier] || {}).range >= 2);
+    EngineNS.assignToShip(s3, t3b[0].petitionerId, carrack.id);
+    let threw = false;
+    try { EngineNS.assignToShip(s3, t3b[1].petitionerId, carrack.id); } catch (e) { threw = /not on that route/.test(e.message); }
+    ok('routes: a brazil man cannot be put aboard the india ship', threw);
+    EngineNS.autoAssignShips(s3);
+    const bq = s3.queue.find((q) => q.petitionerId === t3b[1].petitionerId);
+    ok('routes: auto-assignment keeps brazil off the india ship',
+      !bq.shipId || bq.shipId !== carrack.id, `shipId ${bq.shipId}`);
   }
 }
 

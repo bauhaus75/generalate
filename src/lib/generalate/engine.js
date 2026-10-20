@@ -32,6 +32,9 @@ export const CAMPAIGN_ROUNDS = CAMPAIGN_END - CAMPAIGN_START + 1; // 31
 
 /** Re-exported so the UI can read tuning constants (e.g. COMPANION_MAX). */
 export const RESOURCES = rules.RESOURCES;
+export const ROUTES = rules.ROUTES;
+export const routeOf = rules.routeOf;
+export const routeName = rules.routeName;
 
 /** Re-exported so the UI can read mission grade tuning (costs, strength, upkeep). */
 export const MISSION_GRADES = rules.MISSION_GRADES;
@@ -795,19 +798,17 @@ export function gainFunds(state, amount, category) {
 }
 
 /**
- * The price of founding (or rebuilding) a mission: 100 scudi per place
- * of capacity (Tran 2026-10-20, scaled from the old flat 1000) — a
- * 3-place field opens for 300, an 8-place field for 800.
+ * The price of founding (or rebuilding) a mission: nothing (Tran
+ * 2026-10-20). The cost of a foundation is its company — named men
+ * standing in Europe, and the sailing that carries them.
  */
 export function foundCost(state, destId) {
-  const st = state.missions && state.missions[destId];
-  const capacity = (st && st.capacity) || rules.MISSION_CAPACITY[destId] || 5;
-  return 100 * capacity;
+  return 0;
 }
 
 /**
- * Found a frontier mission. Costs 100 scudi per place of capacity
- * + 3 energy + at least 1 man.
+ * Found a frontier mission. Costs no coin (Tran 2026-10-20) — only
+ * 3 energy and at least 1 man.
  * The founding company is named men from Europe, queued to sail for it;
  * the mission opens at once, its men arrive by ship.
  */
@@ -855,7 +856,7 @@ export function foundMission(state, destId, counts = {}) {
   const parts = rules.MISSION_GRADE_IDS.filter((gid) => n[gid] > 0)
     .map((gid) => `${n[gid]} ${rules.MISSION_GRADES[gid].short.toLowerCase()}`);
   addLedger(state, { year: state.year, type: 'foundation',
-    text: `Founded the ${dest.name || destId} mission — ${parts.join(', ')} named from Europe wait at the dock to sail for it. ${FOUND_COST} scudi from the chest.` });
+    text: `Founded the ${dest.name || destId} mission — ${parts.join(', ')} named from Europe wait at the dock to sail for it.` });
   return { destId, ...n, total, cost: FOUND_COST, men };
 }
 
@@ -4143,6 +4144,18 @@ export function assignToShip(state, petitionerId, shipId) {
   if (tierInfo.range < travel) {
     throw new Error(`${ship.name} (${tierInfo.label}, range ${tierInfo.range}) cannot reach ${dest?.name || q.destination} (needs range ${travel}).`);
   }
+  // Routes: a ship loads for ONE historical route — her other men must
+  // be bound for stops on the same run.
+  const myRoute = rules.routeOf(q.destination);
+  for (const other of (state.queue || [])) {
+    if (other.petitionerId === petitionerId || other.status !== 'awaiting' || other.shipId !== shipId) continue;
+    const otherRoute = rules.routeOf(other.destination);
+    if (otherRoute !== myRoute) {
+      const otherDest = g.destinations.find((d) => d.id === other.destination);
+      const loading = otherRoute ? `the ${rules.routeName(otherRoute)}` : (otherDest?.name || other.destination);
+      throw new Error(`${ship.name} is loading for ${loading}; ${dest?.name || q.destination} is not on that route.`);
+    }
+  }
   q.shipId = shipId;
   q.assignedAt = state.year;
   return { petitionerId, shipId, shipName: ship.name };
@@ -4159,14 +4172,18 @@ export function autoAssignShips(state) {
   const ships = (state.resources.ships || []).filter((s) => (s.freeYear || 0) <= state.year);
   const g = getGameData();
   const tiers = rules.RESOURCES.SHIP_TIERS;
-  
-  // Track used capacity per ship
+
+  // Track used capacity per ship, and the route she is loading for:
+  // a ship takes men for ONE historical route (rules.ROUTES).
+  const routeKeyOf = (destId) => rules.routeOf(destId) || destId;
   const used = {};
+  const shipRoute = {};
   for (const s of ships) used[s.id] = 0;
   // Count already-assigned
   for (const q of (state.queue || []).filter((x) => x.status === 'awaiting' && x.shipId)) {
     const size = 1 + (q.companions || 0);
     used[q.shipId] = (used[q.shipId] || 0) + size;
+    if (!(q.shipId in shipRoute)) shipRoute[q.shipId] = routeKeyOf(q.destination);
   }
   
   const partySize = (q) => {
@@ -4199,13 +4216,16 @@ export function autoAssignShips(state) {
   for (const q of queue) {
     const travel = getTravel(q.destination);
     const size = partySize(q);
-    // Find smallest ship with range and capacity
+    const myRoute = routeKeyOf(q.destination);
+    // Find smallest ship with range and capacity, loading for his route
     for (const s of sortedShips) {
       const ti = tiers[s.tier || 'carrack'] || tiers.carrack;
       if (ti.range < travel) continue;
+      if (shipRoute[s.id] && shipRoute[s.id] !== myRoute) continue;
       if ((used[s.id] || 0) + size <= ti.capacity) {
         q.shipId = s.id;
         used[s.id] = (used[s.id] || 0) + size;
+        shipRoute[s.id] = myRoute;
         break;
       }
     }
@@ -4720,26 +4740,39 @@ export function resolveYear(state, opts = {}) {
   const awaiting = state.queue
     .filter((q) => q.status === 'awaiting' && !q.held)
     .sort((a, b) => a.approvedYear - b.approvedYear);
-  // Group by destination, preserving oldest-approval order of first appearance.
+  // Group by ROUTE, preserving oldest-approval order of first appearance.
+  // A ship sails one historical route per year and may carry men for
+  // every stop on it (rules.ROUTES) — the India run loads Goa, Macao
+  // and Nagasaki men on one hull. Destinations on no route sail alone.
   const groups = new Map();
   for (const q of awaiting) {
-    if (!groups.has(q.destination)) groups.set(q.destination, []);
-    groups.get(q.destination).push(q);
+    const key = rules.routeOf(q.destination) || q.destination;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(q);
   }
-  // Ships sail to ONE destination per year. The packed set is shared across
-  // all destinations so a ship can't be assigned twice.
-  const packed = new Set(); // ships given a sailing this year (all destinations)
-  for (const [destId, men] of groups) {
-    const dest = g.destinations.find((d) => d.id === destId);
-    const travel = dest?.travelYears ?? rules.defaultTravelYears();
+  // Ships sail to ONE route per year. The packed set is shared across
+  // all routes so a ship can't be assigned twice.
+  const packed = new Set(); // ships given a sailing this year (all routes)
+  for (const [routeKey, men0] of groups) {
+    const travelOf = (id) => {
+      const d = g.destinations.find((x) => x.id === id);
+      return d?.travelYears ?? rules.defaultTravelYears();
+    };
+    // Farthest legs outfit first, so every ship is chosen for the
+    // longest voyage it will actually make; nearer men then fill her
+    // remaining room. Oldest approval breaks ties.
+    const men = [...men0].sort((a, b) =>
+      travelOf(b.destination) - travelOf(a.destination) || (a.approvedYear || 0) - (b.approvedYear || 0));
+    const shipLegs = new Map(); // ship -> its farthest leg { travel, destId }
     // Ship tiers: filter by range, use per-tier capacity
     const tierInfo = (ship) => rules.RESOURCES.SHIP_TIERS[ship.tier || 'carrack'] || rules.RESOURCES.SHIP_TIERS.carrack;
     const shipRange = (ship) => tierInfo(ship).range;
     const shipCap = (ship) => tierInfo(ship).capacity;
     let idx = 0;
-    let ship = null; // ship currently being packed for this destination
+    let ship = null; // ship currently being packed for this route
     const aboard = []; // {q, ship, comps}
     while (idx < men.length) {
+      const travel = travelOf(men[idx].destination); // this man's leg
       if (berths <= 0) {
         for (; idx < men.length; idx++) men[idx].note = 'delayed: no berths free';
         break;
@@ -4833,12 +4866,18 @@ export function resolveYear(state, opts = {}) {
       q.embarked = comps; // companions who actually sailed (may be fewer than requested)
       ship.used += party;
       packed.add(ship);
+      const prevLeg = shipLegs.get(ship);
+      if (!prevLeg || travel > prevLeg.travel) shipLegs.set(ship, { travel, destId: q.destination });
       aboard.push({ q, ship, comps });
       idx += 1;
     }
-    for (const s of packed) {
-      s.freeYear = y + travel;
-      s.lastDestination = destId;
+    // Each ship is away for her OWN farthest leg. (The old code set
+    // every packed ship's free year from each destination group in
+    // turn, so a Brazil ship ended up away for Japan's travel time
+    // whenever both sailed the same year.)
+    for (const [s, leg] of shipLegs) {
+      s.freeYear = y + leg.travel;
+      s.lastDestination = leg.destId;
     }
     if (aboard.length) {
       // Team size reflects ACTUAL departure composition: men sailing on the
@@ -4852,6 +4891,7 @@ export function resolveYear(state, opts = {}) {
         // Prefer the queue entry's name (deployment members carry their
         // europeanLabor name); terna sailors fall back to the card name.
         const pname = q.petitionerName || cardName(state, g, q.petitionerId);
+        const travel = travelOf(q.destination); // his own leg of the route
         const actualTeamSize = shipmates.get(hull.id) || 1;
         const voyage = {
           id: `voy-${++state.seq.voyage}`,

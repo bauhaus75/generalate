@@ -1456,13 +1456,13 @@ export function renderGovernance(app, root) {
       });
       if (!frontier.length) return '';
       return `<h3 class="sect">Found a mission</h3>
-      <p class="howto-note">Frontier fields await the Society — 100 scudi per place of capacity, and a brother laboring in Europe to sail as the founding company. He is named from Europe and waits at the dock for a ship. Collapsed missions can be rebuilt the same way.</p>
+      <p class="howto-note">Frontier fields await the Society — founding costs no coin; the price is the company: a brother laboring in Europe to sail as the founding company. He is named from Europe and waits at the dock for a ship. Collapsed missions can be rebuilt the same way.</p>
       <div class="frontier-list">
         ${frontier.map((d) => `
         <div class="frontier-item">
           <strong>${esc(d.name)}</strong>
           <span class="disp-mini">${esc(d.blurb || '')}</span>
-          <button class="gbtn small primary frontier-found" data-id="${esc(d.id)}" data-energy="1">${(app.state.destState[d.id] || {}).collapsed ? 'Rebuild' : 'Found'} — ${E2.foundCost(app.state, d.id)} scudi</button>
+          <button class="gbtn small primary frontier-found" data-id="${esc(d.id)}" data-energy="1">${(app.state.destState[d.id] || {}).collapsed ? 'Rebuild' : 'Found'}</button>
         </div>`).join('')}
       </div>`;
     })()}
@@ -2571,7 +2571,16 @@ export function renderLogistics(app, root) {
     const voy = voyages.find((v) => v.shipId === s.id && !v.resolvedYear);
     const used = isFree ? assigned : (voy?.men || s.used || 0);
     const pct = capacity > 0 ? Math.round((used / capacity) * 100) : 0;
-    const destName = voy ? ((app.Engine.DESTINATIONS?.[voy.destination]?.name) || voy.destination) : null;
+    // A ship at sea on a route carries men for several stops: name the
+    // route; a single-stop sailing names its destination.
+    const seaDests = [...new Set(voyages.filter((v) => v.shipId === s.id && v.stage === 'transit').map((v) => v.destination))];
+    const seaRoute = seaDests.length ? app.Engine.routeName(app.Engine.routeOf(seaDests[0])) : null;
+    const destName = seaDests.length > 1 && seaRoute
+      ? `${seaRoute} (${seaDests.map((d) => (app.Engine.DESTINATIONS?.[d]?.name) || d).join(', ')})`
+      : (voy ? ((app.Engine.DESTINATIONS?.[voy.destination]?.name) || voy.destination) : null);
+    // In port, assigned men bound for several stops show their route too.
+    const portDests = [...new Set(queue.filter((q) => q.shipId === s.id && q.status === 'awaiting').map((q) => q.destination))];
+    const portRoute = isFree && portDests.length > 1 ? app.Engine.routeName(app.Engine.routeOf(portDests[0])) : null;
     // Show assigned men names for ships in port
     const assignedNames = isFree && assigned > 0
       ? queue.filter((q) => q.shipId === s.id && q.status === 'awaiting').map((q) => esc(q.petitionerName || q.petitionerId)).join(', ')
@@ -2584,6 +2593,7 @@ export function renderLogistics(app, root) {
         <div class="logi-cap-bar"><div class="logi-cap-fill" style="width:${pct}%"></div></div>
         <div class="logi-cap-text">${used}/${capacity} men${!isFree && s.freeYear ? ` · returns ${s.freeYear}` : ''}</div>
         ${assignedNames ? `<div class="logi-assigned">Aboard: ${assignedNames}</div>` : ''}
+        ${portRoute ? `<div class="logi-assigned">Sails the ${esc(portRoute)}</div>` : ''}
       </div>
     </div>`;
   }).join('');

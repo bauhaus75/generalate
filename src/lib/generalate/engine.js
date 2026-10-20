@@ -3015,6 +3015,19 @@ function domesticYearlyFunds(state) {
   return total;
 }
 
+/** Yearly funds from men held at dock (Tran 2026-10-19): a man waiting
+ *  for his ship labors in the port — teaching, preaching, serving the
+ *  college — and earns his grade income, same as domestic service. */
+function dockYearlyFunds(state) {
+  const GRADE_INCOME = { 'P': 12, 'S*': 10, 'S': 5, 'F': 5, 'nS': 0, 'nF': 0 };
+  let total = 0;
+  for (const q of state.queue || []) {
+    if (q.status !== 'awaiting' || !q.held) continue;
+    total += GRADE_INCOME[detailedGradeFor(state, q.petitionerId)] ?? 0;
+  }
+  return total;
+}
+
 /**
  * Mission income: thriving missions (60%+ staffed) generate funds by grade.
  * Full rate (P 12, S* 10, S 5, F 5): England, Far East, West Indies.
@@ -3876,7 +3889,7 @@ export function assignToShip(state, petitionerId, shipId) {
  * that has capacity. Best-effort: men who don't fit stay unassigned.
  */
 export function autoAssignShips(state) {
-  const queue = (state.queue || []).filter((q) => q.status === 'awaiting' && !q.shipId);
+  const queue = (state.queue || []).filter((q) => q.status === 'awaiting' && !q.shipId && !q.held);
   if (!queue.length) return;
   const ships = (state.resources.ships || []).filter((s) => (s.freeYear || 0) <= state.year);
   const g = getGameData();
@@ -3944,6 +3957,26 @@ export function unassignFromShip(state, petitionerId) {
   delete q.shipId;
   delete q.assignedAt;
   return { petitionerId };
+}
+
+/**
+ * Hold a queued man at the dock (Tran 2026-10-19): he does not board even
+ * when a ship is free — the General, not the queue order, decides who
+ * waits. A held man labors in the port and earns his grade income until
+ * released. Holding clears any ship assignment.
+ */
+export function setDockHold(state, petitionerId, held) {
+  const q = (state.queue || []).find((x) => x.petitionerId === petitionerId && x.status === 'awaiting');
+  if (!q) throw new Error('Man is not in the departure queue.');
+  q.held = !!held;
+  if (q.held) {
+    delete q.shipId;
+    delete q.assignedAt;
+    q.note = 'held at dock';
+  } else if (q.note === 'held at dock') {
+    delete q.note;
+  }
+  return q;
 }
 
 /**
@@ -4355,8 +4388,11 @@ export function resolveYear(state, opts = {}) {
   // Model B: berths = static port capacity (ships that can outfit simultaneously)
   let berths = state.resources.berths || 0;
   const ships = Array.isArray(state.resources.ships) ? state.resources.ships : [];
+  for (const q of state.queue) {
+    if (q.status === 'awaiting' && q.held) q.note = 'held at dock';
+  }
   const awaiting = state.queue
-    .filter((q) => q.status === 'awaiting')
+    .filter((q) => q.status === 'awaiting' && !q.held)
     .sort((a, b) => a.approvedYear - b.approvedYear);
   // Group by destination, preserving oldest-approval order of first appearance.
   const groups = new Map();
@@ -4752,6 +4788,14 @@ export function resolveYear(state, opts = {}) {
     state.ledger.unshift({
       seq: ++state.seq.ledger, year: y, type: 'missions',
       text: `The missions remitted ${missionFunds} scudi to the chest.`,
+    });
+  }
+  const dockFunds = dockYearlyFunds(state);
+  if (dockFunds > 0) {
+    gainFunds(state, dockFunds, 'dock');
+    state.ledger.unshift({
+      seq: ++state.seq.ledger, year: y, type: 'dock',
+      text: `The men held at dock earned ${dockFunds} scudi laboring in the port.`,
     });
   }
   state.society = (state.society || 0) + rules.RESOURCES.SOCIETY_YEARLY_INTAKE;

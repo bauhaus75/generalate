@@ -2398,19 +2398,23 @@ function renderQueueAssignment(app, ships, tiers) {
       const sel = q.shipId === s.id ? ' selected' : '';
       return `<option value="${s.id}"${sel}>${esc(s.name)} (${ti.label})</option>`;
     }).join('');
-    return `<div class="queue-row">
-      <span class="queue-name">${esc(q.petitionerName || q.petitionerId)}</span>
+    return `<div class="queue-row${q.held ? ' held' : ''}">
+      <span class="queue-name">${nameLink(app, q.petitionerId, q.petitionerName || q.petitionerId)}</span>
       <span class="queue-dest">→ ${esc(destName(q.destination))}</span>
-      <select class="queue-ship" data-pid="${esc(q.petitionerId)}" aria-label="Assign ship">
+      ${q.held
+        ? `<span class="queue-held-note">⚓ held at dock — laboring in the port</span>
+           <button class="gbtn small ghost dock-hold-btn" data-pid="${esc(q.petitionerId)}" data-held="1">Release</button>`
+        : `<select class="queue-ship" data-pid="${esc(q.petitionerId)}" aria-label="Assign ship">
         <option value="">Auto</option>
         ${options}
       </select>
       ${assignedShip ? `<span class="queue-assigned">on ${esc(assignedShip.name)}</span>` : ''}
+      <button class="gbtn small ghost dock-hold-btn" data-pid="${esc(q.petitionerId)}" data-held="0">Hold at dock</button>`}
     </div>`;
   }).join('');
   
   return `<div class="queue-list">${rows}</div>
-    <p class="disp-mini">Assign men to ships, or leave on Auto. If a ship is full at departure, excess men wait.</p>`;
+    <p class="disp-mini">Assign men to ships, or leave on Auto. If a ship is full at departure, excess men wait. Men held at dock do not board — they labor in the port and earn their grade income until released.</p>`;
 }
 
 /* ---------------- map screen ---------------- */
@@ -2660,6 +2664,19 @@ export function renderLogistics(app, root) {
       }
     });
   });
+  root.querySelectorAll('.dock-hold-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      try {
+        app.Engine.setDockHold(app.state, btn.dataset.pid, btn.dataset.held !== '1');
+        app.save();
+        app.sound('page');
+        app.go('logistics'); // refresh
+      } catch (e) {
+        app.toast(e.message);
+      }
+    });
+  });
+  attachNameLinks(app, root);
 }
 
 export function renderMapScreen(app, root, from) {

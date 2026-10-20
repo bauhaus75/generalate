@@ -777,6 +777,28 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
     `sailed=${s5.voyages.length} waiting=${s5.queue.length}`);
 }
 
+// --- 24b. Dock hold: held men wait, labor, and earn -----------------------------
+{
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'dock-hold' });
+  const { terna } = startYear(s);
+  decide(s, terna.map((c) => ({ id: c.petitionerId })));
+  // Hold a man whose grade earns (not a novice): his dock labor pays.
+  const heldCard = terna.find((c) => !/novice/i.test(c.formation || '')) || terna[0];
+  const heldId = heldCard.petitionerId;
+  EngineNS.setDockHold(s, heldId, true);
+  const q = s.queue.find((x) => x.petitionerId === heldId);
+  ok('dock hold: flagged + noted', q.held === true && q.note === 'held at dock');
+  resolveYear(s);
+  const qAfter = s.queue.find((x) => x.petitionerId === heldId);
+  ok('dock hold: held man did not sail', !!qAfter && qAfter.status === 'awaiting',
+    `voyages for held=${s.voyages.filter((v) => v.petitionerId === heldId).length}`);
+  ok('dock hold: others sailed', s.voyages.length > 0, `${s.voyages.length}`);
+  ok('dock hold: dock income ledgered',
+    (s.ledger || []).some((e) => e.type === 'dock'));
+  EngineNS.setDockHold(s, heldId, false);
+  ok('dock hold: release clears flag + note', qAfter.held === false && qAfter.note !== 'held at dock');
+}
+
 // --- 25. Phase 2: dispositions & formation --------------------------------------
 {
   // Determinism: same seed + same man → same initial disposition.

@@ -1456,13 +1456,13 @@ export function renderGovernance(app, root) {
       });
       if (!frontier.length) return '';
       return `<h3 class="sect">Found a mission</h3>
-      <p class="howto-note">Frontier fields await the Society — 1000 scudi, and a brother laboring in Europe to sail as the founding company. He is named from Europe and waits at the dock for a ship. Collapsed missions can be rebuilt the same way.</p>
+      <p class="howto-note">Frontier fields await the Society — 100 scudi per place of capacity, and a brother laboring in Europe to sail as the founding company. He is named from Europe and waits at the dock for a ship. Collapsed missions can be rebuilt the same way.</p>
       <div class="frontier-list">
         ${frontier.map((d) => `
         <div class="frontier-item">
           <strong>${esc(d.name)}</strong>
           <span class="disp-mini">${esc(d.blurb || '')}</span>
-          <button class="gbtn small primary frontier-found" data-id="${esc(d.id)}" data-energy="1">${(app.state.destState[d.id] || {}).collapsed ? 'Rebuild' : 'Found'} — 1000 scudi</button>
+          <button class="gbtn small primary frontier-found" data-id="${esc(d.id)}" data-energy="1">${(app.state.destState[d.id] || {}).collapsed ? 'Rebuild' : 'Found'} — ${E2.foundCost(app.state, d.id)} scudi</button>
         </div>`).join('')}
       </div>`;
     })()}

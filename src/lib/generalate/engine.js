@@ -795,7 +795,19 @@ export function gainFunds(state, amount, category) {
 }
 
 /**
- * Found a frontier mission. Costs 1000 scudi + 3 energy + at least 1 man.
+ * The price of founding (or rebuilding) a mission: 100 scudi per place
+ * of capacity (Tran 2026-10-20, scaled from the old flat 1000) — a
+ * 3-place field opens for 300, an 8-place field for 800.
+ */
+export function foundCost(state, destId) {
+  const st = state.missions && state.missions[destId];
+  const capacity = (st && st.capacity) || rules.MISSION_CAPACITY[destId] || 5;
+  return 100 * capacity;
+}
+
+/**
+ * Found a frontier mission. Costs 100 scudi per place of capacity
+ * + 3 energy + at least 1 man.
  * The founding company is named men from Europe, queued to sail for it;
  * the mission opens at once, its men arrive by ship.
  */
@@ -807,7 +819,7 @@ export function foundMission(state, destId, counts = {}) {
   const isRebuild = !!dst.collapsed;
   if (!dest.frontier && !isRebuild) throw new Error(`foundMission: ${dest.name || destId} is not a frontier mission`);
   if (dst.access === 'open' && !isRebuild) throw new Error(`foundMission: ${dest.name || destId} is already founded`);
-  const FOUND_COST = 1000;
+  const FOUND_COST = foundCost(state, destId);
   const FOUND_ENERGY = 3;
   if (state.resources.funds < FOUND_COST) {
     throw new Error(`foundMission: ${FOUND_COST} scudi needed, the chest holds ${state.resources.funds}`);

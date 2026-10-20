@@ -3740,8 +3740,11 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   s.petitioners['test-found-0'].vows = { stage: 'brother' };
   const availBefore = s.available;
   const res = EngineNS.foundMission(s, 'peru', { brothers: 1 });
-  ok('founding: costs 1000 and opens the mission',
-    res.cost === 1000 && s.resources.funds === 4000 && s.destState.peru.access === 'open' && !s.destState.peru.collapsed);
+  ok('founding: costs 100 per place (peru: 6 places, 600) and opens the mission',
+    res.cost === 600 && s.resources.funds === 4400 && s.destState.peru.access === 'open' && !s.destState.peru.collapsed);
+  ok('founding: the price scales with capacity',
+    EngineNS.foundCost(s, 'peru') === 600 && EngineNS.foundCost(s, 'japan') === 1200,
+    `${EngineNS.foundCost(s, 'peru')}/${EngineNS.foundCost(s, 'japan')}`);
   ok('founding: the founder is a named man at the dock',
     res.men.length === 1 && res.men[0] === 'test-found-0'
     && s.queue.some((q) => q.petitionerId === 'test-found-0' && q.status === 'awaiting' && q.destination === 'peru'));

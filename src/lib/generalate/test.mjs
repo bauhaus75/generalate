@@ -3901,6 +3901,26 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     `rows=${sbOld.rows.length} unrecorded=${sbOld.unrecorded}`);
 }
 
+// --- 56. Established missions start at strength (Tran 2026-10-20) ------------
+{
+  const dests = [
+    { id: 'goa', name: 'Goa, the Indies', travelYears: 2, ports: ['Lisbon', 'Goa'], region: 'Asia', foundedYear: 1542 },
+    { id: 'japan', name: 'Japan', travelYears: 3, ports: ['Lisbon', 'Nagasaki'], region: 'Asia', foundedYear: 1549 },
+    { id: 'peru', name: 'Peru', travelYears: 2, ports: ['Seville', 'Lima'], region: 'America', foundedYear: 1610 },
+  ];
+  setGameData({ petitioners: FIXTURES.petitioners, events: FIXTURES.events, destinations: dests });
+  const s = newGame({ mode: 'campaign', seed: 'established' });
+  const staffed = (id) => { const st = s.missions[id]; return st.fathers + st.coadjutors + st.brothers; };
+  const ratio = (id) => staffed(id) / s.missions[id].capacity;
+  ok('established: goa (founded 1542) starts at 60% or better', ratio('goa') >= 0.6, `${ratio('goa')}`);
+  ok('established: japan (founded 1549) starts at 60% or better', ratio('japan') >= 0.6, `${ratio('japan')}`);
+  ok('established: peru (founded 1610) keeps the lean start', ratio('peru') < 0.6, `${ratio('peru')}`);
+  ok('established: topped-up men are named profiles on the roster',
+    (s.missions.goa.staffIds || []).length === staffed('goa'),
+    `${(s.missions.goa.staffIds || []).length} vs ${staffed('goa')}`);
+  setGameData(FIXTURES);
+}
+
 console.log(`\n${failures === 0 ? 'ALL TESTS PASSED' : failures + ' FAILURES'}`);
 process.exit(failures === 0 ? 0 : 1);
 

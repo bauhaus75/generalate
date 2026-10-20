@@ -117,8 +117,11 @@ function initDestState(destinations) {
 
 /**
  * Initial staffing per mission. The missions are not empty in 1615 — each
- * begins at roughly half its capacity, split across the three grades in a
- * fixed deterministic ratio. The General's task is to bring them to strength.
+ * begins split across the three grades in a fixed deterministic ratio.
+ * Newer fields begin at about a third of capacity; a long-established
+ * mission (founded by 1600, fifteen years or more before the game opens)
+ * begins at strength — at least 60% of its places filled — so the reign
+ * does not open with every old mission already scrambling (Tran 2026-10-20).
  */
 function initMissions(destinations, petitioners) {
   const ms = {};
@@ -126,7 +129,10 @@ function initMissions(destinations, petitioners) {
   for (const d of list) {
     const id = d.id || d;
     const capacity = rules.MISSION_CAPACITY[id] ?? 5;
-    const total = Math.max(2, Math.round(capacity * 0.35)); // min 2 men, avoids <25% trap
+    let total = Math.max(2, Math.round(capacity * 0.35)); // min 2 men, avoids <25% trap
+    if (typeof d.foundedYear === 'number' && d.foundedYear <= 1600) {
+      total = Math.max(total, Math.ceil(capacity * 0.6));
+    }
     const fathers = Math.round(total * 0.2);
     const coadjutors = Math.round(total * 0.3);
     // Starting counts only: newGame mints a real named man (profile +

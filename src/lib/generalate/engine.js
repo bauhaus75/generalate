@@ -4471,6 +4471,8 @@ export function produceFruits(state) {
   const byMission = {};
   let totalNew = 0;
   let quotaPenalty = 0;
+  let overPenalty = 0;
+  const OVER_PENALTY_PER_MISSION = 5;
   const GRACE_YEARS = 2;
   const PENALTY_PER_MISS = 2;
   const QUOTA_RATIO = 0.50;
@@ -4481,6 +4483,11 @@ export function produceFruits(state) {
     // <=5), collapsed missions, and never-opened fields are exempt.
     const dst = state.destState[destId] || {};
     const quotaApplies = (st.capacity || 5) >= 6 && !dst.collapsed && dst.access !== 'closed';
+    // Overcrowding tally (Tran 2026-10-20): -5 a year for every open
+    // mission holding more men than it has places.
+    if (!dst.collapsed && dst.access !== 'closed' && missionStaffed(st) > (st.capacity || 5)) {
+      overPenalty += OVER_PENALTY_PER_MISSION;
+    }
     // Provincials administer; they don't labor in the harvest.
     const men = missionCommunity(state, destId).filter((id) => !isProvincial(state, id));
     // Provincial execution virtues: zeal inspires (+10%), stability preserves (-5% decay),
@@ -4567,7 +4574,7 @@ export function produceFruits(state) {
     byMission[destId] = { harvest, decayed, total: st.fruits, missedQuota, expected };
     totalNew += harvest;
   }
-  return { totalNew, byMission, quotaPenalty };
+  return { totalNew, byMission, quotaPenalty, overPenalty };
 }
 
 export function buildSocietyReport(state, y, outcomes, statsBefore, fruits = null) {
@@ -4632,6 +4639,7 @@ export function buildSocietyReport(state, y, outcomes, statsBefore, fruits = nul
     scoreParts: {
       fruit: Math.floor(((fruits && fruits.totalNew) || 0) / 500),
       quota: -((fruits && fruits.quotaPenalty) || 0),
+      overcap: -((fruits && fruits.overPenalty) || 0),
       novitiate: (state.novitiates || []).length * rules.SCORE.NOVITIATE_YEARLY,
     },
   });
@@ -5513,6 +5521,10 @@ function collapseMission(state, destId) {
     state.score = rules.addScore(state.score, -fruits.quotaPenalty);
     trackScoreDelta(state, -fruits.quotaPenalty);
   }
+  if (fruits.overPenalty > 0) {
+    state.score = rules.addScore(state.score, -fruits.overPenalty);
+    trackScoreDelta(state, -fruits.overPenalty);
+  }
   buildSocietyReport(state, y, outcomes, statsBefore, fruits);
   state.year = y + 1;
   if (state.mode === 'campaign' && state.year > CAMPAIGN_END) state.ended = true;
@@ -5654,6 +5666,7 @@ const SCORE_SOURCE_LABELS = {
   veteran: 'Veterans come home',
   fruit: 'Fruit of souls',
   quota: 'Quota shortfalls',
+  overcap: 'Overcrowding',
   novitiate: 'Novitiates',
   instruction: 'Instructions',
   collapse: 'Missions collapsed',

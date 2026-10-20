@@ -3938,10 +3938,21 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   full.missions.goa.capacity = 10; // every man within capacity
   const over = deserialize(serialize(base));
   over.missions.goa.capacity = 1; // all but one man beyond capacity
-  const hFull = EngineNS.produceFruits(full).byMission.goa.harvest;
-  const hOver = EngineNS.produceFruits(over).byMission.goa.harvest;
+  const frFull = EngineNS.produceFruits(full);
+  const frOver = EngineNS.produceFruits(over);
+  const hFull = frFull.byMission.goa.harvest;
+  const hOver = frOver.byMission.goa.harvest;
   ok('overcap: over-capacity men bear less fruit', hOver < hFull, `${hOver} vs ${hFull}`);
   ok('overcap: the loss is the halving, not a wipeout', hOver > hFull * 0.4, `${hOver} vs ${hFull}`);
+  // Tally: -5 per overfull mission per year, recorded for the breakdown.
+  ok('overcap: tally penalty counts overfull missions', frOver.overPenalty === 5 && frFull.overPenalty === 0,
+    `${frOver.overPenalty} vs ${frFull.overPenalty}`);
+  const sbState = deserialize(serialize(base));
+  EngineNS.buildSocietyReport(sbState, sbState.year, [], JSON.parse(JSON.stringify(sbState.stats || {})),
+    { totalNew: 0, quotaPenalty: 0, overPenalty: 5 });
+  const sbRow = EngineNS.scoreBreakdown(sbState).rows.find((r) => r.source === 'overcap');
+  ok('overcap: the tally penalty lands in the ledger breakdown', !!sbRow && sbRow.total === -5,
+    JSON.stringify(sbRow));
 
   // Expand the mission: a direct order — always obeyed, +5 places.
   for (const seed of ['exp-1', 'exp-2', 'exp-3']) {

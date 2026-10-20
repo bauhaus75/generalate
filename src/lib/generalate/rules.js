@@ -92,7 +92,7 @@ export function addScore(score, delta) {
 /** Resource economy constants. */
 export const RESOURCES = Object.freeze({
   /** Sailing berths available per year. */
-  BERTHS: 3, // static port capacity: ships that can outfit simultaneously
+  BERTHS: 10, // static port capacity: ships that can outfit simultaneously
   /** The seal is not free: every decision costs the mission chest.
    *  An approval commits the Society's resources (advances, dispensations,
    *  letters); a refusal still requires pastoral care and correspondence. */
@@ -118,7 +118,7 @@ export const RESOURCES = Object.freeze({
     galleon: Object.freeze({ range: 3, capacity: 12, cost: 400, label: 'Galleon' }),
   }),
   /** Starting fleet: 2 carracks + 1 caravel. */
-  STARTING_FLEET: Object.freeze(['carrack', 'carrack', 'caravel']),
+  STARTING_FLEET: Object.freeze(['galleon', 'galleon', 'carrack', 'carrack', 'carrack', 'carrack', 'carrack', 'caravel', 'caravel', 'caravel']),
   /** Cost to charter an additional hull (permanent). Now per-tier; this is the default (carrack). */
   SHIP_CHARTER_COST: 200,
   /** The Society at Vitelleschi's election (Jan 1615): 13,112 members in

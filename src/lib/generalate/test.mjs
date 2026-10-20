@@ -610,7 +610,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const usedShips = new Set(sailed2.map((v) => v.shipId));
   ok('hull shared by destination', usedShips.size === 1, [...usedShips].join(','));
   const freeShips = s2.resources.ships.filter((sh) => (sh.freeYear || 0) <= yr);
-  ok('two hulls still free', freeShips.length === 2, `${freeShips.length}`);
+  ok('nine hulls still free', freeShips.length === 9, `${freeShips.length}`);
   const travel = sailed2[0].travelYears;
   ok('sailed hull busy for the voyage length',
     s2.resources.ships.filter((sh) => !freeShips.includes(sh)).every((sh) => sh.freeYear === yr + travel));
@@ -651,7 +651,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const fundsBefore = s2.resources.funds;
   const ch = charterShip(s2);
   ok('charter costs 200', s2.resources.funds === fundsBefore - 200, `${s2.resources.funds}`);
-  ok('charter adds a free hull', s2.resources.ships.length === 4 && ch.ship.freeYear === 0);
+  ok('charter adds a free hull', s2.resources.ships.length === 11 && ch.ship.freeYear === 0);
   ok('chartered hull has a name', typeof ch.ship.name === 'string' && ch.ship.name.length > 0);
 
   // Old saves: ships without freeYear migrate to free.

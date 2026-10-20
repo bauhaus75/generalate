@@ -1024,7 +1024,10 @@ function missionCardHTML(app, d, year) {
       // The community's character: top 3 traits among stationed men.
       const traits = E.communityTraits(app.state, d.id);
       if (traits.length) {
-        const dots = (v) => '●'.repeat(Math.round(v)) + '○'.repeat(5 - Math.round(v));
+        const dots = (v) => {
+          const n = Math.max(0, Math.min(5, Math.round(v || 0)));
+          return '●'.repeat(n) + '○'.repeat(5 - n);
+        };
         html += `<p class="mission-traits"><strong>The community:</strong> ${traits.map((t) =>
           `${esc(t.name)} ${dots(t.avg)}`).join(' · ')}</p>`;
       }

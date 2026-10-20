@@ -559,8 +559,7 @@ app.go = function (screen, params = {}) {
       else app.ui.brief = { year: app.state.currentYear.year, briefing: app.state.currentYear.briefing, terna: app.state.currentYear.terna };
       app.save(); app.syncHeader();
       // Mass of the Holy Spirit opens each new year
-      if (isNewYear && !app.ui.massShownForYear) {
-        app.ui.massShownForYear = app.state.year;
+      if (isNewYear) {
         Screens.showMassOverlay(app, () => {
           Screens.renderBriefing(app, r, app.ui.brief);
         });

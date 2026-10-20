@@ -799,6 +799,29 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   ok('dock hold: release clears flag + note', qAfter.held === false && qAfter.note !== 'held at dock');
 }
 
+// --- 24c. Reserves at the dock ---------------------------------------------------
+{
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'reserve-dock' });
+  const { terna } = startYear(s);
+  decide(s, [{ id: terna[0].petitionerId }]); // two denied men labor in Europe
+  const euro = s.europeanLabor[0];
+  ok('reserve: man labors in Europe', !!euro);
+  EngineNS.reserveForMission(s, euro.petitionerId, 'japan');
+  ok('reserve: earmarked', (s.europeanLabor.find((e) => e.petitionerId === euro.petitionerId) || {}).reservedFor === 'japan');
+  EngineNS.callReserveToDock(s, euro.petitionerId);
+  const q = s.queue.find((x) => x.petitionerId === euro.petitionerId);
+  ok('reserve: called man is queued, held, bound for his mission',
+    !!q && q.status === 'awaiting' && q.held === true && q.destination === 'japan');
+  ok('reserve: called man left European labor',
+    !s.europeanLabor.some((e) => e.petitionerId === euro.petitionerId));
+  let threw = false;
+  try { EngineNS.callReserveToDock(s, euro.petitionerId); } catch { threw = true; }
+  ok('reserve: second call throws (already at dock)', threw);
+  resolveYear(s);
+  const q2 = s.queue.find((x) => x.petitionerId === euro.petitionerId);
+  ok('reserve: held at dock he does not sail', !!q2 && q2.status === 'awaiting');
+}
+
 // --- 25. Phase 2: dispositions & formation --------------------------------------
 {
   // Determinism: same seed + same man → same initial disposition.

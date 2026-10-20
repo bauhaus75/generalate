@@ -1697,6 +1697,43 @@ export function unreserve(state, petitionerId) {
 }
 
 /**
+ * Call a reserved man to the dock (Tran 2026-10-19): he leaves European
+ * labor and joins the departure queue for his reserved mission — HELD at
+ * dock, so he waits (and earns dock income) until the General releases
+ * him onto a ship. Reserves belong at the dock alongside the queue.
+ */
+export function callReserveToDock(state, petitionerId) {
+  const idx = (state.europeanLabor || []).findIndex((e) => e.petitionerId === petitionerId);
+  if (idx < 0) throw new Error('No such man laboring in Europe.');
+  const entry = state.europeanLabor[idx];
+  if (!entry.reservedFor) throw new Error(`${entry.name} is not reserved for a mission.`);
+  if ((state.queue || []).some((q) => q.petitionerId === petitionerId && q.status === 'awaiting')) {
+    throw new Error(`${entry.name} is already at the dock.`);
+  }
+  state.europeanLabor.splice(idx, 1);
+  if (!Array.isArray(state.queue)) state.queue = [];
+  state.queue.push({
+    petitionerId,
+    petitionerName: entry.name,
+    approvedYear: state.year,
+    destination: entry.reservedFor,
+    status: 'awaiting',
+    held: true,
+    note: 'held at dock',
+    teamId: null,
+    teamSize: 1,
+    companions: 0,
+    companionGrades: {},
+  });
+  addLedger(state, {
+    year: state.year, type: 'decision', petitionerId, destination: entry.reservedFor,
+    decision: 'called-to-dock',
+    note: `${entry.name} called to the dock for ${entry.reservedForName || entry.reservedFor} — held until released.`,
+  });
+  return true;
+}
+
+/**
  * Emergency dispatch: send a man directly from the formation house to a mission.
  * Interrupts his formation (forfeits the 20 scudi cost and any disposition gain;
  * formation is a fixed 1-year commitment with no partial progress).

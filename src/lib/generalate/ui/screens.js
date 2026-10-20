@@ -2639,8 +2639,14 @@ export function renderLogistics(app, root) {
         if (!reserved.length) return '<p class="disp-mini">No men reserved. Unassign men from ships in Crew Review to reserve them.</p>';
         return `<ul class="formation-list">${reserved.map((e) => {
           const name = app.Engine.personName ? app.Engine.personName(app.state, e.petitionerId) : e.name;
-          return `<li class="formation-row"><strong>${esc(name)}</strong> <span class="disp-mini reserve-badge">reserved: ${esc(e.reservedForName || e.reservedFor)}</span></li>`;
-        }).join('')}</ul>`;
+          return `<li class="formation-row">
+            ${nameLink(app, e.petitionerId, name)}
+            <span class="disp-mini reserve-badge">reserved: ${esc(e.reservedForName || e.reservedFor)}</span>
+            <button class="gbtn small" data-reserve-call="${esc(e.petitionerId)}">Call to dock</button>
+            <button class="gbtn small ghost" data-reserve-release="${esc(e.petitionerId)}">Release reserve</button>
+          </li>`;
+        }).join('')}</ul>
+        <p class="disp-mini">A man called to the dock waits held, earning dock wages, until you release him onto a ship.</p>`;
       })()}
     </div>
   </section>`;
@@ -2668,6 +2674,30 @@ export function renderLogistics(app, root) {
     btn.addEventListener('click', () => {
       try {
         app.Engine.setDockHold(app.state, btn.dataset.pid, btn.dataset.held !== '1');
+        app.save();
+        app.sound('page');
+        app.go('logistics'); // refresh
+      } catch (e) {
+        app.toast(e.message);
+      }
+    });
+  });
+  root.querySelectorAll('[data-reserve-call]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      try {
+        app.Engine.callReserveToDock(app.state, btn.dataset.reserveCall);
+        app.save();
+        app.sound('page');
+        app.go('logistics'); // refresh
+      } catch (e) {
+        app.toast(e.message);
+      }
+    });
+  });
+  root.querySelectorAll('[data-reserve-release]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      try {
+        app.Engine.unreserve(app.state, btn.dataset.reserveRelease);
         app.save();
         app.sound('page');
         app.go('logistics'); // refresh

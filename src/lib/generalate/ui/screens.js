@@ -2730,51 +2730,38 @@ export function showMassOverlay(app, onContinue) {
 /* ---------------- ledger overlay ---------------- */
 export function showLedgerOverlay(app) {
   const entries = app.Engine.getLedger(app.state, {});
-  const years = [...new Set(entries.map(e => e.year))].sort((a, b) => b - a);
-  const dests = [...new Set(entries.map(e => e.destination).filter(Boolean))].sort();
+  // Group by year, newest first
+  const byYear = {};
+  for (const e of entries) {
+    const y = e.year || '?';
+    if (!byYear[y]) byYear[y] = [];
+    byYear[y].push(e);
+  }
+  const years = Object.keys(byYear).sort((a, b) => b - a);
+
   const ov = document.createElement('div');
   ov.className = 'overlay';
   ov.innerHTML = `
-  <div class="overlay-card ledger-card" role="dialog" aria-modal="true" aria-label="Ledger">
+  <div class="overlay-card ledger-book" role="dialog" aria-modal="true" aria-label="Ledger">
     <button class="overlay-close" aria-label="Close ledger">✕</button>
     <h2 class="px">THE LEDGER</h2>
-    <p class="ledger-sub">Every indipetae, decision, departure, outcome, and event — as the Generalate records them.</p>
-    <div class="ledger-filters">
-      <input id="lf-q" type="search" placeholder="Search petitioner…" aria-label="Search petitioner">
-      <select id="lf-year" aria-label="Filter by year"><option value="">All years</option>${years.map(y => `<option>${y}</option>`).join('')}</select>
-      <select id="lf-dest" aria-label="Filter by destination"><option value="">All destinations</option>${dests.map(d => `<option value="${esc(d)}">${esc(destName(app, d))}</option>`).join('')}</select>
-      <select id="lf-dec" aria-label="Filter by decision"><option value="">Any decision</option><option value="approved">approved</option><option value="denied">denied</option></select>
-      <select id="lf-status" aria-label="Filter by status"><option value="">Any status</option>${['departed','blocked','arrived','lost','returned','fired'].map(s => `<option>${s}</option>`).join('')}</select>
+    <p class="ledger-sub">A chronicle of the Generalate, year by year.</p>
+    <div class="ledger-pages">
+      ${years.map(y => `
+        <section class="ledger-year">
+          <h3 class="ledger-year-head">Anno ${y}</h3>
+          <div class="ledger-entries">
+            ${byYear[y].map(e => `
+              <div class="ledger-entry ledger-${esc(e.type || 'event')}">
+                <span class="ledger-entry-type">${esc((e.type || 'event').toUpperCase())}</span>
+                <span class="ledger-entry-text">${esc(e.text || e.note || '')}</span>
+              </div>
+            `).join('')}
+          </div>
+        </section>
+      `).join('') || '<p class="gmap-hint">The pages are blank. No entries yet.</p>'}
     </div>
-    <div class="ledger-rows" id="ledger-rows" role="table" aria-label="Ledger entries"></div>
   </div>`;
-
-  const render = () => {
-    const f = {
-      petitioner: ov.querySelector('#lf-q').value,
-      year: ov.querySelector('#lf-year').value || undefined,
-      destination: ov.querySelector('#lf-dest').value || undefined,
-      decision: ov.querySelector('#lf-dec').value || undefined,
-      status: ov.querySelector('#lf-status').value || undefined,
-    };
-    const rows = app.Engine.getLedger(app.state, f);
-    const host = ov.querySelector('#ledger-rows');
-    host.innerHTML = rows.length ? rows.map(e => `
-      <div class="lrow" role="row">
-        <span class="lrow-year">${e.year}</span>
-        <span class="lrow-type">${esc(e.type)}</span>
-        <span class="lrow-text">${esc(e.text)}
-          ${e.fictional ? '<span class="badge fict">fictional</span>' : ''}
-        </span>
-        ${e.delta ? `<span class="delta ${e.delta >= 0 ? 'pos' : 'neg'}">${e.delta >= 0 ? '+' : ''}${e.delta}</span>` : '<span></span>'}
-      </div>`).join('')
-      : `<p class="gmap-hint">No entries match these filters.</p>`;
-  };
-  ['#lf-q', '#lf-year', '#lf-dest', '#lf-dec', '#lf-status'].forEach(sel => {
-    ov.querySelector(sel).addEventListener('input', render);
-    ov.querySelector(sel).addEventListener('change', render);
-  });
-  render();
   ov.querySelector('.overlay-close').addEventListener('click', () => { app.sound('page'); ov.remove(); });
   ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); });
   document.body.appendChild(ov);

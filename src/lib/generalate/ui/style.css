@@ -837,3 +837,54 @@ body > .overlay .hist-loc, body > .overlay .hist-text { opacity: .75; }
 .overlay .collapse-ack {
   margin-top: 1rem;
 }
+
+/* Ledger book style */
+.overlay .ledger-book {
+  max-width: 700px;
+  max-height: 85vh;
+  overflow-y: auto;
+  background: #f5edd8;
+  color: #2a2018;
+}
+.overlay .ledger-book .ledger-sub {
+  font-style: italic;
+  margin-bottom: 1.5rem;
+  color: #5a4a30;
+}
+.ledger-year {
+  margin-bottom: 2rem;
+  border-bottom: 1px solid #d4c5a0;
+  padding-bottom: 1.5rem;
+}
+.ledger-year-head {
+  font-size: 1.3rem;
+  margin-bottom: 1rem;
+  color: #1a1410;
+  border-bottom: 2px solid #8a7340;
+  padding-bottom: 0.25rem;
+}
+.ledger-entry {
+  display: flex;
+  gap: 0.75rem;
+  margin: 0.5rem 0;
+  line-height: 1.4;
+}
+.ledger-entry-type {
+  flex-shrink: 0;
+  min-width: 90px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: #8a7340;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.ledger-entry-text {
+  flex: 1;
+}
+.ledger-decision .ledger-entry-type { color: #2a6b2a; }
+.ledger-departure .ledger-entry-type { color: #2a5a8a; }
+.ledger-outcome .ledger-entry-type { color: #6b4a2a; }
+.ledger-martyrdom .ledger-entry-type,
+.ledger-death .ledger-entry-type { color: #8a2a2a; }
+.ledger-collapse .ledger-entry-type { color: #8a2a2a; font-weight: bold; }
+.ledger-warning .ledger-entry-type { color: #b06a00; font-weight: bold; }

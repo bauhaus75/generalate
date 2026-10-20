@@ -4895,6 +4895,7 @@ function resolveMartyrdomAndDisease(state, rng) {
       const threshold = tropical ? 6 : 3;
       if (roll <= threshold) {
         state.sickMen[pid] = { since: state.year, destId };
+        state.stats.illnesses = (state.stats.illnesses || 0) + 1;
         const name = personName(state, pid);
         addLedger(state, {
           year: state.year, type: 'ill', destination: destId,
@@ -5187,7 +5188,7 @@ export function detailedGradeFor(state, petitionerId) {
 
 export function cardName(state, g, id) {
   const hist = g.petitioners.find((p) => p.id === id);
-  if (hist) return hist.name;
+  if (hist) return String(hist.name || '').replace(/\s*\(\d{4}-\d{4}\)\s*/g, ' ').trim();
   const rec = state.petitioners[id];
   if (rec?.name) return rec.name;
   if (rec?.fictional) {

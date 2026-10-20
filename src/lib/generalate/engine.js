@@ -709,11 +709,29 @@ function staffArrival(state, v) {
   const comps = Math.max(0, v.companions || 0);
   if (comps > 0) {
     mst.brothers += comps;
-    // Companions need IDs too (every man = a profile)
+    // Companions are real men: generate them as fictional petitioners with names
     if (!state._companionSeq) state._companionSeq = 0;
     for (let i = 0; i < comps; i++) {
       const cid = `companion-${v.destination}-${state.year}-${++state._companionSeq}`;
       if (!mst.staffIds.includes(cid)) mst.staffIds.push(cid);
+      // Create a full petitioner record so they have names, dispositions, etc.
+      if (!state.petitioners[cid]) {
+        try {
+          const g = getGameData();
+          const rng = makeRng(`${state.seed}:companion:${cid}`);
+          const culture = rng.pick(['italian', 'spanish', 'portuguese']);
+          const name = `${rng.pick(FIRST_NAMES[culture])} ${rng.pick(LAST_NAMES[culture])}`;
+          state.petitioners[cid] = {
+            id: cid, fictional: true, status: 'active',
+            name, culture, history: [],
+            disposition: { initial: {}, current: {}, evidence: {}, observed: [] },
+            entryYear: state.year, genYear: state.year,
+            vows: { stage: 'brother', firstVows: true },
+            age: 25 + Math.floor(rng.random() * 20),
+          };
+          ensureDisposition(state, cid);
+        } catch (e) { /* fallback: leave as ID-only */ }
+      }
     }
   }
   v.staffGrade = sg;
@@ -5028,6 +5046,7 @@ export function cardName(state, g, id) {
   const hist = g.petitioners.find((p) => p.id === id);
   if (hist) return hist.name;
   const rec = state.petitioners[id];
+  if (rec?.name) return rec.name;
   if (rec?.fictional) {
     const ids = g.destinations.map((d) => d.id);
     const names = g.destinations.map((d) => d.name);

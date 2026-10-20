@@ -7,7 +7,7 @@ import * as rules from './rules.js';
 import * as dice from './dice.js';
 import * as dispositions from './dispositions.js';
 import { fictionalPetitioner, archiveFictional, MAX_ACTIVE_FICTIONAL, FIRST_NAMES, LAST_NAMES } from './generator.js';
-import { VERSES, VIRTUE_IDS } from './verses.js';
+import { SCRIPTURE_BANK } from './scripture-bank.js';
 
 /**
  * Select the year's virtue for the Mass of the Holy Spirit opening.
@@ -16,10 +16,13 @@ import { VERSES, VIRTUE_IDS } from './verses.js';
  */
 export function yearVirtue(seed, year) {
   const rng = makeRng(`${seed}:virtue:${year}`);
-  const virtue = rng.pick(VIRTUE_IDS);
-  const verses = VERSES[virtue];
-  const v = rng.pick(verses);
-  return { virtue, verse: v.text, ref: v.ref };
+  const virtues = ['zeal', 'obedience', 'prudence', 'humility', 'patience', 'adaptability', 'stability'];
+  const virtue = rng.pick(virtues);
+  const candidates = SCRIPTURE_BANK.filter(e => e.virtue === virtue);
+  const pick = rng.pick(candidates);
+  // For display, we need the verse text. The bank stores citations;
+  // the UI displays the reference. Full text retrieval is a future enhancement.
+  return { virtue, verse: pick.reference, ref: pick.reference, theme: pick.theme, id: pick.id };
 }
 import {decideVows,inviteFinalVows,completeFinalVows,rankSuffix,checkVowsMilestones,ensureVows,purgeVowsState,vowsTrackFor,FORMATION_THRESHOLDS} from './vows.js';
 export {decideVows,inviteFinalVows,completeFinalVows,rankSuffix,purgeVowsState,vowsTrackFor,FORMATION_THRESHOLDS};

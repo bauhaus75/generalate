@@ -3236,6 +3236,21 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     ok('society report: stored in ledger', !!rep && /State of the Society/.test(rep.text || ''));
     ok('society report: has detail', !!rep.detail && typeof rep.detail.funds === 'number');
   }
+
+  // Scripture bank validation
+  {
+    const { SCRIPTURE_BANK } = await import('./scripture-bank.js');
+    const virtues = ['zeal', 'obedience', 'prudence', 'humility', 'patience', 'adaptability', 'stability'];
+    for (const v of virtues) {
+      const count = SCRIPTURE_BANK.filter(e => e.virtue === v).length;
+      ok(`scripture bank: ${v} has 50`, count === 50, `${count}`);
+    }
+    ok('scripture bank: 350 total', SCRIPTURE_BANK.length === 350, `${SCRIPTURE_BANK.length}`);
+    const ids = new Set(SCRIPTURE_BANK.map(e => e.id));
+    ok('scripture bank: unique IDs', ids.size === 350);
+    const refs = new Set(SCRIPTURE_BANK.map(e => e.reference.toLowerCase()));
+    ok('scripture bank: unique refs', refs.size === 350);
+  }
 }
 
 console.log(`\n${failures === 0 ? 'ALL TESTS PASSED' : failures + ' FAILURES'}`);

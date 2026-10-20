@@ -1450,6 +1450,7 @@ export function renderGovernance(app, root) {
     ${provincialsHTML(app)}
     ${app.ui.provReplacement ? provincialReplacementHTML(app, app.ui.provReplacement) : ''}
     ${formationDecisionsHTML(app)}
+    ${engineHTML(app)}
     ${(() => {
       const E2 = app.Engine;
       const destList = E2.DESTINATIONS ? Object.values(E2.DESTINATIONS) : [];
@@ -1473,6 +1474,19 @@ export function renderGovernance(app, root) {
   </section>`;
 
   attachVowsHandlers(app, root);
+  root.querySelectorAll('.engine-intention').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      try {
+        app.Engine.setIntention(app.state, btn.dataset.target);
+        app.save();
+        app.sound('page');
+        app.go('governance');
+      } catch (e) {
+        app.sound('error');
+        alert(e.message);
+      }
+    });
+  });
   root.querySelectorAll('.gov-provincial').forEach((el) => {
     el.addEventListener('click', (ev) => {
       if (ev.target.closest('button')) return; // let Replace/Recall buttons work
@@ -1850,6 +1864,25 @@ const VOWS_MILESTONE_LABELS = {
   ordination: 'Ordination',
   finalVowsGrade: 'Final vows — choose grade',
 };
+
+function engineHTML(app) {
+  const E = app.Engine;
+  const es = E.engineStrength(app.state);
+  const bonus = E.engineBonus(app.state);
+  const cur = (app.state.intention || {}).target || 'society';
+  const openMissions = Object.entries(app.state.missions || {})
+    .filter(([id]) => !(app.state.destState[id] || {}).collapsed)
+    .map(([id]) => id);
+  return `<h3 class="sect">The engine of the Society</h3>
+  <p class="howto-note">The old Society held the Masses of its priests — offered for the missions and the Father General — to be the engine of the whole enterprise. ${es.priests} living priests offer Mass; ${es.martyrs} martyrs intercede from heaven. Strength ${es.total} → +${bonus}.</p>
+  <div class="engine-list">
+    <button class="gbtn small ${cur === 'society' ? 'primary' : 'ghost'} engine-intention" data-target="society">The Society — +${bonus} zeal to all men</button>
+    ${openMissions.map((id) => {
+      const dname = (E.DESTINATIONS?.[id]?.name) || id;
+      return `<button class="gbtn small ${cur === id ? 'primary' : 'ghost'} engine-intention" data-target="${esc(id)}">${esc(dname)} — +${bonus} voyage rolls there</button>`;
+    }).join('')}
+  </div>`;
+}
 
 function formationDecisionsHTML(app) {
   // Defense in depth: never render decisions for men who left the Society

@@ -3300,9 +3300,17 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
       }
       return { hit: null, s };
     };
-    const crown = runCase('persec-crown', 5, 5); // 10 -> crown
+    // Per-man seizure is 15%/yr, so try several seeds until the event fires.
+    const runUntilEvent = (base, zeal, prud) => {
+      for (const suffix of ['', '-b', '-c', '-d', '-e']) {
+        const r = runCase(base + suffix, zeal, prud);
+        if (r.hit) return r;
+      }
+      return runCase(base + '-z', zeal, prud);
+    };
+    const crown = runUntilEvent('persec-crown', 5, 5); // 10 -> crown
     ok('persecution: zeal+prudence 10 wins the crown', crown.hit?.type === 'martyrdom', crown.hit ? crown.hit.type : 'no event');
-    const conf = runCase('persec-conf', 3, 3); // 6 -> confessor
+    const conf = runUntilEvent('persec-conf', 3, 3); // 6 -> confessor
     ok('persecution: zeal+prudence 6 makes a confessor', conf.hit?.type === 'confessor', conf.hit ? conf.hit.type : 'no event');
     if (conf.hit) {
       const rec = conf.s.petitioners['fic-seized-1'];
@@ -3311,8 +3319,36 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
       const stillThere = (missionStaff(conf.s, 'japan').staffIds || []).includes('fic-seized-1');
       ok('persecution: confessor survives at the mission', stillThere);
     }
-    const apos = runCase('persec-apos', 1, 1); // 2 -> apostate
+    const apos = runUntilEvent('persec-apos', 1, 1); // 2 -> apostate
     ok('persecution: zeal+prudence 2 apostasizes', apos.hit?.type === 'apostasy', apos.hit ? apos.hit.type : 'no event');
+  }
+
+
+  // The Engine of the Society
+  {
+    const s = setup('engine1');
+    // Add 30 mission fathers across missions + 5 martyrs
+    for (const [i, id] of ['japan', 'china', 'india'].entries()) {
+      const mst = missionStaff(s, id);
+      mst.fathers = 10;
+    }
+    s.stats.martyrs = 5;
+    const { engineStrength, engineBonus, setIntention, intentionVoyageMod } = EngineNS;
+    const es = engineStrength(s);
+    ok('engine: counts priests + martyrs', es.total >= 35 && es.martyrs === 5, `total=${es.total}`);
+    ok('engine: bonus is floor(total/10) capped 3', engineBonus(s) === Math.min(3, Math.floor(es.total / 10)), `bonus=${engineBonus(s)}`);
+    setIntention(s, 'japan');
+    ok('engine: mission intention gives voyage mod', intentionVoyageMod(s, 'japan') === engineBonus(s));
+    ok('engine: other missions get no mod', intentionVoyageMod(s, 'china') === 0);
+    setIntention(s, 'society');
+    ok('engine: society intention gives no voyage mod', intentionVoyageMod(s, 'japan') === 0);
+    // Society zeal: run a year with the intention set
+    let terna;
+    const before = ensureDisposition(s, 'hist-1').current.zeal;
+    ({ terna } = startYear(s)); decide(s, []); resolveYear(s);
+    const after = ensureDisposition(s, 'hist-1').current.zeal;
+    const zb = Math.min(3, Math.floor(es.total / 10));
+    ok('engine: society intention raises zeal', after === Math.min(6, before + zb), `before=${before} after=${after} zb=${zb}`);
   }
 
   // Scripture bank validation

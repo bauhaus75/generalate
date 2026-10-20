@@ -179,6 +179,38 @@ export function missionStrength(st) {
 }
 
 /** Voyage bonus from a strengthened mission: +1 per 6 strength, capped. */
+/**
+ * The Engine of the Society (Tran 2026-10-19): the old Society held that the
+ * Masses of its priests — offered for the missions and the Father General —
+ * were the engine of the whole enterprise. Strength = living ordained priests
+ * (mission fathers + ordained men in Europe) + the martyrs, who intercede
+ * from heaven. Bonus: +1 per 10 strength, capped at +3.
+ * The General sets ONE intention: a mission (voyage bonus there) or the
+ * Society as a whole (+zeal to all men that year).
+ */
+export function engineStrength(state) {
+  let priests = 0;
+  for (const destId of Object.keys(state.missions || {})) {
+    priests += missionStaff(state, destId).fathers || 0;
+  }
+  for (const e of state.europeanLabor || []) {
+    const st = e.vows?.stage;
+    if (st === 'ordained' || st === 'professed' || st === 'coadjutor') priests += 1;
+  }
+  return { priests, martyrs: state.stats?.martyrs || 0, total: priests + (state.stats?.martyrs || 0) };
+}
+export function engineBonus(state) {
+  return Math.min(3, Math.floor(engineStrength(state).total / 10));
+}
+export function setIntention(state, target) {
+  state.intention = { target: target || 'society', year: state.year };
+  return state.intention;
+}
+export function intentionVoyageMod(state, destId) {
+  if (!state.intention || state.intention.target !== destId) return 0;
+  return engineBonus(state);
+}
+
 export function missionVoyageBonus(state, destId) {
   const strength = missionStrength(missionStaff(state, destId));
   return Math.min(rules.MISSION_BONUS_MAX, Math.floor(strength / rules.MISSION_STRENGTH_PER_BONUS));
@@ -4486,6 +4518,21 @@ export function resolveYear(state, opts = {}) {
   }
   state.queue = state.queue.filter((q) => q.status === 'awaiting');
 
+  // The Engine's intention for the Society: the Masses raise every man's
+  // zeal by the engine bonus before the year's reckonings.
+  if (state.intention && state.intention.target === 'society') {
+    const zb = engineBonus(state);
+    if (zb > 0) {
+      for (const pid of Object.keys(state.petitioners || {})) {
+        const rec = state.petitioners[pid];
+        if (rec.status === 'deceased' || rec.status === 'dismissed' || rec.status === 'apostate') continue;
+        const d = ensureDisposition(state, pid);
+        if (d && d.current && typeof d.current.zeal === 'number') {
+          d.current.zeal = Math.min(6, d.current.zeal + zb);
+        }
+      }
+    }
+  }
   // 3. Voyages due this year arrive; outcomes resolve; news delivered when due.
   const outcomes = [];
   for (const v of state.voyages.filter((v) => v.stage === 'transit' && v.arriveYear <= y)) {
@@ -4516,6 +4563,7 @@ export function resolveYear(state, opts = {}) {
         ...((state.exhortUntil || 0) >= y ? [{ label: "the General's exhortation", value: 1 }] : []),
         ...(compMod > 0 ? [{ label: `${compMod} ${compMod === 1 ? 'companion' : 'companions'}`, value: compMod }] : []),
         ...(staffBonus > 0 ? [{ label: `a strengthened mission (${staffStrength} strength)`, value: staffBonus }] : []),
+        ...(intentionVoyageMod(state, v.destination) > 0 ? [{ label: 'the Masses of the Society', value: intentionVoyageMod(state, v.destination) }] : []),
         ...dispositionVoyageMods(state, v.petitionerId),
       ],
     });
@@ -4835,13 +4883,14 @@ function resolveMartyrdomAndDisease(state, rng) {
       }
     }
 
-    // Persecution event (Tran 2026-10-19): replaces the flat martyrdom roll.
-    // At danger 2-3, one man may be seized. His fate turns on zeal + prudence
-    // (zelus non secundum scientiam is bad): >=8 crown, 5-7 confessor, <=4 apostate.
+    // Persecution (Tran 2026-10-19): replaces the flat martyrdom roll.
+    // PER MAN at danger 2-3: 15% seized at danger 3, 10% at danger 2.
+    // His fate turns on zeal + prudence (zelus non secundum scientiam is bad):
+    // >=8 crown, 5-7 confessor, <=4 apostate.
     if (danger >= 2 && st.staffIds.length > 0) {
-      const chance = danger >= 3 ? 0.25 : 0.12;
-      if (rng.chance(chance)) {
-        const pid = rng.pick(st.staffIds);
+      const chance = danger >= 3 ? 0.15 : 0.10;
+      for (const pid of [...st.staffIds]) {
+        if (!rng.chance(chance)) continue;
         const d = ensureDisposition(state, pid);
         const zeal = d?.current?.zeal ?? 3;
         const prud = d?.current?.prudence ?? 3;
@@ -4863,7 +4912,7 @@ function resolveMartyrdomAndDisease(state, rng) {
           if (state.petitioners[pid]) state.petitioners[pid].status = 'deceased';
           addLedger(state, {
             year: state.year, type: 'martyrdom', destination: destId,
-            text: `${name} was seized at ${destName} and won the glorious crown of the martyrs (zeal ${zeal} + prudence ${prud}).`,
+            text: `${name} was seized at ${destName} and won the glorious crown of the martyrs.`,
           });
         } else if (sum >= 5) {
           // Confessor: suffers, survives, body broken, virtues perfected
@@ -4880,7 +4929,7 @@ function resolveMartyrdomAndDisease(state, rng) {
             text: `Seized at ${destName}, he confessed the faith under threat of death and was released, broken in body.` });
           addLedger(state, {
             year: state.year, type: 'confessor', destination: destId,
-            text: `${name} was seized at ${destName} and confessed the faith — he lives, broken in body, perfected in virtue (zeal ${zeal} + prudence ${prud}).`,
+            text: `${name} was seized at ${destName} and confessed the faith — he lives, broken in body, perfected in virtue.`,
           });
         } else {
           // Apostasy under threat of death
@@ -4889,7 +4938,7 @@ function resolveMartyrdomAndDisease(state, rng) {
           if (state.petitioners[pid]) state.petitioners[pid].status = 'apostate';
           addLedger(state, {
             year: state.year, type: 'apostasy', destination: destId,
-            text: `${name} was seized at ${destName} and apostasized under threat of death (zeal ${zeal} + prudence ${prud}). The mission is scandalized.`,
+            text: `${name} was seized at ${destName} and apostasized under threat of death. The mission is scandalized.`,
           });
         }
       }

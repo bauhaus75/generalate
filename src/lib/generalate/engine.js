@@ -1558,7 +1558,7 @@ function dieOf(state, petitionerId, cause, text) {
   // leaves the roster too, not just the headcount.
   let stationReleased = false;
   for (const v of state.voyages || []) {
-    if (v.petitionerId === petitionerId && v.outcome === 'thriving' && !v.veteranReturned && v.staffGrade) {
+    if (v.petitionerId === petitionerId && v.outcome === 'thriving' && !v.veteranReturned && !v.stationReleased && v.staffGrade) {
       releaseVoyageStation(state, v);
       v.veteranReturned = true;
       stationReleased = true;
@@ -5107,6 +5107,24 @@ export function resolveYear(state, opts = {}) {
     });
   }
 
+  // 3b. Men sent home (evacuees, men who fled) reach Europe after the
+  // voyage and labor there.
+  if (Array.isArray(state.returnVoyages) && state.returnVoyages.length) {
+    const dueHome = state.returnVoyages.filter((rv) => rv.arriveYear <= y);
+    state.returnVoyages = state.returnVoyages.filter((rv) => rv.arriveYear > y);
+    for (const rv of dueHome) {
+      const rec = state.petitioners[rv.petitionerId];
+      if (!rec || rec.status === STATUS.DECEASED || rec.status === STATUS.DISMISSED || rec.status === 'apostate') continue;
+      if ((state.europeanLabor || []).some((e) => e.petitionerId === rv.petitionerId)) continue;
+      const fromName = (g.destinations || []).find((d) => d.id === rv.fromDest)?.name || rv.fromDest;
+      addEuropeanLabor(state, rv.petitionerId, rec.name || personName(state, rv.petitionerId), 'returned');
+      addLedger(state, {
+        year: y, type: 'return', petitionerId: rv.petitionerId, destination: rv.fromDest,
+        text: `${rec.name || personName(state, rv.petitionerId)} has reached Europe, home from ${fromName}.`,
+      });
+    }
+  }
+
   // 4. Resources: yearly income, Society intake, and each operating novitiate bears fruit.
   gainFunds(state, rules.RESOURCES.YEARLY_INCOME, 'subsidy');
   // Domestic assignments contribute to the chest.
@@ -5420,11 +5438,11 @@ function resolveMartyrdomAndDisease(state, rng) {
           recordHistory(state, pid, { kind: 'vow', event: 'martyr-vow',
             text: `Took a private vow accepting martyrdom after witnessing death at ${destName}.` });
         } else if (zeal <= 2) {
-          // Flees
+          // Flees: he takes ship for Europe and labors there when the
+          // voyage home lands (the old returnTransit bucket was never
+          // processed; the man simply vanished).
           removeStationedMan(state, st, pid);
-          if (!state.returnTransit) state.returnTransit = {};
-          if (!state.returnTransit[destId]) state.returnTransit[destId] = [];
-          state.returnTransit[destId].push(pid);
+          sendManHome(state, destId, pid);
           addLedger(state, {
             year: state.year, type: 'fled', destination: destId,
             text: `${name} fled ${destName} after the martyrdom.`,
@@ -5439,14 +5457,46 @@ function resolveMartyrdomAndDisease(state, rng) {
 }
 
 /**
- * Collapse a mission: sustained understaffing destroys it.
- * All stationed men are lost. -20 score. Mission can be re-founded.
+ * Send a stationed man home by ship: he reaches Europe after the
+ * destination's travel time and labors there (processed in resolveYear).
+ * Used by evacuations and by men who flee a martyrdom.
+ */
+function sendManHome(state, destId, petitionerId) {
+  const g = ensureData();
+  const dest = (g.destinations || []).find((d) => d.id === destId);
+  const travel = Math.max(1, Math.round((dest && dest.travelYears) || 2));
+  if (!state.returnVoyages) state.returnVoyages = [];
+  state.returnVoyages.push({
+    petitionerId, fromDest: destId,
+    departYear: state.year, arriveYear: state.year + travel,
+  });
+  // His station was released by whoever sent him home; his death record
+  // must not release it a second time (the counts are already gone).
+  for (const v of state.voyages || []) {
+    if (v.petitionerId === petitionerId && v.destination === destId && v.outcome === 'thriving' && !v.veteranReturned) {
+      v.stationReleased = true;
+    }
+  }
+}
+
+/**
+ * Collapse a mission: sustained understaffing destroys it. -10 score.
+ * The surviving named men are NOT lost: they take ship for Europe and
+ * labor there when the voyage home lands (Tran 2026-10-20). Natives
+ * stay — their home is the mission field. Mission can be re-founded.
  */
 function collapseMission(state, destId) {
   const st = missionStaff(state, destId);
   const g = ensureData();
   const destName = g.destinations.find((d) => d.id === destId)?.name || destId;
-  const lost = missionStaffed(st);
+  const staffedBefore = missionStaffed(st);
+  const evacuees = (st.staffIds || []).filter((pid) => {
+    if (String(pid).startsWith('native-')) return false;
+    const rec = state.petitioners[pid];
+    return rec && rec.status !== STATUS.DECEASED && rec.status !== STATUS.DISMISSED && rec.status !== 'apostate';
+  });
+  for (const pid of evacuees) sendManHome(state, destId, pid);
+  const lost = staffedBefore - evacuees.length;
   st.fathers = 0;
   st.coadjutors = 0;
   st.brothers = 0;
@@ -5461,7 +5511,9 @@ function collapseMission(state, destId) {
   addLedger(state, {
     year: state.year, type: 'collapse', destination: destId,
     delta: -10, scoreSource: 'collapse',
-    text: `The mission at ${destName} has collapsed. ${lost} men lost. (-10 score)`,
+    text: evacuees.length
+      ? `The mission at ${destName} has collapsed. Its ${evacuees.length} surviving men take ship for Europe${lost > 0 ? `; ${lost} are lost` : ''}. (-10 score)`
+      : `The mission at ${destName} has collapsed. ${lost} men lost. (-10 score)`,
   });
 }
 
@@ -5483,19 +5535,27 @@ function collapseMission(state, destId) {
     if (dst.access === 'closed') continue;
     const ratio = missionStaffed(st) / (st.capacity || 5);
     if (ratio < 0.25) {
-      st.fragileYears += 1;
-      if (st.fragileYears === 4) {
-        // Warning: one year from collapse
-        const g2 = ensureData();
-        const dName = (g2.destinations || []).find((d) => d.id === destId)?.name || destId;
-        addLedger(state, {
-          year: state.year, type: 'warning', destination: destId,
-          text: `Collapse imminent: the mission at ${dName} will collapse next year unless reinforced (${missionStaffed(st)} of ${st.capacity || 5} places filled).`,
-        });
-      }
-      if (st.fragileYears >= 5) {
-        st.fragile = true;
-        collapseMission(state, destId);
+      // Relief at sea (Tran 2026-10-20): while a relief voyage is at sea
+      // bound for this mission, the fragility clock pauses — a General
+      // who acts on the warning is not punished for the distance. Men
+      // still waiting at the dock do not pause it; they must sail.
+      const reliefAtSea = (state.voyages || []).some((v) => v.destination === destId && v.stage === 'transit');
+      if (!reliefAtSea) {
+        st.fragileYears += 1;
+        if (st.fragileYears === 1 || st.fragileYears === 4) {
+          const g2 = ensureData();
+          const dName = (g2.destinations || []).find((d) => d.id === destId)?.name || destId;
+          addLedger(state, {
+            year: state.year, type: 'warning', destination: destId,
+            text: st.fragileYears === 1
+              ? `The mission at ${dName} has fallen below strength (${missionStaffed(st)} of ${st.capacity || 5} places filled). Held this low for five years, it will collapse.`
+              : `Collapse imminent: the mission at ${dName} will collapse next year unless reinforced (${missionStaffed(st)} of ${st.capacity || 5} places filled).`,
+          });
+        }
+        if (st.fragileYears >= 5) {
+          st.fragile = true;
+          collapseMission(state, destId);
+        }
       }
     } else if (ratio >= 0.6) {
       st.fragileYears = 0;

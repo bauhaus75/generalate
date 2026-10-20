@@ -3976,6 +3976,45 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
       s.missions.goa.capacity === before + 5 && s.instructions.goa.outcome === 'obeyed',
       `cap ${before} -> ${s.missions.goa.capacity}, outcome ${s.instructions.goa.outcome}`);
   }
+
+  // ================================================================
+  console.log('\n58. Rescue window — early warning, relief at sea, evacuation');
+  {
+    const s = deserialize(serialize(newGame({ mode: 'campaign', seed: 'rescue-58' })));
+    const jp = s.missions.japan;
+    jp.capacity = 40; // its men hold 4 of 40 places: below strength at once
+    startYear(s); decide(s, []); resolveYear(s);
+    ok('rescue: the first year below strength warns at once',
+      jp.fragileYears === 1 && s.ledger.some((e) => e.type === 'warning' && e.destination === 'japan' && /fallen below strength/.test(e.text)),
+      `f=${jp.fragileYears}`);
+    const { terna } = startYear(s);
+    decide(s, [{ id: terna[0].petitionerId, destination: 'japan' }]);
+    resolveYear(s);
+    ok('rescue: relief at sea pauses the clock', jp.fragileYears === 1, `f=${jp.fragileYears}`);
+    startYear(s); decide(s, []); resolveYear(s);
+    ok('rescue: still paused on the second year at sea', jp.fragileYears === 1, `f=${jp.fragileYears}`);
+    for (const v of s.voyages) if (v.petitionerId === terna[0].petitionerId) v.arriveYear = s.year;
+    startYear(s); decide(s, []); resolveYear(s);
+    ok('rescue: the clock resumes once the relief has landed', jp.fragileYears === 2, `f=${jp.fragileYears}`);
+
+    const s2 = deserialize(serialize(newGame({ mode: 'campaign', seed: 'evac-58' })));
+    const gst = s2.missions.goa;
+    const gmen = [...gst.staffIds];
+    gst.capacity = 40;
+    gst.fragileYears = 4;
+    startYear(s2); decide(s2, []); resolveYear(s2);
+    ok('evacuation: the mission falls', !!s2.destState.goa.collapsed && gst.staffIds.length === 0);
+    ok('evacuation: the survivors are on a ship home, not lost',
+      gmen.length > 0 && gmen.every((pid) => (s2.returnVoyages || []).some((rv) => rv.petitionerId === pid && rv.arriveYear === 1617)),
+      JSON.stringify(s2.returnVoyages));
+    ok('evacuation: the collapse entry says they sail for Europe',
+      s2.ledger.some((e) => e.type === 'collapse' && e.destination === 'goa' && /take ship for Europe/.test(e.text)));
+    for (const rv of s2.returnVoyages || []) rv.arriveYear = s2.year;
+    startYear(s2); decide(s2, []); resolveYear(s2);
+    ok('evacuation: they land in Europe and labor there',
+      gmen.every((pid) => (s2.europeanLabor || []).some((e) => e.petitionerId === pid)),
+      JSON.stringify((s2.europeanLabor || []).map((e) => e.petitionerId)));
+  }
 }
 
 console.log(`\n${failures === 0 ? 'ALL TESTS PASSED' : failures + ' FAILURES'}`);

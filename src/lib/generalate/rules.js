@@ -169,6 +169,10 @@ export const RESOURCES = Object.freeze({
   // berths carry every man overseas — the expedition chain got cheaper.
   BERTH_EXPANSION_COST: 200,
   BERTH_EXPANSION_AMOUNT: 1, // one dock space per expansion
+  /** Overcrowding (Tran 2026-10-20): each man stationed beyond a mission's
+   * capacity costs this much extra upkeep every year, and bears only half
+   * fruit — too many men in too few places. */
+  OVER_CAPACITY_UPKEEP: 2,
   /** Cost to found a novitiate (house of formation) at an open mission. */
   NOVITIATE_COST: 800,
   /** Minimum team size for the sailing-in-company voyage bonus. */

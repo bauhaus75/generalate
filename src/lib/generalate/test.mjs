@@ -3921,6 +3921,43 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   setGameData(FIXTURES);
 }
 
+// --- 57. Overcrowding penalties + Expand the mission (Tran 2026-10-20) -------
+{
+  // Upkeep: base on capacity, +2 per man beyond capacity.
+  ok('overcap: upkeep within capacity is the base',
+    EngineNS.missionUpkeep({ capacity: 10, fathers: 2, coadjutors: 2, brothers: 1 }) === 5);
+  ok('overcap: upkeep charges +2 per man beyond capacity',
+    EngineNS.missionUpkeep({ capacity: 10, fathers: 8, coadjutors: 6, brothers: 4 }) === 5 + 8 * 2,
+    `${EngineNS.missionUpkeep({ capacity: 10, fathers: 8, coadjutors: 6, brothers: 4 })}`);
+
+  // Fruit: the same men at the same mission bear less when over capacity.
+  const base = newGame({ mode: 'campaign', seed: 'overcap' });
+  const goaMen = (base.missions.goa.staffIds || []).length;
+  ok('overcap: fixture goa has named men to test with', goaMen >= 2, `${goaMen}`);
+  const full = deserialize(serialize(base));
+  full.missions.goa.capacity = 10; // every man within capacity
+  const over = deserialize(serialize(base));
+  over.missions.goa.capacity = 1; // all but one man beyond capacity
+  const hFull = EngineNS.produceFruits(full).byMission.goa.harvest;
+  const hOver = EngineNS.produceFruits(over).byMission.goa.harvest;
+  ok('overcap: over-capacity men bear less fruit', hOver < hFull, `${hOver} vs ${hFull}`);
+  ok('overcap: the loss is the halving, not a wipeout', hOver > hFull * 0.4, `${hOver} vs ${hFull}`);
+
+  // Expand the mission: a direct order — always obeyed, +5 places.
+  for (const seed of ['exp-1', 'exp-2', 'exp-3']) {
+    const s = newGame({ mode: 'campaign', seed });
+    const before = s.missions.goa.capacity;
+    EngineNS.issueInstruction(s, 'goa', 'expand');
+    s.instructions.goa.arriveYear = s.year; // the order arrives this year
+    const { terna } = startYear(s);
+    decide(s, []);
+    resolveYear(s);
+    ok(`overcap: expand is obeyed and adds 5 places (${seed})`,
+      s.missions.goa.capacity === before + 5 && s.instructions.goa.outcome === 'obeyed',
+      `cap ${before} -> ${s.missions.goa.capacity}, outcome ${s.instructions.goa.outcome}`);
+  }
+}
+
 console.log(`\n${failures === 0 ? 'ALL TESTS PASSED' : failures + ' FAILURES'}`);
 process.exit(failures === 0 ? 0 : 1);
 

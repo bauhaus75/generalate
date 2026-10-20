@@ -423,9 +423,13 @@ export function missionVoyageBonus(state, destId) {
   return Math.min(rules.MISSION_BONUS_MAX, Math.floor(strength / rules.MISSION_STRENGTH_PER_BONUS));
 }
 
-/** Yearly upkeep (scudi) for one mission: its capacity costs resources to sustain. */
+/** Yearly upkeep (scudi) for one mission: its capacity costs resources to
+ * sustain, and every man beyond capacity costs extra (Tran 2026-10-20). */
 export function missionUpkeep(st) {
-  return Math.max(1, Math.round((st.capacity || 5) / 2));
+  const capacity = st.capacity || 5;
+  const staffed = (st.fathers || 0) + (st.coadjutors || 0) + (st.brothers || 0);
+  const over = Math.max(0, staffed - capacity);
+  return Math.max(1, Math.round(capacity / 2)) + over * rules.RESOURCES.OVER_CAPACITY_UPKEEP;
 }
 
 /** Missions below capacity, most-needed first — they ask the General for more men. */
@@ -2264,7 +2268,7 @@ export function deploymentRoster(state, depId) {
  * Instructions travel by the same delays as voyages; they do not take effect before arrival.
  */
 const INSTRUCTION_TYPES = Object.freeze({
-  expand: Object.freeze({ id: 'expand', name: 'Expand the mission', desc: 'Seek growth: new stations, more baptisms.' }),
+  expand: Object.freeze({ id: 'expand', name: 'Expand the mission', desc: 'Adds 5 places to the mission\'s capacity. The General\'s direct order: never disobeyed.' }),
   consolidate: Object.freeze({ id: 'consolidate', name: 'Consolidate', desc: 'Be cautious: strengthen what exists.' }),
   report: Object.freeze({ id: 'report', name: 'Send full account', desc: 'Request a detailed report of the mission\'s state.' }),
   encourage: Object.freeze({ id: 'encourage', name: 'Encourage the brethren', desc: 'Praise their labors; strengthen resolve.' }),
@@ -3082,6 +3086,9 @@ function resolveInstructions(state, y) {
     else if (roll < obedienceBase) outcome = 'adapted';
     else if (roll < obedienceBase + 0.15) outcome = 'delayed';
     else outcome = 'disobeyed';
+    // Expansion is the General's direct order and is never disobeyed
+    // (Tran 2026-10-20): when the order arrives, the mission enlarges.
+    if (inst.type === 'expand') outcome = 'obeyed';
     inst.status = 'resolved';
     inst.outcome = outcome;
     inst.resolvedYear = y;
@@ -3092,22 +3099,11 @@ function resolveInstructions(state, y) {
     let effectText = '';
     let scoreDelta = 0;
     if (inst.type === 'expand') {
-      if (outcome === 'obeyed') {
-        // Growth: small chance of a new vocation joining the mission
-        const vrng = streamFor(state, 'instruction-voc', destId, String(y));
-        if (vrng.chance(0.3) && st.brothers < 10) {
-          st.brothers += 1;
-          effectText = ' A new brother joins the mission.';
-        }
-      } else if (outcome === 'disobeyed') {
-        // Reckless overreach: costs score
-        state.score = rules.addScore(state.score, -1);
-        trackScoreDelta(state, -1);
-        scoreDelta = -1;
-        effectText = ' Reckless overreach causes scandal (-1 score).';
-      } else if (outcome === 'adapted') {
-        effectText = ' The superior adapts prudently to local conditions.';
-      }
+      // Never disobeyed (forced above): the mission gains five places,
+      // permanently. This replaces the old growth effect (a chance of a
+      // brother joining, scandal when disobeyed).
+      st.capacity = (st.capacity || 5) + 5;
+      effectText = ` The mission is enlarged by five places (capacity now ${st.capacity}).`;
     } else if (inst.type === 'consolidate') {
       if (outcome === 'disobeyed') {
         state.score = rules.addScore(state.score, -1);
@@ -4509,10 +4505,14 @@ export function produceFruits(state) {
     let harvest = 0;
     let expected = 0;
     let prudenceSum = 0;
-    for (const id of men) {
+    for (let manIdx = 0; manIdx < men.length; manIdx++) {
+      const id = men[manIdx];
       const cap = fruitCapacity(state, id, destId);
       const variance = 0.6 + streamFor(state, 'fruits', id, String(state.year)).float() * 0.4;
-      harvest += Math.round(cap * variance);
+      // Overcrowding (Tran 2026-10-20): men beyond the mission's capacity
+      // bear only half fruit — the house cannot feed the work of all.
+      const overCapacity = manIdx >= (st.capacity || 5);
+      harvest += Math.round(cap * variance * (overCapacity ? 0.5 : 1));
       expected += Math.round(cap * QUOTA_RATIO);
       const dcur = ensureDisposition(state, id).current;
       prudenceSum += dcur.prudence || 3;
@@ -5123,17 +5123,24 @@ export function resolveYear(state, opts = {}) {
     trackScoreDelta(state, novYearly);
   }
 
-  // 4a. Mission upkeep: a high-capacity mission costs scudi every year to sustain.
+  // 4a. Mission upkeep: a high-capacity mission costs scudi every year to
+  // sustain, and men beyond a mission's places cost extra (overcrowding).
   let upkeep = 0;
-  for (const id of Object.keys(state.missions || {})) upkeep += missionUpkeep(missionStaff(state, id));
+  let overCost = 0;
+  for (const id of Object.keys(state.missions || {})) {
+    const st = missionStaff(state, id);
+    upkeep += missionUpkeep(st);
+    overCost += Math.max(0, missionStaffed(st) - (st.capacity || 5)) * rules.RESOURCES.OVER_CAPACITY_UPKEEP;
+  }
   if (upkeep > 0) {
     const paid = Math.min(upkeep, state.resources.funds);
     spendFunds(state, paid, 'upkeep');
+    const overNote = overCost > 0 ? ` ${overCost} of it fed men beyond the missions' places.` : '';
     state.ledger.unshift({
       seq: ++state.seq.ledger, year: y, type: 'upkeep',
       text: paid >= upkeep
-        ? `Sustained the missions: ${upkeep} scudi of provisions and stipends.`
-        : `The missions wanted ${upkeep} scudi; the chest could bear only ${paid}.`,
+        ? `Sustained the missions: ${upkeep} scudi of provisions and stipends.${overNote}`
+        : `The missions wanted ${upkeep} scudi; the chest could bear only ${paid}.${overNote}`,
     });
   }
 

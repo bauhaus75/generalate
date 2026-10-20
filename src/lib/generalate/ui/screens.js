@@ -1040,7 +1040,8 @@ function missionCardHTML(app, d, year) {
           <option value="encourage">Encourage the brethren</option>
           <option value="admonish">Admonish</option>
         </select></label>
-        <button class="gbtn small ghost instr-send" data-id="${esc(d.id)}">Send</button></div>`;
+        <button class="gbtn small ghost instr-send" data-id="${esc(d.id)}">Send</button></div>
+      <p class="disp-mini instr-caption">Expand the mission adds 5 places to its capacity when the order arrives. It is the General's direct order and is never disobeyed. Men beyond capacity bear half fruit and cost +2 upkeep each, yearly.</p>`;
     })()}
     ${!closed ? `<div class="btn-row"><button class="gbtn small warn mission-disband" data-id="${esc(d.id)}" data-energy="1">Disband mission</button></div>` : ''}
     </div>

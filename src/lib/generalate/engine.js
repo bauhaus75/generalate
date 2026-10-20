@@ -864,7 +864,7 @@ function staffArrival(state, v) {
           const vowStage = grade === 'professed' ? 'professed' : grade === 'father' ? 'father' : grade === 'scholastic' ? 'scholastic' : 'brother';
           state.petitioners[cid] = {
             id: cid, fictional: true, status: 'active',
-            name, culture, history: [],
+            name, culture, history: [], historyV: HISTORY_VERSION,
             disposition: { initial: {}, current: {}, evidence: {}, observed: [] },
             entryYear: state.year, genYear: state.year,
             vows: { stage: vowStage, firstVows: true },
@@ -4738,10 +4738,18 @@ export function resolveYear(state, opts = {}) {
           ship = ships.find((s) => (s.freeYear || 0) <= y && !packed.has(s) && shipRange(s) >= travel);
         }
         if (!ship) {
-          // Check if it's a range issue vs no hulls
-          const anyFree = ships.some((s) => (s.freeYear || 0) <= y && !packed.has(s));
-          const note = anyFree ? `delayed: no hull with range ${travel} free` : 'delayed: no hulls free';
-          for (; idx < men.length; idx++) men[idx].note = note;
+          // Last resort (Tran 2026-10-19): punch up. If no free hull can
+          // reach, the best-ranged free hull sails beyond its reach — the
+          // voyage takes the standing -3-per-step penalty and the sinking
+          // risk — rather than men waiting forever for a ship the fleet
+          // does not own. Only a port with no free hull at all still waits.
+          const free = ships.filter((s) => (s.freeYear || 0) <= y && !packed.has(s));
+          if (free.length) {
+            ship = free.sort((a, b) => shipRange(b) - shipRange(a) || shipCap(b) - shipCap(a))[0];
+          }
+        }
+        if (!ship) {
+          for (; idx < men.length; idx++) men[idx].note = 'delayed: no hulls free';
           break;
         }
         ship.used = 0;
@@ -5150,9 +5158,12 @@ function spawnNativeVocations(state, mainRng, opts = {}) {
       st.brothers = (st.brothers || 0) + 1;
     }
     if (!state.petitioners[pid]) {
+      // A complete record, like every other man: history and status are
+      // read all over the engine and must exist from birth.
       state.petitioners[pid] = {
         id: pid, name, fictional: true, native: true, culture,
         grade: isScholastic ? 'scholastic' : 'brother',
+        status: 'active', history: [], historyV: HISTORY_VERSION,
         genYear: state.year, nativeTo: destId,
       };
     }
@@ -5867,6 +5878,12 @@ export function serialize(state) {
  * native id minted for that very mission.
  */
 function repairRosterIntegrity(state) {
+  // Every man's record carries the fields the engine reads everywhere.
+  for (const rec of Object.values(state.petitioners || {})) {
+    if (!rec || typeof rec !== 'object') continue;
+    if (!Array.isArray(rec.history)) rec.history = [];
+    if (rec.native && !rec.status) rec.status = 'active';
+  }
   // One queue entry per man.
   if (Array.isArray(state.queue)) {
     const seenQ = new Set();

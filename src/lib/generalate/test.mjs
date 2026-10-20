@@ -3674,6 +3674,44 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     res4.petitionerId === pid4 && !s4.queue.some((x) => x.petitionerId === pid4));
 }
 
+// --- 53. Auto packing punches up as a last resort ------------------------------
+{
+  // No hull in the fleet can reach Japan (all caravels, range 1 < 3):
+  // the best-ranged free hull sails anyway, at the voyage penalty.
+  const s = _newGame({ mode: 'campaign', seed: 'punch-last-resort' });
+  for (const sh of s.resources.ships) sh.tier = 'caravel';
+  const { terna } = startYear(s);
+  decide(s, [{ id: terna[0].petitionerId, destination: 'japan' }]);
+  const pid = terna[0].petitionerId;
+  resolveYear(s);
+  const voy = s.voyages.find((v) => v.petitionerId === pid);
+  ok('punch-up: the man sails despite no reaching hull', !!voy);
+  ok('punch-up: he sails on the short-ranged hull', voy && voy.shipTier === 'caravel', voy && voy.shipTier);
+  ok('punch-up: the dock is empty of him', !s.queue.some((q) => q.petitionerId === pid));
+
+  // A reaching hull is still preferred: the galleon, not the caravel,
+  // takes the Japan man when both are free.
+  const s2 = _newGame({ mode: 'campaign', seed: 'punch-prefers-range' });
+  s2.resources.ships[0].tier = 'galleon';
+  s2.resources.ships[1].tier = 'caravel';
+  s2.resources.ships[2].tier = 'caravel';
+  const { terna: t2 } = startYear(s2);
+  decide(s2, [{ id: t2[0].petitionerId, destination: 'japan' }]);
+  resolveYear(s2);
+  const voy2 = s2.voyages.find((v) => v.petitionerId === t2[0].petitionerId);
+  ok('punch-up: a reaching hull is preferred', voy2 && voy2.shipTier === 'galleon', voy2 && voy2.shipTier);
+
+  // No hull free at all: he still waits, and the note says why.
+  const s3 = _newGame({ mode: 'campaign', seed: 'punch-no-hulls' });
+  for (const sh of s3.resources.ships) sh.freeYear = 9999;
+  const { terna: t3 } = startYear(s3);
+  decide(s3, [{ id: t3[0].petitionerId, destination: 'japan' }]);
+  resolveYear(s3);
+  const q3 = s3.queue.find((q) => q.petitionerId === t3[0].petitionerId);
+  ok('punch-up: an empty port still waits', !!q3);
+  ok('punch-up: the wait is blamed on hulls, not range', q3 && q3.note === 'delayed: no hulls free', q3 && q3.note);
+}
+
 console.log(`\n${failures === 0 ? 'ALL TESTS PASSED' : failures + ' FAILURES'}`);
 process.exit(failures === 0 ? 0 : 1);
 

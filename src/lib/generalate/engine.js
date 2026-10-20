@@ -123,23 +123,23 @@ function initDestState(destinations) {
 function initMissions(destinations, petitioners) {
   const ms = {};
   const list = destinations || Object.keys(rules.MISSION_CAPACITY).map((id) => ({ id }));
-  const histPool = (petitioners || []).map((p) => p.id).filter((id) => id && String(id).startsWith('hist-'));
-  let poolIdx = 0;
   for (const d of list) {
     const id = d.id || d;
     const capacity = rules.MISSION_CAPACITY[id] ?? 5;
     const total = Math.max(2, Math.round(capacity * 0.35)); // min 2 men, avoids <25% trap
     const fathers = Math.round(total * 0.2);
     const coadjutors = Math.round(total * 0.3);
-    const staffIds = [];
-    for (let i = 0; i < total && poolIdx < histPool.length; i++) {
-      staffIds.push(histPool[poolIdx++]);
-    }
+    // The starting staff are UNNAMED men: they exist only as grade counts.
+    // A real petitioner's name enters a mission's staffIds only when he
+    // actually arrives there (staffArrival, dispatch, native spawn) — one
+    // man, one place. (Previously this dealt real petitioner ids out as
+    // starting staff, so men still in Europe were rolled for disease and
+    // persecution at missions they had never visited.)
     ms[id] = {
       fathers,
       coadjutors,
       brothers: Math.max(0, total - fathers - coadjutors),
-      staffIds,
+      staffIds: [],
       capacity,
       fragileYears: 0,
       fragile: false,
@@ -171,6 +171,56 @@ export function missionStaff(state, destId) {
 /** Total souls stationed at a mission. */
 export function missionStaffed(st) {
   return rules.MISSION_GRADE_IDS.reduce((n, gid) => n + (st[gid] || 0), 0);
+}
+
+/**
+ * Remove a named man from a mission's stationed strength.
+ * The name leaves the roster AND the matching grade bucket loses one man,
+ * so counts can never drift from the names. (Previously removals always
+ * subtracted from "fathers" first, whatever the man's actual grade.)
+ * Also drops any pending illness entry for him.
+ */
+export function removeStationedMan(state, st, petitionerId) {
+  if (Array.isArray(st.staffIds)) {
+    const idx = st.staffIds.indexOf(petitionerId);
+    if (idx >= 0) st.staffIds.splice(idx, 1);
+  }
+  const bucket = staffGradeFor(state, petitionerId);
+  if (st[bucket] > 0) st[bucket] -= 1;
+  else if (st.fathers > 0) st.fathers -= 1;
+  else if (st.coadjutors > 0) st.coadjutors -= 1;
+  else if (st.brothers > 0) st.brothers -= 1;
+  if (state.sickMen) delete state.sickMen[petitionerId];
+}
+
+/**
+ * Release a voyage's stationed strength: the man and the companions who
+ * sailed with him leave a mission's roster — names and counts together.
+ * Used when he comes home a veteran and when he dies in the field.
+ * Companions are identified by the ids recorded on the voyage at arrival;
+ * voyages from older saves carry no list, so fall back to the companion
+ * ids minted for that mission in his arrival year.
+ */
+export function releaseVoyageStation(state, v) {
+  const mst = missionStaff(state, v.destination);
+  if (Array.isArray(mst.staffIds)) {
+    const idx = mst.staffIds.indexOf(v.petitionerId);
+    if (idx >= 0) mst.staffIds.splice(idx, 1);
+  }
+  if (v.staffGrade) mst[v.staffGrade] = Math.max(0, (mst[v.staffGrade] || 0) - 1);
+  if (state.sickMen) delete state.sickMen[v.petitionerId];
+  if (v.staffCompanions) {
+    let cids = Array.isArray(v.companionIds) ? [...v.companionIds] : [];
+    if (!cids.length && Array.isArray(mst.staffIds)) {
+      const prefix = `companion-${v.destination}-${v.arriveYear}-`;
+      cids = mst.staffIds.filter((id) => String(id).startsWith(prefix)).slice(0, v.staffCompanions);
+    }
+    for (const cid of cids.slice(0, v.staffCompanions)) {
+      if (Array.isArray(mst.staffIds) && mst.staffIds.includes(cid)) {
+        removeStationedMan(state, mst, cid);
+      }
+    }
+  }
 }
 
 /** Mission strength: grade-weighted station strength (fathers 3, coadjutors 2, brothers 1). */
@@ -676,6 +726,8 @@ export function foundMission(state, destId, counts = {}) {
   if (!state.destState[destId]) state.destState[destId] = {};
   state.destState[destId].access = 'open';
   const st = missionStaff(state, destId);
+  st.fragileYears = 0; // a (re)foundation starts with a clean fragility clock
+  st.fragile = false;
   for (const gid of rules.MISSION_GRADE_IDS) st[gid] += n[gid];
   const parts = rules.MISSION_GRADE_IDS.filter((gid) => n[gid] > 0)
     .map((gid) => `${n[gid]} ${rules.MISSION_GRADES[gid].short.toLowerCase()}`);
@@ -699,8 +751,20 @@ export function disbandMission(state, destId) {
   const total = (st.fathers || 0) + (st.coadjutors || 0) + (st.brothers || 0);
   spendEnergy(state, 1, 'disbanding a mission');
   state.available = (state.available || 0) + total;
+  // Named men come home as themselves, not just as a number in the pool:
+  // each rostered man (natives excepted — their home is the mission) is
+  // back laboring in Europe.
+  for (const pid of [...(st.staffIds || [])]) {
+    if (String(pid).startsWith('native-')) continue;
+    const rec = state.petitioners[pid];
+    if (!rec || rec.status === STATUS.DECEASED || rec.status === STATUS.DISMISSED || rec.status === 'apostate') continue;
+    if ((state.europeanLabor || []).some((e) => e.petitionerId === pid)) continue;
+    addEuropeanLabor(state, pid, rec.name || personName(state, pid), 'returned');
+  }
   st.fathers = 0; st.coadjutors = 0; st.brothers = 0;
   st.staffIds = [];
+  st.fragileYears = 0; // a closed mission carries no fragility clock
+  st.fragile = false;
   if (!state.destState[destId]) state.destState[destId] = {};
   state.destState[destId].access = 'closed';
   addLedger(state, { year: state.year, type: 'disband',
@@ -714,6 +778,22 @@ export function disbandMission(state, destId) {
  */
 export function staffGradeFor(state, petitionerId) {
   // Vows stage takes precedence: it reflects the man's actual rank in the formation system.
+  // The petitioner's own record carries his vows wherever he is (a stationed
+  // man or companion has no europeanLabor entry to read).
+  const ownRec = state.petitioners ? state.petitioners[petitionerId] : null;
+  // Native vocations carry their grade on the record (no vows, no Europe entry).
+  if (ownRec && ownRec.native && typeof ownRec.grade === 'string') {
+    const gl = ownRec.grade.toLowerCase();
+    if (gl === 'professed' || gl === 'father') return 'fathers';
+    if (gl === 'scholastic') return 'coadjutors';
+    if (gl === 'brother') return 'brothers';
+  }
+  const ownStage = ownRec && ownRec.vows && ownRec.vows.stage;
+  if (ownStage) {
+    if (ownStage === 'ordained' || ownStage === 'coadjutor' || ownStage === 'professed' || ownStage === 'father') return 'fathers';
+    if (ownStage === 'scholastic' || ownStage === 'novice') return 'coadjutors';
+    if (ownStage === 'brother') return 'brothers';
+  }
   const entry = (state.europeanLabor || []).find((e) => e.petitionerId === petitionerId);
   if (entry && entry.vows && entry.vows.stage) {
     const stage = entry.vows.stage;
@@ -756,9 +836,11 @@ function staffArrival(state, v) {
     }
     // Companions are real men: generate them as fictional petitioners with names
     if (!state._companionSeq) state._companionSeq = 0;
+    if (!Array.isArray(v.companionIds)) v.companionIds = [];
     for (let i = 0; i < comps; i++) {
       const cid = `companion-${v.destination}-${state.year}-${++state._companionSeq}`;
       if (!mst.staffIds.includes(cid)) mst.staffIds.push(cid);
+      if (!v.companionIds.includes(cid)) v.companionIds.push(cid);
       // Create a full petitioner record so they have names, dispositions, etc.
       // Grade comes from the ticker selection (companionGrades), not hardcoded.
       if (!state.petitioners[cid]) {
@@ -1349,13 +1431,24 @@ function dieOf(state, petitionerId, cause, text) {
   }
   state.stats.deaths = (state.stats.deaths || 0) + 1;
   state.society = Math.max(0, (state.society || 0) - 1);
-  // Release his stationed strength if he died in the field.
+  // Release his stationed strength if he died in the field — his name
+  // leaves the roster too, not just the headcount.
+  let stationReleased = false;
   for (const v of state.voyages || []) {
     if (v.petitionerId === petitionerId && v.outcome === 'thriving' && !v.veteranReturned && v.staffGrade) {
-      const mst = missionStaff(state, v.destination);
-      mst[v.staffGrade] = Math.max(0, (mst[v.staffGrade] || 0) - 1);
-      if (v.staffCompanions) mst.brothers = Math.max(0, (mst.brothers || 0) - v.staffCompanions);
+      releaseVoyageStation(state, v);
       v.veteranReturned = true;
+      stationReleased = true;
+    }
+  }
+  if (!stationReleased) {
+    // No voyage carried him (he was dispatched): still strike his name
+    // from whichever mission roster holds it.
+    for (const destId of Object.keys(state.missions || {})) {
+      const mst = state.missions[destId];
+      if (mst && Array.isArray(mst.staffIds) && mst.staffIds.includes(petitionerId)) {
+        removeStationedMan(state, mst, petitionerId);
+      }
     }
   }
   // Witnesses: men stationed at the same mission are shaped by the death.
@@ -1697,6 +1790,21 @@ export function unreserve(state, petitionerId) {
 }
 
 /**
+ * Put a man in the departure queue. One man, one queue entry: any existing
+ * 'awaiting' entry for him is replaced (the newest order governs where he
+ * sails). Callers that should fail loudly on a duplicate instead (a direct
+ * "call to dock" click) check before calling.
+ */
+export function enqueueAwaiting(state, entry) {
+  if (!Array.isArray(state.queue)) state.queue = [];
+  state.queue = state.queue.filter(
+    (q) => !(q.petitionerId === entry.petitionerId && q.status === 'awaiting'),
+  );
+  state.queue.push(entry);
+  return entry;
+}
+
+/**
  * Call a reserved man to the dock (Tran 2026-10-19): he leaves European
  * labor and joins the departure queue for his reserved mission — HELD at
  * dock, so he waits (and earns dock income) until the General releases
@@ -1772,6 +1880,11 @@ export function dispatchFromFormation(state, petitionerId, destId) {
   spendFunds(state, cost, 'dispatches');
   const st = missionStaff(state, destId);
   st[grade] += 1;
+  // Same accounting as dispatchFromEurope: name onto the staff list, and
+  // out of the spare-men pool.
+  if (!st.staffIds) st.staffIds = [];
+  if (!st.staffIds.includes(petitionerId)) st.staffIds.push(petitionerId);
+  state.available = Math.max(0, (state.available || 0) - 1);
   // Mark the petitioner record as active overseas.
   const rec = ensureRecord(state, petitionerId, false);
   rec.status = STATUS.ACTIVE;
@@ -1814,6 +1927,13 @@ export function dispatchFromEurope(state, petitionerId, destId) {
   spendFunds(state, cost, 'dispatches');
   const st = missionStaff(state, destId);
   st[grade] += 1;
+  // The man himself joins the mission, not just its headcount: his name
+  // goes on the staff list (roster, grade tallies, disease/persecution all
+  // read it), and the spare-men pool loses him — previously the count rose
+  // but the man appeared on no roster and a ghost stayed in the pool.
+  if (!st.staffIds) st.staffIds = [];
+  if (!st.staffIds.includes(petitionerId)) st.staffIds.push(petitionerId);
+  state.available = Math.max(0, (state.available || 0) - 1);
   const rec = ensureRecord(state, petitionerId, false);
   rec.status = STATUS.ACTIVE;
   rec.history.push({ year: state.year, decision: 'dispatch-europe', destination: destId });
@@ -2440,7 +2560,7 @@ export function resolveProvincialReplacement(state, regionId, choiceId, outgoing
         }
         state.europeanLabor = state.europeanLabor.filter((e) => e.petitionerId !== prov.petitionerId);
         orec.status = STATUS.APPROVED;
-        state.queue.push({ petitionerId: prov.petitionerId, approvedYear: state.year,
+        enqueueAwaiting(state, { petitionerId: prov.petitionerId, approvedYear: state.year,
           destination: outgoingTo, status: 'awaiting', teamId: null, teamSize: 1, companions: 0 });
         postingText = ` ${prov.name} sails for ${dest.name || outgoingTo}.`;
       }
@@ -3448,8 +3568,17 @@ function assembleTerna(state, g, rng) {
     if (status === STATUS.DENIED) retC.push(entry);
     else newC.push(entry);
   };
+  // A man already awaiting passage (in the departure queue, held at dock
+  // included) is committed to a ship — he does not petition at the desk
+  // again. (Dock-held reserved men keep status 'denied', so without this
+  // exclusion they resurfaced in the next stack and an approval created a
+  // SECOND queue entry for the same man.)
+  const atDock = new Set(
+    (state.queue || []).filter((q) => q.status === 'awaiting').map((q) => q.petitionerId),
+  );
   for (const pet of g.petitioners) {
     if (pet.fictional) continue; // historical pool here; fictional below
+    if (atDock.has(pet.id)) continue;
     const rec = state.petitioners[pet.id];
     const status = rec ? rec.status : STATUS.NEW;
     if (!TERNA_ELIGIBLE.includes(status) || rec?.archived) continue;
@@ -3458,6 +3587,7 @@ function assembleTerna(state, g, rng) {
   // Returning fictional petitioners keep id + history and re-petition.
   for (const rec of Object.values(state.petitioners)) {
     if (!rec.fictional || rec.archived || !TERNA_ELIGIBLE.includes(rec.status)) continue;
+    if (atDock.has(rec.id)) continue;
     consider(fictionalData(state, g, rec), rec, rec.status);
   }
   // Unused letters first, then earliest letter year; shuffle within for variety.
@@ -3492,6 +3622,7 @@ function assembleTerna(state, g, rng) {
     for (const pet of rng.shuffle(g.petitioners.filter((p) => !p.fictional))) {
       if (picks.length >= TERNA_SIZE) break;
       if (seen.has(pet.id)) continue;
+      if (atDock.has(pet.id)) continue;
       const rec = state.petitioners[pet.id];
       const status = rec ? rec.status : STATUS.NEW;
       if (!TERNA_ELIGIBLE.includes(status) || rec?.archived) continue;
@@ -3713,7 +3844,7 @@ export function decide(state, approvals) {
         reservedForName: finalDestName,
       });
     } else {
-      state.queue.push({
+      enqueueAwaiting(state, {
         petitionerId: card.petitionerId,
         approvedYear: state.year,
         destination,
@@ -4498,7 +4629,10 @@ export function resolveYear(state, opts = {}) {
         // (If it doesn't fit, the man stays in queue — assignment is a preference.)
         if (q.shipId) {
           const assigned = ships.find((s) => s.id === q.shipId && (s.freeYear || 0) <= y && !packed.has(s)); // range not checked: punching up allowed (penalty at voyage)
-          if (assigned && (assigned.used || 0) + party <= shipCap(assigned)) {
+          // A ship not yet packed THIS year starts empty — s.used is last
+          // voyage's load and must not be read as current occupancy.
+          const assignedLoad = packed.has(assigned) ? (assigned?.used || 0) : 0;
+          if (assigned && assignedLoad + party <= shipCap(assigned)) {
             ship = assigned;
             if (!packed.has(ship)) {
               ship.used = 0;
@@ -4776,12 +4910,11 @@ export function resolveYear(state, opts = {}) {
     state.score = rules.addScore(state.score, rules.VETERAN.SCORE);
     trackScoreDelta(state, rules.VETERAN.SCORE);
     state.zealUntil = Math.max(state.zealUntil || 0, y + rules.VETERAN.ZEAL_YEARS);
-    // He leaves the mission's stationed strength (and his companions with him).
-    if (v.staffGrade) {
-      const mst = missionStaff(state, v.destination);
-      mst[v.staffGrade] = Math.max(0, mst[v.staffGrade] - 1);
-      if (v.staffCompanions) mst.brothers = Math.max(0, mst.brothers - v.staffCompanions);
-    }
+    // He leaves the mission's stationed strength (and his companions with
+    // him) — names as well as counts. Previously only the counts moved, so
+    // a veteran was simultaneously home in Europe and still rostered at
+    // his mission, where he kept facing its disease and persecution.
+    releaseVoyageStation(state, v);
     addEuropeanLabor(state, v.petitionerId, pname, 'veteran');
     state.available = (state.available || 0) + 1; // he rejoins the mission-eligible pool
     observe(state, v.petitionerId, `Came home a veteran after ${yearsServed} years in ${dName}; his testimony kindles zeal (observed ${y}).`);
@@ -4968,13 +5101,18 @@ function resolveMartyrdomAndDisease(state, rng) {
     const st = missionStaff(state, info.destId);
     const idx = (st.staffIds || []).indexOf(pid);
     if (idx >= 0) {
-      st.staffIds.splice(idx, 1);
-      if (st.fathers > 0) st.fathers--;
-      else if (st.coadjutors > 0) st.coadjutors--;
-      else if (st.brothers > 0) st.brothers--;
       const dest = (g.destinations || []).find((d) => d.id === info.destId);
       const destName = dest?.name || info.destId;
       const name = personName(state, pid);
+      removeStationedMan(state, st, pid);
+      // A man who dies of disease is dead in his record too — before this,
+      // his status stayed 'active' and he went on living in other systems.
+      const dRec = state.petitioners[pid];
+      if (dRec) {
+        dRec.status = STATUS.DECEASED;
+        recordHistory(state, pid, { kind: 'mission', event: 'death',
+          text: `Died of disease at ${destName}, after a year's illness.` });
+      }
       state.stats.deaths = (state.stats.deaths || 0) + 1;
       addLedger(state, {
         year: state.year, type: 'death', destination: info.destId, petitionerId: pid,
@@ -5025,22 +5163,24 @@ function resolveMartyrdomAndDisease(state, rng) {
         const prud = d?.current?.prudence ?? 3;
         const sum = zeal + prud;
         const name = personName(state, pid);
-        const removeMan = () => {
-          const idx = st.staffIds.indexOf(pid);
-          if (idx >= 0) st.staffIds.splice(idx, 1);
-          if (st.fathers > 0) st.fathers--;
-          else if (st.coadjutors > 0) st.coadjutors--;
-          else if (st.brothers > 0) st.brothers--;
-          if (state.sickMen) delete state.sickMen[pid];
-        };
+        const removeMan = () => removeStationedMan(state, st, pid);
         if (sum >= 8) {
           // The glorious crown
           removeMan();
           martyred.push(pid);
           state.stats.martyrs = (state.stats.martyrs || 0) + 1;
-          // NB: do NOT set status='deceased' here — a martyred man's later
-          // indipetae can still surface in a terna, and addEuropeanLabor
-          // throws for the deceased. The ledger is the record of his death.
+          // A martyr is dead in his record too, exactly like a voyage death.
+          // This is safe now that starting staff no longer deal real
+          // petitioners into missions: a stationed man's status is 'active',
+          // never a terna-eligible 'new'/'denied', so he cannot resurface
+          // at the desk and crash addEuropeanLabor the way phantom-staffed
+          // men once did.
+          const mRec = state.petitioners[pid];
+          if (mRec) {
+            mRec.status = STATUS.DECEASED;
+            recordHistory(state, pid, { kind: 'mission', event: 'martyrdom',
+              text: `Seized at ${destName} and won the glorious crown of the martyrs.` });
+          }
           addLedger(state, {
             year: state.year, type: 'martyrdom', destination: destId, petitionerId: pid,
             text: `${name} was seized at ${destName} and won the glorious crown of the martyrs.`,
@@ -5089,11 +5229,7 @@ function resolveMartyrdomAndDisease(state, rng) {
             text: `Took a private vow accepting martyrdom after witnessing death at ${destName}.` });
         } else if (zeal <= 2) {
           // Flees
-          const idx = st.staffIds.indexOf(pid);
-          if (idx >= 0) st.staffIds.splice(idx, 1);
-          if (st.fathers > 0) st.fathers--;
-          else if (st.coadjutors > 0) st.coadjutors--;
-          else if (st.brothers > 0) st.brothers--;
+          removeStationedMan(state, st, pid);
           if (!state.returnTransit) state.returnTransit = {};
           if (!state.returnTransit[destId]) state.returnTransit[destId] = [];
           state.returnTransit[destId].push(pid);
@@ -5148,6 +5284,10 @@ function collapseMission(state, destId) {
     const st = missionStaff(state, destId);
     const dst = state.destState[destId] || {};
     if (dst.collapsed) continue;
+    // A closed mission (disbanded by the General, or a frontier never
+    // founded) is not understaffed — it is shut. It must not gather
+    // fragility years, warn, or "collapse" a second time.
+    if (dst.access === 'closed') continue;
     const ratio = missionStaffed(st) / (st.capacity || 5);
     if (ratio < 0.25) {
       st.fragileYears += 1;
@@ -5217,7 +5357,13 @@ function collapseMission(state, destId) {
 export function personName(state, petitionerId) {
   const pid = String(petitionerId);
   if (pid.startsWith('dispatched-')) return 'A missionary';
-  if (pid.startsWith('companion-')) return 'A companion';
+  // Companions are real men with names on their records — use the name.
+  // Only a companion with no record at all falls back to the generic label.
+  if (pid.startsWith('companion-')) {
+    const cRec = state.petitioners ? state.petitioners[pid] : null;
+    if (cRec && cRec.name) return cRec.name;
+    return 'A companion';
+  }
   const g = getGameData();
   if (!g) return 'A petitioner';
   const name = cardName(state, g, petitionerId);
@@ -5625,6 +5771,72 @@ export function serialize(state) {
  * @param {object} obj
  * @returns {object}
  */
+/**
+ * Repair roster integrity in saves written before the one-man-one-place
+ * fixes. Old saves can contain: duplicate queue entries for one man, real
+ * petitioners dealt into mission staff lists they never sailed to (the old
+ * initMissions behavior), dead men still rostered, and closed missions
+ * carrying fragility years. Idempotent; safe to run on every load.
+ * Counts are left alone except where a rostered man is provably elsewhere:
+ * phantom names never added to the counts, so removing them cannot unbalance
+ * a mission — genuine arrivals (who did add to the counts) are kept by
+ * their evidence: a thriving voyage, a dispatch record, or a companion /
+ * native id minted for that very mission.
+ */
+function repairRosterIntegrity(state) {
+  // One queue entry per man.
+  if (Array.isArray(state.queue)) {
+    const seenQ = new Set();
+    state.queue = state.queue.filter((q) => {
+      if (!q || q.status !== 'awaiting') return true;
+      if (seenQ.has(q.petitionerId)) return false;
+      seenQ.add(q.petitionerId);
+      return true;
+    });
+  }
+  const inEurope = new Set((state.europeanLabor || []).map((e) => e.petitionerId));
+  const atDock = new Set(
+    (state.queue || []).filter((q) => q.status === 'awaiting').map((q) => q.petitionerId),
+  );
+  const reached = (pid, destId) => {
+    if (pid.startsWith(`companion-${destId}-`) || pid.startsWith(`native-${destId}-`)) return true;
+    for (const v of state.voyages || []) {
+      if (v.petitionerId === pid && v.destination === destId && v.outcome === 'thriving') return true;
+    }
+    const rec = state.petitioners ? state.petitioners[pid] : null;
+    for (const h of (rec && rec.history) || []) {
+      if (h.destination === destId
+        && (h.decision === 'dispatch-europe' || h.decision === 'emergency-dispatch' || h.event === 'arrival')) {
+        return true;
+      }
+    }
+    return false;
+  };
+  const rosteredElsewhere = new Map(); // pid -> destId that keeps him
+  for (const destId of Object.keys(state.missions || {})) {
+    const st = state.missions[destId];
+    if (!st || !Array.isArray(st.staffIds)) continue;
+    st.staffIds = st.staffIds.filter((pid) => {
+      if (rosteredElsewhere.has(pid)) return false; // already kept at one mission
+      const rec = state.petitioners ? state.petitioners[pid] : null;
+      if (rec && (rec.status === STATUS.DECEASED || rec.status === STATUS.DISMISSED || rec.status === 'apostate')) return false;
+      if (inEurope.has(pid) || atDock.has(pid)) return false; // he is provably not there
+      if (!reached(pid, destId)) return false; // no evidence he ever arrived
+      rosteredElsewhere.set(pid, destId);
+      return true;
+    });
+    const dst = (state.destState || {})[destId] || {};
+    if (dst.access === 'closed') { st.fragileYears = 0; st.fragile = false; }
+  }
+  // Illness entries for men no longer stationed anywhere are void.
+  if (state.sickMen) {
+    for (const [pid, info] of Object.entries(state.sickMen)) {
+      const st = state.missions ? state.missions[info.destId] : null;
+      if (!st || !Array.isArray(st.staffIds) || !st.staffIds.includes(pid)) delete state.sickMen[pid];
+    }
+  }
+}
+
 export function deserialize(obj) {
   if (!obj || typeof obj !== 'object' || obj.version !== 1) {
     throw new Error('deserialize: not a GENERALATE state object');
@@ -5637,6 +5849,7 @@ export function deserialize(obj) {
   if (!('novitiates' in state)) state.novitiates = [];
   if (!state.missions || typeof state.missions !== 'object') state.missions = initMissions();
   else for (const id of Object.keys(state.missions)) missionStaff(state, id); // normalize shape
+  repairRosterIntegrity(state);
   if (!('europeanLabor' in state)) state.europeanLabor = [];
   if(!Array.isArray(state.pendingVows))state.pendingVows=[];
   if(!Array.isArray(state.vowsNewsInTransit))state.vowsNewsInTransit=[];

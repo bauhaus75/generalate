@@ -3434,6 +3434,143 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
 }
 
+// --- 50. One man, one place: roster integrity ---------------------------------
+{
+  // Fresh missions are staffed by unnamed men only — no real petitioner is
+  // dealt into a staff list for a mission he never sailed to.
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'one-place' });
+  ok('one-place: fresh staff lists hold no names',
+    Object.values(s.missions).every((m) => (m.staffIds || []).length === 0));
+  ok('one-place: fresh missions still have their unnamed staff',
+    Object.values(s.missions).some((m) => missionStaffed(m) > 0));
+
+  // Dispatch: the man himself joins the mission (name on the roster, out
+  // of the spare pool), not just its headcount.
+  const { terna } = startYear(s);
+  decide(s, []); // all denied -> europeanLabor
+  const pid = terna[0].petitionerId;
+  s.resources.funds = 5000;
+  const availBefore = s.available;
+  const japanBefore = missionStaffed(missionStaff(s, 'japan'));
+  dispatchFromEurope(s, pid, 'japan');
+  const jst = missionStaff(s, 'japan');
+  ok('one-place: dispatched man is on the mission roster', jst.staffIds.includes(pid));
+  ok('one-place: dispatched man raises the headcount by one',
+    missionStaffed(jst) === japanBefore + 1);
+  ok('one-place: dispatched man leaves the spare pool', s.available === availBefore - 1);
+  ok('one-place: dispatched man leaves European labor',
+    !s.europeanLabor.some((e) => e.petitionerId === pid));
+
+  // Removal takes the man's OWN grade bucket, not "fathers first".
+  const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'one-place-2' });
+  const { terna: t2 } = startYear(s2);
+  decide(s2, []);
+  const bid = t2[0].petitionerId;
+  const rec2 = s2.petitioners[bid];
+  if (!rec2.vows) rec2.vows = {};
+  rec2.vows.stage = 'brother';
+  const st2 = missionStaff(s2, 'peru');
+  st2.fathers = 2; st2.brothers = 3; st2.staffIds = [bid];
+  EngineNS.removeStationedMan(s2, st2, bid);
+  ok('one-place: removal decrements the man\'s own grade',
+    st2.brothers === 2 && st2.fathers === 2, `f=${st2.fathers} b=${st2.brothers}`);
+  ok('one-place: removal strikes the name', !st2.staffIds.includes(bid));
+
+  // A dock-held man does not petition again, and the queue never holds
+  // two awaiting entries for one man.
+  const s3 = newGameWithGalleons({ mode: 'campaign', seed: 'one-place-3' });
+  const { terna: t3 } = startYear(s3);
+  decide(s3, []);
+  const rid = t3[0].petitionerId;
+  EngineNS.reserveForMission(s3, rid, 'japan');
+  EngineNS.callReserveToDock(s3, rid);
+  ok('one-place: called to dock once',
+    s3.queue.filter((q) => q.petitionerId === rid && q.status === 'awaiting').length === 1);
+  EngineNS.enqueueAwaiting(s3, { petitionerId: rid, approvedYear: s3.year, destination: 'peru', status: 'awaiting', held: true, teamId: null, teamSize: 1, companions: 0 });
+  const entries3 = s3.queue.filter((q) => q.petitionerId === rid && q.status === 'awaiting');
+  ok('one-place: re-enqueue replaces, never duplicates',
+    entries3.length === 1 && entries3[0].destination === 'peru');
+  resolveYear(s3);
+  const { terna: t3b } = startYear(s3);
+  ok('one-place: a man at the dock is not in the next stack',
+    !t3b.some((c) => c.petitionerId === rid));
+  ok('one-place: the held man is still at the dock',
+    s3.queue.some((q) => q.petitionerId === rid && q.status === 'awaiting' && q.held));
+
+  // Disease death: the man dies in his record as well as the ledger, and
+  // leaves the roster. (A sickMen entry from last year ripens this year.)
+  const s4 = newGameWithGalleons({ mode: 'campaign', seed: 'one-place-4' });
+  const { terna: t4 } = startYear(s4);
+  decide(s4, []);
+  const did = t4[0].petitionerId;
+  s4.resources.funds = 5000;
+  dispatchFromEurope(s4, did, 'peru');
+  s4.sickMen = { [did]: { since: s4.year - 1, destId: 'peru' } };
+  resolveYear(s4);
+  ok('one-place: disease death marks the record deceased',
+    s4.petitioners[did].status === 'deceased');
+  ok('one-place: disease death strikes the roster',
+    !missionStaff(s4, 'peru').staffIds.includes(did));
+  const { terna: t4b } = startYear(s4);
+  ok('one-place: the dead do not petition', !t4b.some((c) => c.petitionerId === did));
+
+  // Disband: named men come home as themselves; the closed mission gains
+  // no fragility years and never warns or collapses.
+  const s5 = newGameWithGalleons({ mode: 'campaign', seed: 'one-place-5' });
+  const { terna: t5 } = startYear(s5);
+  decide(s5, []);
+  const hid = t5[0].petitionerId;
+  s5.resources.funds = 5000;
+  dispatchFromEurope(s5, hid, 'peru');
+  missionStaff(s5, 'peru').fragileYears = 3;
+  EngineNS.disbandMission(s5, 'peru');
+  ok('one-place: disbanded man is back laboring in Europe',
+    s5.europeanLabor.some((e) => e.petitionerId === hid));
+  ok('one-place: disbanding clears the fragility clock',
+    missionStaff(s5, 'peru').fragileYears === 0);
+  resolveYear(s5);
+  startYear(s5); decide(s5, []); resolveYear(s5);
+  ok('one-place: closed mission gathers no fragility',
+    missionStaff(s5, 'peru').fragileYears === 0 && !s5.destState.peru.collapsed);
+  ok('one-place: no collapse warning for a closed mission',
+    !s5.ledger.some((e) => e.type === 'warning' && e.destination === 'peru'));
+
+  // Save repair: a corrupted old save is cleaned on load.
+  const s6 = newGameWithGalleons({ mode: 'campaign', seed: 'one-place-6' });
+  const { terna: t6 } = startYear(s6);
+  decide(s6, []);
+  const xid = t6[0].petitionerId; // laboring in Europe
+  const raw = JSON.parse(JSON.stringify(serialize(s6)));
+  raw.queue.push(
+    { petitionerId: xid, approvedYear: 1615, destination: 'japan', status: 'awaiting', teamId: null, teamSize: 1, companions: 0 },
+    { petitionerId: xid, approvedYear: 1615, destination: 'peru', status: 'awaiting', teamId: null, teamSize: 1, companions: 0 },
+  );
+  raw.missions.japan.staffIds = [xid]; // phantom: he is in Europe, never sailed
+  raw.missions.peru.fragileYears = 4;
+  raw.destState.peru.access = 'closed';
+  const s6b = deserialize(raw);
+  ok('repair: duplicate queue entries collapse to one',
+    s6b.queue.filter((q) => q.petitionerId === xid && q.status === 'awaiting').length === 1);
+  ok('repair: phantom staff removed', !missionStaff(s6b, 'japan').staffIds.includes(xid));
+  ok('repair: closed mission fragility cleared', missionStaff(s6b, 'peru').fragileYears === 0);
+
+  // Companions show their own names, not a generic label.
+  const s7 = newGameWithGalleons({ mode: 'campaign', seed: 'one-place-7' });
+  s7.petitioners['companion-japan-1615-1'] = { id: 'companion-japan-1615-1', name: 'Named Companion', fictional: true, status: 'active', history: [] };
+  ok('one-place: a companion is called by his name',
+    EngineNS.personName(s7, 'companion-japan-1615-1') === 'Named Companion');
+
+  // Releasing a station removes the man and his companions by name.
+  const s8 = newGameWithGalleons({ mode: 'campaign', seed: 'one-place-8' });
+  const st8 = missionStaff(s8, 'china');
+  st8.brothers = 2; st8.staffIds = ['fic-vet', 'companion-china-1617-1'];
+  s8.petitioners['fic-vet'] = { id: 'fic-vet', fictional: true, status: 'active', history: [], vows: { stage: 'brother' } };
+  s8.petitioners['companion-china-1617-1'] = { id: 'companion-china-1617-1', fictional: true, status: 'active', history: [], vows: { stage: 'brother' } };
+  EngineNS.releaseVoyageStation(s8, { petitionerId: 'fic-vet', destination: 'china', staffGrade: 'brothers', staffCompanions: 1, companionIds: ['companion-china-1617-1'], arriveYear: 1617 });
+  ok('one-place: station release strikes both names', st8.staffIds.length === 0);
+  ok('one-place: station release balances the count', st8.brothers === 0);
+}
+
 console.log(`\n${failures === 0 ? 'ALL TESTS PASSED' : failures + ' FAILURES'}`);
 process.exit(failures === 0 ? 0 : 1);
 

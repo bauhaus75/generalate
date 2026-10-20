@@ -2659,6 +2659,27 @@ function destPanelHTML(app, mapState, port) {
     ${!enroute.length && !arrived.length ? `<p class="gmap-hint">No mission assigned yet.</p>` : ''}`;
 }
 
+/* ---------------- Collapse imminent popup ---------------- */
+export function showCollapseWarning(app, missions) {
+  if (!missions || !missions.length) return;
+  const ov = document.createElement('div');
+  ov.className = 'overlay';
+  ov.innerHTML = `
+  <div class="overlay-card collapse-card" role="alertdialog" aria-modal="true" aria-label="Collapse warning">
+    <h2 class="px" style="color:#c0392b;">⚠ COLLAPSE IMMINENT</h2>
+    ${missions.map(m => `
+      <p><strong>${esc(m.name)}</strong> — ${m.staffed} of ${m.capacity} places filled. Below 25% for two years. It will collapse next year unless reinforced.</p>
+    `).join('')}
+    <button class="btn primary collapse-ack">I understand</button>
+  </div>`;
+  ov.querySelector('.collapse-ack').addEventListener('click', () => {
+    app.sound('page');
+    ov.remove();
+  });
+  document.body.appendChild(ov);
+  app.sound('page');
+}
+
 /* ---------------- Mass of the Holy Spirit opening ---------------- */
 export function showMassOverlay(app, onContinue) {
   const yv = app.Engine.yearVirtue(app.state.seed, app.state.year);

@@ -559,12 +559,25 @@ app.go = function (screen, params = {}) {
       else app.ui.brief = { year: app.state.currentYear.year, briefing: app.state.currentYear.briefing, terna: app.state.currentYear.terna };
       app.save(); app.syncHeader();
       // Mass of the Holy Spirit opens each new year
-      if (isNewYear) {
-        Screens.showMassOverlay(app, () => {
-          Screens.renderBriefing(app, r, app.ui.brief);
-        });
-      } else {
+      const showBriefingWithWarnings = () => {
         Screens.renderBriefing(app, r, app.ui.brief);
+        // Collapse imminent popup (fragileYears === 2)
+        try {
+          const imminent = [];
+          for (const [mid, st] of Object.entries(app.state.missions || {})) {
+            if (st.fragileYears === 2 && !(app.state.destState[mid] || {}).collapsed) {
+              const d = (Engine.DESTINATIONS || {})[mid];
+              const staffed = Engine.missionStaffed ? Engine.missionStaffed(st) : (st.staffIds || []).length;
+              imminent.push({ name: d ? (d.name || mid) : mid, staffed, capacity: st.capacity || 5 });
+            }
+          }
+          if (imminent.length) Screens.showCollapseWarning(app, imminent);
+        } catch (e) { /* ignore */ }
+      };
+      if (isNewYear) {
+        Screens.showMassOverlay(app, showBriefingWithWarnings);
+      } else {
+        showBriefingWithWarnings();
       }
       break;
     }

@@ -4879,6 +4879,15 @@ function collapseMission(state, destId) {
     const ratio = missionStaffed(st) / (st.capacity || 5);
     if (ratio < 0.25) {
       st.fragileYears += 1;
+      if (st.fragileYears === 2) {
+        // Warning: one year from collapse
+        const g2 = ensureData();
+        const dName = (g2.destinations || []).find((d) => d.id === destId)?.name || destId;
+        addLedger(state, {
+          year: state.year, type: 'warning', destination: destId,
+          text: `Collapse imminent: the mission at ${dName} will collapse next year unless reinforced (${missionStaffed(st)} of ${st.capacity || 5} places filled).`,
+        });
+      }
       if (st.fragileYears >= 3) {
         st.fragile = true;
         collapseMission(state, destId);

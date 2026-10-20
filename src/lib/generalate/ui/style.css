@@ -822,3 +822,18 @@ body > .overlay .hist-loc, body > .overlay .hist-text { opacity: .75; }
   margin-top: 1rem;
 }
 
+
+.overlay .collapse-card {
+  max-width: 500px;
+  border: 2px solid #c0392b;
+}
+.overlay .collapse-card h2 {
+  margin-bottom: 1rem;
+}
+.overlay .collapse-card p {
+  margin: 0.75rem 0;
+  text-align: left;
+}
+.overlay .collapse-ack {
+  margin-top: 1rem;
+}

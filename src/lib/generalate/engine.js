@@ -4563,8 +4563,11 @@ export function produceFruits(state) {
       const variance = 0.6 + streamFor(state, 'fruits', id, String(state.year)).float() * 0.4;
       // Overcrowding (Tran 2026-10-20): men beyond the mission's capacity
       // bear only half fruit — the house cannot feed the work of all.
+      // Illness (Tran 2026-10-21): a man on the sick list does no work
+      // in the harvest at all.
       const overCapacity = manIdx >= (st.capacity || 5);
-      harvest += Math.round(cap * variance * (overCapacity ? 0.5 : 1));
+      const ill = !!(state.sickMen && state.sickMen[id]);
+      harvest += ill ? 0 : Math.round(cap * variance * (overCapacity ? 0.5 : 1));
       expected += Math.round(cap * QUOTA_RATIO);
       const dcur = ensureDisposition(state, id).current;
       prudenceSum += dcur.prudence || 3;
@@ -5375,8 +5378,9 @@ function spawnNativeVocations(state, mainRng, opts = {}) {
 
 /**
  * Annual martyrdom and disease rolls for stationed men.
- * Martyrdom: d20 vs danger (0=safe, 1=die on 1, 2=die on 1-2, 3=die on 1-3).
- * Disease: separate d20, die on 1 (5%), or 1-2 (10%) in tropics.
+ * Disease: a man falls ill on a roll of 3 (6 in the tropics), plus one
+ * point per man his house holds beyond its places; the next year he
+ * faces a two-in-five chance of death, else he recovers.
  * When a martyrdom occurs, survivors react based on Zeal:
  *   Zeal 4+: private vow (+2 Zeal, immune to flee)
  *   Zeal 1-2: flees (joins return ship queue)
@@ -5385,13 +5389,26 @@ function spawnNativeVocations(state, mainRng, opts = {}) {
  */
 function resolveMartyrdomAndDisease(state, rng) {
   const g = ensureData();
-  // Tran 2026-10-19: the ill die the NEXT year. Men who fell ill in a prior
-  // year now succumb.
+  // Tran 2026-10-19: the ill face death the NEXT year, not the year they
+  // fall sick. Tran 2026-10-21: it is a chance, not a certainty — two in
+  // five succumb; the rest recover and return to the work.
   if (!state.sickMen) state.sickMen = {};
   for (const [pid, info] of Object.entries(state.sickMen)) {
     if (info.since >= state.year) continue;
     const st = missionStaff(state, info.destId);
     const idx = (st.staffIds || []).indexOf(pid);
+    if (idx >= 0 && !rng.chance(0.4)) {
+      const dest = (g.destinations || []).find((d) => d.id === info.destId);
+      const destName = dest?.name || info.destId;
+      const name = personName(state, pid);
+      state.stats.recoveries = (state.stats.recoveries || 0) + 1;
+      addLedger(state, {
+        year: state.year, type: 'recovery', destination: info.destId, petitionerId: pid,
+        text: `${name} has recovered at ${destName}.`,
+      });
+      delete state.sickMen[pid];
+      continue;
+    }
     if (idx >= 0) {
       const dest = (g.destinations || []).find((d) => d.id === info.destId);
       const destName = dest?.name || info.destId;
@@ -5426,11 +5443,14 @@ function resolveMartyrdomAndDisease(state, rng) {
     
     const martyred = [];
 
-    // Disease rolls (two-stage: sicken this year, die the next)
+    // Disease rolls (two-stage: sicken this year, face death the next).
+    // Tran 2026-10-21: crowding breeds sickness — every man beyond the
+    // house's places adds a point to every man's illness risk there.
+    const excessMen = Math.max(0, missionStaffed(st) - (st.capacity || 5));
     for (const pid of [...st.staffIds]) {
       if (state.sickMen[pid]) continue;
       const roll = rng.int(1, 100);
-      const threshold = tropical ? 6 : 3;
+      const threshold = (tropical ? 6 : 3) + excessMen;
       if (roll <= threshold) {
         state.sickMen[pid] = { since: state.year, destId };
         state.stats.illnesses = (state.stats.illnesses || 0) + 1;

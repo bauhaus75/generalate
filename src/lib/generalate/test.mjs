@@ -3399,33 +3399,54 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
 
 
-  // Two-stage illness: sick this year, dies next year
+  // Two-stage illness: sick this year; next year a two-in-five chance of
+  // death, else recovery (Tran 2026-10-21 — death is no longer certain).
   {
-    const s = setup('sick1');
-    let terna;
-    const pid = 'fic-sick-1';
-    s.petitioners[pid] = {
-      id: pid, fictional: true, status: 'active', name: 'Sick Test Man',
-      entryYear: 1615, vows: { stage: 'brother', firstVows: true }, age: 30,
+    const mkSick = (seed) => {
+      const s = setup(seed);
+      const pid = 'fic-sick-1';
+      s.petitioners[pid] = {
+        id: pid, fictional: true, status: 'active', name: 'Sick Test Man',
+        entryYear: 1615, vows: { stage: 'brother', firstVows: true }, age: 30,
+      };
+      const mst = missionStaff(s, 'brazil'); // capacity 8
+      mst.capacity = 8;
+      mst.brothers = 4; mst.fathers = 0; mst.coadjutors = 0;
+      mst.staffIds = [pid, 'x1', 'x2', 'x3'];
+      for (const x of ['x1', 'x2', 'x3']) {
+        s.petitioners[x] = { id: x, fictional: true, status: 'active', name: 'X'+x, entryYear: 1615, vows: { stage: 'brother', firstVows: true }, age: 30 };
+      }
+      s.sickMen = { [pid]: { since: s.year, destId: 'brazil' } };
+      return { s, pid };
     };
-    const mst = missionStaff(s, 'brazil'); // capacity 8
-    mst.capacity = 8;
-    mst.brothers = 4; mst.fathers = 0; mst.coadjutors = 0;
-    mst.staffIds = [pid, 'x1', 'x2', 'x3'];
-    for (const x of ['x1','x2','x3']) {
-      s.petitioners[x] = { id: x, fictional: true, status: 'active', name: 'X'+x, entryYear: 1615, vows: { stage: 'brother', firstVows: true }, age: 30 };
+    { // In the illness year itself he stays on the roster.
+      const { s, pid } = mkSick('sick1');
+      startYear(s); decide(s, []); resolveYear(s);
+      ok('illness: sick man stays staffed in illness year',
+        (missionStaff(s, 'brazil').staffIds || []).includes(pid));
     }
-    // Mark the man sick this year
-    s.sickMen = { [pid]: { since: s.year, destId: 'brazil' } };
-    ({ terna } = startYear(s)); decide(s, []); resolveYear(s);
-    const stillThere = (missionStaff(s, 'brazil').staffIds || []).includes(pid);
-    ok('illness: sick man stays staffed in illness year', stillThere);
-    // Next year: he dies
-    ({ terna } = startYear(s)); decide(s, []); resolveYear(s);
-    const gone = !(missionStaff(s, 'brazil').staffIds || []).includes(pid);
-    ok('illness: sick man dies the next year', gone);
-    const deathNote = (s.ledger || []).find((e) => e.type === 'death' && /Sick Test Man/.test(e.text || ''));
-    ok('illness: death recorded in ledger', !!deathNote, deathNote ? deathNote.text : 'none');
+    // Hunt seeds for a death and for a recovery; both must exist.
+    let deathRun = null; let recoveryRun = null;
+    for (let i = 0; i < 40 && (!deathRun || !recoveryRun); i++) {
+      const { s, pid } = mkSick('sick-hunt-' + i);
+      startYear(s); decide(s, []); resolveYear(s);
+      startYear(s); decide(s, []); resolveYear(s);
+      const gone = !(missionStaff(s, 'brazil').staffIds || []).includes(pid);
+      if (gone && !deathRun) deathRun = s;
+      if (!gone && !recoveryRun) recoveryRun = s;
+    }
+    ok('illness: a sick man can die the next year', !!deathRun);
+    if (deathRun) {
+      const deathNote = (deathRun.ledger || []).find((e) => e.type === 'death' && /Sick Test Man/.test(e.text || ''));
+      ok('illness: death recorded in ledger', !!deathNote, deathNote ? deathNote.text : 'none');
+    }
+    ok('illness: a sick man can recover the next year', !!recoveryRun);
+    if (recoveryRun) {
+      ok('illness: recovery recorded in ledger',
+        (recoveryRun.ledger || []).some((e) => e.type === 'recovery' && /Sick Test Man/.test(e.text || '')));
+      ok('illness: recovery clears the sick list',
+        !recoveryRun.sickMen || !recoveryRun.sickMen['fic-sick-1']);
+    }
   }
 
 
@@ -3616,21 +3637,28 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   };
 
   // Disease death: the man dies in his record as well as the ledger, and
-  // leaves the roster. (A sickMen entry from last year ripens this year.)
-  const s4 = newGameWithGalleons({ mode: 'campaign', seed: 'one-place-4' });
-  const { terna: t4 } = startYear(s4);
-  decide(s4, []);
-  const did = t4[0].petitionerId;
-  s4.resources.funds = 5000;
-  stationMan(s4, did, 'peru');
-  s4.sickMen = { [did]: { since: s4.year - 1, destId: 'peru' } };
-  resolveYear(s4);
-  ok('one-place: disease death marks the record deceased',
-    s4.petitioners[did].status === 'deceased');
-  ok('one-place: disease death strikes the roster',
-    !missionStaff(s4, 'peru').staffIds.includes(did));
-  const { terna: t4b } = startYear(s4);
-  ok('one-place: the dead do not petition', !t4b.some((c) => c.petitionerId === did));
+  // leaves the roster. (A sickMen entry from last year ripens this year;
+  // death is a two-in-five chance since 2026-10-21, so hunt for a seed
+  // where the sickness takes him.)
+  let s4 = null; let did = null;
+  for (let i = 0; i < 40 && !s4; i++) {
+    const t = newGameWithGalleons({ mode: 'campaign', seed: 'one-place-4' + (i ? '-' + i : '') });
+    const { terna: tt } = startYear(t);
+    decide(t, []);
+    const cand = tt[0].petitionerId;
+    t.resources.funds = 5000;
+    stationMan(t, cand, 'peru');
+    t.sickMen = { [cand]: { since: t.year - 1, destId: 'peru' } };
+    resolveYear(t);
+    if (t.petitioners[cand].status === 'deceased') { s4 = t; did = cand; }
+  }
+  ok('one-place: a ripened sickness can kill', !!s4);
+  if (s4) {
+    ok('one-place: disease death strikes the roster',
+      !missionStaff(s4, 'peru').staffIds.includes(did));
+    const { terna: t4b } = startYear(s4);
+    ok('one-place: the dead do not petition', !t4b.some((c) => c.petitionerId === did));
+  }
 
   // Disband: named men come home as themselves; the closed mission gains
   // no fragility years and never warns or collapses.
@@ -4176,21 +4204,28 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
       !Object.keys(s3.petitioners).some((id) => id.startsWith('native-'))
         || (missionStaff(s3, 'japan').vocationBank || 0) < 1);
     // A native's home is his mission: he never "returns" as a veteran
-    // and never mints a spare man for the European pool.
-    const s4 = deserialize(serialize(newGame({ mode: 'campaign', seed: 'harvest-62d' })));
-    const jp4 = missionStaff(s4, 'japan');
-    jp4.fruits = 5000;
-    startYear(s4); decide(s4, []); resolveYear(s4);
-    const nid = Object.keys(s4.petitioners).find((id) => id.startsWith('native-japan-'));
-    ok('harvest: a native exists for the veteran test', !!nid, `${nid}`);
-    if (nid) {
+    // and never mints a spare man for the European pool. The veteran ban
+    // is checked on every hunted run; roster presence is checked on a
+    // run where he survives the eight years (danger-3 Japan can kill or
+    // seize him — that is not a veteran return).
+    let veteranFree = true; let survivorRun = false; let anyNative = false;
+    for (let i = 0; i < 40 && !survivorRun; i++) {
+      const s4 = deserialize(serialize(newGame({ mode: 'campaign', seed: 'harvest-62d' + (i ? '-' + i : '') })));
+      missionStaff(s4, 'japan').fruits = 5000;
+      startYear(s4); decide(s4, []); resolveYear(s4);
+      const nid = Object.keys(s4.petitioners).find((id) => id.startsWith('native-japan-'));
+      if (!nid) continue;
+      anyNative = true;
       const nv = s4.voyages.find((v) => v.petitionerId === nid);
       nv.resolvedYear = s4.year - 12; nv.arriveYear = s4.year - 12; // long service
-      for (let i = 0; i < 8 && !s4.ended; i++) { startYear(s4); decide(s4, []); resolveYear(s4); }
-      ok('harvest: a native never sails home as a veteran',
-        !(s4.europeanLabor || []).some((e) => e.petitionerId === nid)
-          && (missionStaff(s4, 'japan').staffIds || []).includes(nid));
+      for (let j = 0; j < 8 && !s4.ended; j++) { startYear(s4); decide(s4, []); resolveYear(s4); }
+      if ((s4.europeanLabor || []).some((e) => e.petitionerId === nid)) veteranFree = false;
+      if (s4.petitioners[nid].status === 'active'
+        && (missionStaff(s4, 'japan').staffIds || []).includes(nid)) survivorRun = true;
     }
+    ok('harvest: a native exists for the veteran test', anyNative);
+    ok('harvest: a native never sails home as a veteran', veteranFree);
+    ok('harvest: a surviving native is still on his mission roster', survivorRun);
     // Pool differential: identical worlds, natives on vs off — the
     // spare-men reserve must come out the same.
     const mk = () => { const x = deserialize(serialize(newGame({ mode: 'campaign', seed: 'harvest-62e' }))); missionStaff(x, 'japan').fruits = 5000; return x; };
@@ -4198,6 +4233,75 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     const b = mk(); startYear(b); decide(b, []); resolveYear(b, { skipNatives: true });
     ok('harvest: native joinings mint no spare Europeans',
       a.available === b.available, `${a.available} vs ${b.available}`);
+  }
+}
+
+// --- 63. Illness rules: crowding sickens, the sick bear no fruit, death is a chance (Tran 2026-10-21) ---
+{
+  console.log('\n63. Illness — crowding, fruit, and the death chance');
+  const mkHouse = (seed, n, capacity) => {
+    const s = deserialize(serialize(newGame({ mode: 'campaign', seed })));
+    const st = missionStaff(s, 'peru');
+    st.capacity = capacity; st.fathers = 0; st.coadjutors = 0; st.brothers = n; st.staffIds = [];
+    for (let i = 0; i < n; i++) {
+      const pid = `ill63-${seed}-${i}`;
+      s.petitioners[pid] = { id: pid, fictional: true, status: 'active', name: 'Ill Test ' + i,
+        entryYear: 1615, vows: { stage: 'brother', firstVows: true }, age: 30 };
+      st.staffIds.push(pid);
+    }
+    st.fruits = 0;
+    return s;
+  };
+  // A sick man bears no fruit: his house harvests exactly what it would
+  // harvest without him, and less than with him healthy. Uses Peru's
+  // real starting community (the harvest counts voyage-arrived men).
+  {
+    const base = deserialize(serialize(newGame({ mode: 'campaign', seed: 'fruit-63' })));
+    const ids = EngineNS.missionCommunity(base, 'peru');
+    const variant = (fn) => {
+      const s = deserialize(serialize(base));
+      const st = missionStaff(s, 'peru');
+      st.capacity = 30; st.fruits = 0; // room for all: no over-capacity halving
+      fn(s);
+      return EngineNS.produceFruits(s).byMission?.peru?.harvest ?? null;
+    };
+    const healthy = variant(() => {});
+    const sick = variant((s) => { s.sickMen = { [ids[0]]: { since: s.year, destId: 'peru' } }; });
+    const absent = variant((s) => { s.petitioners[ids[0]].status = 'deceased'; });
+    ok('illness: peru has a community for the fruit test', ids.length >= 2, `${ids.length} men`);
+    ok('illness: a sick man bears no fruit', sick !== null && sick === absent && sick < healthy,
+      `healthy ${healthy}, sick ${sick}, without him ${absent}`);
+  }
+  // Crowding sickens: the same twenty men, in a house built for twenty
+  // vs a house built for five, fall ill at very different rates.
+  {
+    let snug = 0; let crowded = 0;
+    for (let i = 0; i < 10; i++) {
+      const a = mkHouse('crowd-a-' + i, 20, 20); startYear(a); decide(a, []); resolveYear(a);
+      snug += a.stats.illnesses || 0;
+      const b = mkHouse('crowd-a-' + i, 20, 5); startYear(b); decide(b, []); resolveYear(b);
+      crowded += b.stats.illnesses || 0;
+    }
+    ok('illness: an overcrowded house sickens far more men', crowded > snug * 2 && crowded >= 10,
+      `snug ${snug} vs crowded ${crowded} illnesses over 10 years`);
+  }
+  // Death is a chance: of a hundred ripened sicknesses, some die and
+  // some recover — never all, never none.
+  {
+    let deaths = 0; let total = 0;
+    for (let i = 0; i < 10; i++) {
+      const s = mkHouse('death-a-' + i, 10, 20);
+      const ids = [...missionStaff(s, 'peru').staffIds];
+      s.sickMen = {};
+      for (const pid of ids) s.sickMen[pid] = { since: s.year - 1, destId: 'peru' };
+      startYear(s); decide(s, []); resolveYear(s);
+      total += ids.length;
+      deaths += ids.filter((pid) => s.petitioners[pid].status === 'deceased').length;
+    }
+    ok('illness: some of the sick die and some recover', deaths > 0 && deaths < total,
+      `${deaths} of ${total} died`);
+    ok('illness: the death chance is well under certainty', deaths / total < 0.7,
+      `${deaths} of ${total} died`);
   }
 }
 

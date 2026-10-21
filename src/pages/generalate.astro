@@ -13,6 +13,10 @@ import Base from '../layouts/Base.astro';
     href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
     rel="stylesheet"
   />
+  <style slot="head">
+    .site-footer { display: none !important; }
+    .site-header { display: none !important; }
+  </style>
   <div id="generalate-app" aria-live="polite"></div>
   <script src="../lib/generalate/ui/app.js"></script>
 </Base>

@@ -230,8 +230,8 @@ export const GRADES = {
   "ordained": false
  },
  "hist-6": {
-  "grade": "undetermined",
-  "ordained": null
+  "grade": "brother",
+  "ordained": false
  },
  "hist-7": {
   "grade": "father",

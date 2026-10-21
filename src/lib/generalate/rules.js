@@ -37,10 +37,76 @@ export const SCORE = Object.freeze({
 });
 
 /**
+ * Fruit multipliers by destination: the harvest varies by field.
+ * Far East missions face great peril but reap great harvests;
+ * European missions are safe but yield little.
+ * Applied in fruitCapacity().
+ */
+export const FRUIT_MULTIPLIER = Object.freeze({
+  // Far East: 2.0x — vast populations, great peril
+  japan: 2.0, china: 2.0, india: 2.0, 'east-indies': 2.0, philippines: 2.0,
+  // Asia mainland: 1.5x
+  vietnam: 1.5, tonkin: 1.5, siam: 1.5, cambodia: 1.5, asia: 1.5,
+  // Africa: 1.2x
+  congo: 1.2, angola: 1.2, mozambique: 1.2, aethiopia: 1.2, madagascar: 1.2,
+  // Americas: 1.0x (baseline)
+  peru: 1.0, brazil: 1.0, paraguay: 1.0, chile: 1.0, 'west-indies': 1.0,
+  'new-granada': 1.0, quito: 1.0, mexico: 1.0, goa: 1.0,
+  huronia: 1.0, guatemala: 1.0,
+  // Europe: 0.7x — safe but small harvest
+  england: 0.7,
+});
+
+export function fruitMultiplierFor(destId) {
+  return FRUIT_MULTIPLIER[destId] ?? 1.0;
+}
+
+/**
  * Veterans: a man thriving in the mission may return to Europe after years of
  * service. His homecoming stirs zeal for the missions — a temporary bonus to
  * voyage checks — and scores for the fruit of his testimony.
  */
+/**
+ * Historical sailing routes (Tran 2026-10-20). A ship sails ONE route
+ * per voyage and may carry men for every stop on it: the India run
+ * (the Carreira da Índia) takes India men, then Macao and Nagasaki
+ * men, on one hull. Destinations on no route sail alone. Brazil and
+ * the East Indies can never share a ship — different oceans, different
+ * fleets: Brazil is its own Lisbon run, the Indies ride the India run.
+ * Corridors follow each destination's own ports in the data.
+ */
+export const ROUTES = Object.freeze({
+  india: Object.freeze({
+    name: 'India run',
+    destinations: Object.freeze(['mozambique', 'india', 'aethiopia', 'east-indies', 'siam', 'madagascar', 'china', 'japan', 'vietnam', 'tonkin', 'cambodia', 'philippines']),
+  }),
+  spanish: Object.freeze({
+    name: 'Spanish Atlantic',
+    destinations: Object.freeze(['west-indies', 'new-granada', 'mexico', 'guatemala', 'peru', 'quito', 'chile', 'paraguay']),
+  }),
+  africa: Object.freeze({
+    name: 'West Africa run',
+    destinations: Object.freeze(['angola', 'congo']),
+  }),
+  brazil: Object.freeze({
+    name: 'Brazil run',
+    destinations: Object.freeze(['brazil']),
+  }),
+});
+
+/** The route a destination sails on, or null when it sails alone. */
+export function routeOf(destId) {
+  for (const [id, route] of Object.entries(ROUTES)) {
+    if (route.destinations.includes(destId)) return id;
+  }
+  return null;
+}
+
+/** Display name of a route, or null for a solo destination. */
+export function routeName(routeId) {
+  return (ROUTES[routeId] || {}).name || null;
+}
+
 export const VETERAN = Object.freeze({
   /** Minimum full years in the mission before a return is possible. */
   MIN_YEARS: 3,
@@ -67,12 +133,11 @@ export function addScore(score, delta) {
 /** Resource economy constants. */
 export const RESOURCES = Object.freeze({
   /** Sailing berths available per year. */
-  BERTHS_PER_YEAR: 3,
+  BERTHS: 10, // static port capacity: ships that can outfit simultaneously
   /** The seal is not free: every decision costs the mission chest.
    *  An approval commits the Society's resources (advances, dispensations,
    *  letters); a refusal still requires pastoral care and correspondence. */
-  APPROVAL_COST: 30,
-  DENIAL_COST: 15,
+  DENIAL_COST: 0, // refusing a man is free; only approvals draw on the chest
   /** Hulls: each ship carries up to SHIP_CAPACITY souls per sailing
    *  (petitioners and their companions; one destination per hull), then is
    *  busy for the voyage's travel years. Hulls — not berths — are the
@@ -83,9 +148,20 @@ export const RESOURCES = Object.freeze({
     'Santo António de Lisboa', 'Nossa Senhora da Conceição', 'São Francisco Xavier',
     'Bom Jesus', 'Santa Cruz', 'Nossa Senhora do Rosário',
   ]),
-  SHIP_CAPACITY: 8,
-  /** Cost to charter an additional hull (permanent). */
-  SHIP_CHARTER_COST: 300,
+  SHIP_CAPACITY: 8, // default (carrack); overridden per-tier below
+  /**
+   * Ship tiers by range. A ship can only sail to destinations within its range
+   * (travelYears <= range). Only galleons reach the Far East.
+   */
+  SHIP_TIERS: Object.freeze({
+    caravel: Object.freeze({ range: 1, capacity: 4, cost: 100, label: 'Caravel' }),
+    carrack: Object.freeze({ range: 2, capacity: 8, cost: 200, label: 'Carrack' }),
+    galleon: Object.freeze({ range: 3, capacity: 12, cost: 400, label: 'Galleon' }),
+  }),
+  /** Starting fleet: 2 carracks + 1 caravel. */
+  STARTING_FLEET: Object.freeze(['galleon', 'galleon', 'carrack', 'carrack', 'carrack', 'carrack', 'carrack', 'caravel', 'caravel', 'caravel']),
+  /** Cost to charter an additional hull (permanent). Now per-tier; this is the default (carrack). */
+  SHIP_CHARTER_COST: 200,
   /** The Society at Vitelleschi's election (Jan 1615): 13,112 members in
    *  32 provinces and 559 houses (Catholic Encyclopedia, s.v. Aquaviva).
    *  Only a percentage can ever be spared for the missions. */
@@ -95,8 +171,32 @@ export const RESOURCES = Object.freeze({
   MISSION_PCT: 0.01,
   /** Yearly intake of new members (gameplay abstraction). */
   SOCIETY_YEARLY_INTAKE: 100,
-  /** Cost to fit out one companion sailing with an approved man. */
+  /** Cost to fit out one companion sailing with an approved man — by grade.
+   *  A professed priest costs as a father; a scholastic as a coadjutor. */
   COMPANION_COST: 40,
+  /** The harvest rule (Tran 2026-10-20): a mission gains native
+   *  vocations from its own fruit — this share of each year's harvest,
+   *  banked on the mission until a whole laborer ripens (0.002 = one
+   *  vocation per 500 souls). At most YEARLY_CAP join a mission in a
+   *  year, and only into a free place. */
+  NATIVE_VOCATION_RATE: 0.002,
+  NATIVE_VOCATION_YEARLY_CAP: 2,
+  /** The seal is not free: every approval costs the mission chest. */
+  // Approvals are free: the seal charges nothing (Tran 2026-10-20 — the
+  // 30-scudi seal duplicated the sending charge and taxed the game's core
+  // act; men cost when they sail, not when they are approved).
+  SEAL_COST: 0,
+  /** Dock wages (Tran 2026-10-20 cap): at most this many men held at the
+   *  dock are paid wages in a year — the first in the queue. The dock
+   *  pays for a waiting party (one consolidated sailing), not a workforce;
+   *  uncapped, holding everyone forever printed ~29k a campaign. */
+  DOCK_WAGE_CAP: 8,
+  COMPANION_GRADE_COST: Object.freeze({
+    professed: 120,
+    father: 120,
+    scholastic: 80,
+    brother: 50,
+  }),
   /** Max companions per approved man: a full hull minus the man himself.
    *  The ship's spare room — shared with other petitioners bound for the
    *  same mission — is the real limit; the voyage-check bonus still caps
@@ -113,8 +213,14 @@ export const RESOURCES = Object.freeze({
   /** Soft cap on the departure queue; older entries sail first. */
   MAX_QUEUE: 40,
   /** Cost to commission +2 berths/year (expand mission capacity). */
-  BERTH_EXPANSION_COST: 400,
-  BERTH_EXPANSION_AMOUNT: 2,
+  // Cut from 400 (Tran 2026-10-20): with dispatch abolished, ships and
+  // berths carry every man overseas — the expedition chain got cheaper.
+  BERTH_EXPANSION_COST: 200,
+  BERTH_EXPANSION_AMOUNT: 1, // one dock space per expansion
+  /** Overcrowding (Tran 2026-10-20): each man stationed beyond a mission's
+   * capacity costs this much extra upkeep every year, and bears only half
+   * fruit — too many men in too few places. */
+  OVER_CAPACITY_UPKEEP: 2,
   /** Cost to found a novitiate (house of formation) at an open mission. */
   NOVITIATE_COST: 800,
   /** Minimum team size for the sailing-in-company voyage bonus. */
@@ -145,7 +251,7 @@ export const OUTCOME_LABELS = Object.freeze({
  * All numbers here are gameplay abstractions for balance, not historical
  * statistics.
  */
-export const VOYAGE_DC = 11;
+export const VOYAGE_DC = 5; // Tran 2026-10-19: 80% arrival rate (was 50%)
 export const VOYAGE_DANGER_MOD = -2; // per point of destination danger
 export const VOYAGE_TEAM_MOD = 2;    // sailing in company
 export const VOYAGE_DEGREE_OUTCOMES = Object.freeze({
@@ -224,8 +330,10 @@ export const MISSION_CAPACITY = Object.freeze({
   england: 3,
   'west-indies': 6,
   peru: 6,
-  asia: 4,
   chile: 5,
+  philippines: 8,
+  huronia: 3,
+  guatemala: 5,
 });
 
 /** +1 voyage bonus per this much mission strength, up to MISSION_BONUS_MAX. */
@@ -243,28 +351,28 @@ export const DOMESTIC_ROLES = Object.freeze({
   teaching: Object.freeze({
     id: 'teaching',
     name: 'College teaching',
-    requires: 'scholastic or priest',
+    requires: 'any grade',
     desc: 'Teaches in a Jesuit college. The college contributes to the chest.',
     fundsPerYear: 10,
   }),
   pastoral: Object.freeze({
     id: 'pastoral',
     name: 'Pastoral ministry',
-    requires: 'ordained priest',
+    requires: 'any grade',
     desc: 'Serves a parish or chaplaincy. Alms and stipends support the missions.',
     fundsPerYear: 8,
   }),
   formationAid: Object.freeze({
     id: 'formationAid',
     name: 'Formation service',
-    requires: 'priest of proven prudence (4+)',
+    requires: 'any grade',
     desc: 'Assists in the house of formation. Reduces formation cost for all men.',
     formationDiscount: 5,
   }),
   studies: Object.freeze({
     id: 'studies',
     name: 'Continued studies',
-    requires: 'scholastic',
+    requires: 'any grade',
     desc: 'Continues studies. Holds the man in Europe without immediate fruit.',
     fundsPerYear: 0,
   }),

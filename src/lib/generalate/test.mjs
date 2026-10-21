@@ -4216,7 +4216,8 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     Array.isArray(s0.newsInTransit) && s0.newsInTransit.length === 0);
 
   // Knowledge lags the truth until the annual letter lands.
-  // Goa is a two-year letter run in the fixtures.
+  // Mail runs one step quicker than sailing (Tran 2026-10-21): Goa is
+  // a two-year sail in the fixtures, so its letters take one year.
   const s = deserialize(serialize(newGame({ mode: 'campaign', seed: 'fog-63b' })));
   const believedBefore = EngineNS.missionKnowledge(s, 'goa').staffed;
   missionStaff(s, 'goa').brothers += 3; // the truth moves; Rome has not heard
@@ -4225,13 +4226,12 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     s.newsInTransit.some((n) => n.destId === 'goa' && n.snapshot.asOf === 1615),
     `${s.newsInTransit.length} letters out`);
   const dispatched = s.newsInTransit.find((n) => n.destId === 'goa');
+  ok('fog: the letter run is one step quicker than the sailing',
+    dispatched.arriveYear === 1616, `arriveYear ${dispatched.arriveYear}`);
   ok('fog: knowledge is unchanged while the letter is at sea',
     EngineNS.missionKnowledge(s, 'goa').staffed === believedBefore,
     `believed ${EngineNS.missionKnowledge(s, 'goa').staffed} vs ${believedBefore}`);
-  startYear(s); decide(s, []); resolveYear(s, { skipNatives: true }); // 1616: still at sea
-  ok('fog: knowledge still stale one year into a two-year run',
-    EngineNS.missionKnowledge(s, 'goa').staffed === believedBefore);
-  startYear(s); decide(s, []); resolveYear(s, { skipNatives: true }); // 1617: the 1615 letter lands
+  startYear(s); decide(s, []); resolveYear(s, { skipNatives: true }); // 1616: the 1615 letter lands
   const kLanded = EngineNS.missionKnowledge(s, 'goa');
   ok('fog: when the letter lands, knowledge matches the dispatched snapshot',
     kLanded.asOf === dispatched.snapshot.asOf && kLanded.staffed === dispatched.snapshot.staffed,
@@ -4255,7 +4255,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     ok('fog: the account is scheduled home — beyond the one annual letter',
       accounts.length >= 2, `${accounts.length} letters from Goa dated ${reportYear}`);
     ok('fog: the account lands after the letter run',
-      accounts.every((n) => n.arriveYear === reportYear + 2),
+      accounts.every((n) => n.arriveYear === reportYear + 1),
       JSON.stringify(accounts.map((n) => n.arriveYear)));
     for (let i = 0; i < 2 && !reportState.ended; i++) {
       startYear(reportState); decide(reportState, []); resolveYear(reportState, { skipNatives: true });

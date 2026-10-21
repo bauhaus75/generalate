@@ -189,12 +189,18 @@ export function missionStaffed(st) {
 // The desk decides against knowledge; the world resolves against the truth.
 // ---------------------------------------------------------------------------
 
-/** Years a letter takes to travel between Rome and a destination. */
+/**
+ * Years a letter takes to travel between Rome and a destination.
+ * The mail runs one step quicker than the sailing of men (Tran
+ * 2026-10-21): a letter needs no berth and no fleet, so the Atlantic
+ * posts land the year they are written, most of the world the year
+ * after, and the Far East in two.
+ */
 function letterTravelYears(state, destId) {
   const g = ensureData();
   const dest = (g.destinations || []).find((d) => d.id === destId);
   const t = dest && typeof dest.travelYears === 'number' ? Math.round(dest.travelYears) : 2;
-  return Math.max(1, t);
+  return Math.max(0, t - 1);
 }
 
 /** What Rome would believe about a mission in `year`, taken from the truth. */
@@ -5810,6 +5816,9 @@ function collapseMission(state, destId) {
   // Fog of war: the annual letters leave with the year's end — a fresh
   // picture of every mission, reaching Rome after its voyage.
   dispatchAnnualLetters(state, y);
+  // Letters whose run ends this year (the Atlantic posts) reach the
+  // desk before the year turns, so the new year opens with them read.
+  applyDueNews(state, y);
   state.year = y + 1;
   if (state.mode === 'campaign' && state.year > CAMPAIGN_END) state.ended = true;
   if (state.mode === 'endless' && state.year > CAMPAIGN_END && !state.diverged) {

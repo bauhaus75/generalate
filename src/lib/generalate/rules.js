@@ -174,6 +174,13 @@ export const RESOURCES = Object.freeze({
   /** Cost to fit out one companion sailing with an approved man — by grade.
    *  A professed priest costs as a father; a scholastic as a coadjutor. */
   COMPANION_COST: 40,
+  /** The harvest rule (Tran 2026-10-20): a mission gains native
+   *  vocations from its own fruit — this share of each year's harvest,
+   *  banked on the mission until a whole laborer ripens (0.002 = one
+   *  vocation per 500 souls). At most YEARLY_CAP join a mission in a
+   *  year, and only into a free place. */
+  NATIVE_VOCATION_RATE: 0.002,
+  NATIVE_VOCATION_YEARLY_CAP: 2,
   /** The seal is not free: every approval costs the mission chest. */
   // Approvals are free: the seal charges nothing (Tran 2026-10-20 — the
   // 30-scudi seal duplicated the sending charge and taxed the game's core

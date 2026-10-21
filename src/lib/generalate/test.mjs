@@ -571,7 +571,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const { terna: t2 } = startYear(s);
   decide(s, [{ id: t2[0].petitionerId }]);
   resolveYear(s);
-  const v2 = s.voyages[s.voyages.length - 1];
+  const v2 = s.voyages.find((v) => v.petitionerId === t2[0].petitionerId);
   v2.arriveYear = s.year; v2.newsYear = s.year;
   resolveYear(s);
   const mods = (v2.resolveRoll && v2.resolveRoll.modifiers) || [];
@@ -1026,12 +1026,12 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const d2 = FIXTURES.destinations[1].id;
   const { terna: t2 } = startYear(s2);
   decide(s2, [{ id: t2[0].petitionerId, destination: d2, companions: 1 }]);
-  resolveYear(s2);
+  resolveYear(s2, { skipNatives: true });
   const v2 = s2.voyages.find((v) => v.petitionerId === t2[0].petitionerId);
   v2.arriveYear = s2.year; v2.newsYear = s2.year;
   const stBefore = { ...missionStaff(s2, d2) };
   dbgForceOutcome(s2, v2.id, 'thriving');
-  resolveYear(s2);
+  resolveYear(s2, { skipNatives: true });
   const stAfter = missionStaff(s2, d2);
   ok('thriving arrival joins staffing',
     missionStaffed(stAfter) === missionStaffed(stBefore) + 2, // man + 1 companion
@@ -1099,27 +1099,27 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   // Year 1: 2/12 = 16.7% < 25% -> counter 1
   let { terna } = startYear(s);
   decide(s, []);
-  resolveYear(s);
+  resolveYear(s, { skipNatives: true });
   ok('counter increments below 25%', missionStaff(s, 'japan').fragileYears === 1,
     `fragileYears=${missionStaff(s, 'japan').fragileYears}`);
   // Year 2: still 16.7% -> counter 2
   ({ terna } = startYear(s));
   decide(s, []);
-  resolveYear(s);
+  resolveYear(s, { skipNatives: true });
   ok('counter increments again below 25%', missionStaff(s, 'japan').fragileYears === 2);
   ok('not fragile at 2 years', missionStaff(s, 'japan').fragile === false);
   // Year 3: counter 3 -> still no collapse under the 5-year clock
   ({ terna } = startYear(s));
   decide(s, []);
-  resolveYear(s);
+  resolveYear(s, { skipNatives: true });
   ok('not collapsed at 3 years', (s.destState.japan || {}).collapsed !== true);
   // Years 4 and 5: at 5 -> COLLAPSE
   ({ terna } = startYear(s));
   decide(s, []);
-  resolveYear(s);
+  resolveYear(s, { skipNatives: true });
   ({ terna } = startYear(s));
   decide(s, []);
-  resolveYear(s);
+  resolveYear(s, { skipNatives: true });
   const st3 = missionStaff(s, 'japan');
   // At 5 years below 25%, the mission COLLAPSES (not just fragile)
   ok('mission collapses at 5 years below 25%', (s.destState.japan || {}).collapsed === true,
@@ -1130,7 +1130,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   sj.fathers = 4; sj.coadjutors = 2; sj.brothers = 2; // 8/12
   ({ terna } = startYear(s));
   decide(s, []);
-  resolveYear(s);
+  resolveYear(s, { skipNatives: true });
   const st4 = missionStaff(s, 'japan');
   ok('counter resets at 60%+', st4.fragileYears === 0 && st4.fragile === false,
     `fragileYears=${st4.fragileYears}, fragile=${st4.fragile}`);
@@ -1140,7 +1140,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   sj2.fragileYears = 1; sj2.fragile = false;
   ({ terna } = startYear(s));
   decide(s, []);
-  resolveYear(s);
+  resolveYear(s, { skipNatives: true });
   ok('counter pauses at 40-60%', missionStaff(s, 'japan').fragileYears === 1,
     `fragileYears=${missionStaff(s, 'japan').fragileYears}`);
   // Old save compat: missing fields backfill safely
@@ -3971,7 +3971,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     s.instructions.goa.arriveYear = s.year; // the order arrives this year
     const { terna } = startYear(s);
     decide(s, []);
-    resolveYear(s);
+    resolveYear(s, { skipNatives: true });
     ok(`overcap: expand is obeyed and adds 5 places (${seed})`,
       s.missions.goa.capacity === before + 5 && s.instructions.goa.outcome === 'obeyed',
       `cap ${before} -> ${s.missions.goa.capacity}, outcome ${s.instructions.goa.outcome}`);
@@ -3983,18 +3983,18 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     const s = deserialize(serialize(newGame({ mode: 'campaign', seed: 'rescue-58' })));
     const jp = s.missions.japan;
     jp.capacity = 40; // its men hold 4 of 40 places: below strength at once
-    startYear(s); decide(s, []); resolveYear(s);
+    startYear(s); decide(s, []); resolveYear(s, { skipNatives: true });
     ok('rescue: the first year below strength warns at once',
       jp.fragileYears === 1 && s.ledger.some((e) => e.type === 'warning' && e.destination === 'japan' && /fallen below strength/.test(e.text)),
       `f=${jp.fragileYears}`);
     const { terna } = startYear(s);
     decide(s, [{ id: terna[0].petitionerId, destination: 'japan' }]);
-    resolveYear(s);
+    resolveYear(s, { skipNatives: true });
     ok('rescue: relief at sea pauses the clock', jp.fragileYears === 1, `f=${jp.fragileYears}`);
-    startYear(s); decide(s, []); resolveYear(s);
+    startYear(s); decide(s, []); resolveYear(s, { skipNatives: true });
     ok('rescue: still paused on the second year at sea', jp.fragileYears === 1, `f=${jp.fragileYears}`);
     for (const v of s.voyages) if (v.petitionerId === terna[0].petitionerId) v.arriveYear = s.year;
-    startYear(s); decide(s, []); resolveYear(s);
+    startYear(s); decide(s, []); resolveYear(s, { skipNatives: true });
     ok('rescue: the clock resumes once the relief has landed', jp.fragileYears === 2, `f=${jp.fragileYears}`);
 
     const s2 = deserialize(serialize(newGame({ mode: 'campaign', seed: 'evac-58' })));
@@ -4002,7 +4002,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     const gmen = [...gst.staffIds];
     gst.capacity = 40;
     gst.fragileYears = 4;
-    startYear(s2); decide(s2, []); resolveYear(s2);
+    startYear(s2); decide(s2, []); resolveYear(s2, { skipNatives: true });
     ok('evacuation: the mission falls', !!s2.destState.goa.collapsed && gst.staffIds.length === 0);
     ok('evacuation: the survivors are on a ship home, not lost',
       gmen.length > 0 && gmen.every((pid) => (s2.returnVoyages || []).some((rv) => rv.petitionerId === pid && rv.arriveYear === 1617)),
@@ -4145,6 +4145,59 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     ok('cards: a brother is carded brother, never priest or scholastic', seen['hist-6'] === 'brother', JSON.stringify(seen));
     ok('cards: a first-year brother is carded novice — and still takes Br.',
       seen['hist-3'] === 'novice' && EngineNS.namePrefix(s, 'hist-3') === 'Br.', JSON.stringify(seen));
+  }
+
+  // ================================================================
+  console.log('\n62. The harvest rule — vocations from local souls');
+  {
+    // Accrual + yearly cap: a rich harvest ripens at most 2 men a year,
+    // the rest of the bank stays on the mission.
+    const s = deserialize(serialize(newGame({ mode: 'campaign', seed: 'harvest-62' })));
+    const jp = missionStaff(s, 'japan');
+    jp.fruits = 5000; // a 5,000-soul harvest on the books
+    startYear(s); decide(s, []); resolveYear(s);
+    const natives1 = Object.keys(s.petitioners).filter((id) => id.startsWith('native-japan-'));
+    ok('harvest: a rich mission ripens native vocations', natives1.length >= 1, `${natives1.length}`);
+    ok('harvest: at most two join in a year', natives1.length <= 2, `${natives1.length}`);
+    ok('harvest: the unripened share stays banked',
+      (missionStaff(s, 'japan').vocationBank || 0) > 3, `bank=${missionStaff(s, 'japan').vocationBank}`);
+    // Every open mission takes part — Peru was never on the old list,
+    // and a young, thin mission is no longer gated out.
+    const s2 = deserialize(serialize(newGame({ mode: 'campaign', seed: 'harvest-62b' })));
+    const pe = missionStaff(s2, 'peru');
+    pe.fruits = 2000; pe.foundedYear = s2.year; // founded this very year
+    startYear(s2); decide(s2, []); resolveYear(s2);
+    const natives2 = Object.keys(s2.petitioners).filter((id) => id.startsWith('native-peru-'));
+    ok('harvest: missions beyond the old four take part', natives2.length >= 1, `${natives2.length}`);
+    // No harvest, no vocations — and the bank stays at zero.
+    const s3 = deserialize(serialize(newGame({ mode: 'campaign', seed: 'harvest-62c' })));
+    startYear(s3); decide(s3, []); resolveYear(s3);
+    ok('harvest: a mission without fruit spawns no one',
+      !Object.keys(s3.petitioners).some((id) => id.startsWith('native-'))
+        || (missionStaff(s3, 'japan').vocationBank || 0) < 1);
+    // A native's home is his mission: he never "returns" as a veteran
+    // and never mints a spare man for the European pool.
+    const s4 = deserialize(serialize(newGame({ mode: 'campaign', seed: 'harvest-62d' })));
+    const jp4 = missionStaff(s4, 'japan');
+    jp4.fruits = 5000;
+    startYear(s4); decide(s4, []); resolveYear(s4);
+    const nid = Object.keys(s4.petitioners).find((id) => id.startsWith('native-japan-'));
+    ok('harvest: a native exists for the veteran test', !!nid, `${nid}`);
+    if (nid) {
+      const nv = s4.voyages.find((v) => v.petitionerId === nid);
+      nv.resolvedYear = s4.year - 12; nv.arriveYear = s4.year - 12; // long service
+      for (let i = 0; i < 8 && !s4.ended; i++) { startYear(s4); decide(s4, []); resolveYear(s4); }
+      ok('harvest: a native never sails home as a veteran',
+        !(s4.europeanLabor || []).some((e) => e.petitionerId === nid)
+          && (missionStaff(s4, 'japan').staffIds || []).includes(nid));
+    }
+    // Pool differential: identical worlds, natives on vs off — the
+    // spare-men reserve must come out the same.
+    const mk = () => { const x = deserialize(serialize(newGame({ mode: 'campaign', seed: 'harvest-62e' }))); missionStaff(x, 'japan').fruits = 5000; return x; };
+    const a = mk(); startYear(a); decide(a, []); resolveYear(a);
+    const b = mk(); startYear(b); decide(b, []); resolveYear(b, { skipNatives: true });
+    ok('harvest: native joinings mint no spare Europeans',
+      a.available === b.available, `${a.available} vs ${b.available}`);
   }
 }
 

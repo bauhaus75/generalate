@@ -1010,7 +1010,14 @@ function missionCardHTML(app, d, year) {
       })()}
     </div>
     <p class="mission-meta">strength ${strength}${bonus > 0 ? ` → +${bonus} to voyages` : ''} · upkeep ${upkeep} scudi/yr</p>
-    ${(st.fruits || 0) > 0 ? `<p class="mission-fruits">Harvest: <strong>${(st.fruits || 0).toLocaleString('en-US')}</strong> souls</p>` : ''}
+    ${(st.fruits || 0) > 0 ? (() => {
+      const sons = Object.values(app.state.petitioners || {}).filter((p) => p.nativeTo === d.id).length;
+      const bank = st.vocationBank || 0;
+      const toNext = Math.max(1, Math.ceil((1 - (bank - Math.floor(bank))) * 500));
+      const ripening = bank > 0 && (app.state.destState[d.id] || {}).access === 'open'
+        ? ` · next native vocation after ${toNext.toLocaleString('en-US')} more souls` : '';
+      return `<p class="mission-fruits">Harvest: <strong>${(st.fruits || 0).toLocaleString('en-US')}</strong> souls${sons ? ` · native vocations: ${sons}` : ''}${ripening}</p>`;
+    })() : ''}
     ${(() => {
       // Named roster: thriving voyages not yet returned as veterans
       const stationed = (app.state.voyages || []).filter(v =>

@@ -5112,6 +5112,14 @@ export function resolveYear(state, opts = {}) {
       v.veteranReturned = true; // he died or left in the field; no homecoming
       continue;
     }
+    // A native vocation's home is his mission (the same principle as
+    // collapse evacuations, where natives stay): he does not "return"
+    // to a Europe he never came from, and his staying must not mint a
+    // spare man for the European pool.
+    if (v.nativeJoining || (vrec && vrec.native)) {
+      v.veteranReturned = true;
+      continue;
+    }
     const yearsServed = y - (v.resolvedYear ?? v.arriveYear);
     if (yearsServed < rules.VETERAN.MIN_YEARS) continue;
     // Include the year in the stream label: a fresh stream per call would
@@ -5265,82 +5273,103 @@ export function resolveYear(state, opts = {}) {
  */
 function spawnNativeVocations(state, mainRng, opts = {}) {
   if (opts.skipNatives) return;
-  // Natives only appear in missions established 10+ years
-  // Use a separate RNG stream so native rolls don't shift the main sequence
+  // The harvest rule (Tran 2026-10-20): a mission gains native vocations
+  // from its own fruit — NATIVE_VOCATION_RATE of each year's harvest,
+  // banked on the mission until a whole laborer ripens. Every open
+  // mission takes part; the harvest is the only gate (the old rule —
+  // four named missions, 60% staffed, ten years standing, a flat 20%
+  // roll — is gone). At most NATIVE_VOCATION_YEARLY_CAP join a mission
+  // in a year, and only into a free place.
+  // A separate RNG stream so native rolls don't shift the main sequence.
   const rng = makeRng(`${state.seed}:natives:${state.year}`);
-  const NATIVE_MISSIONS = {
-    japan: 'japanese',
-    china: 'chinese',
-    india: 'indian',
-    brazil: 'brazilian',
+  // Name pools exist for four peoples; the other missions draw on the
+  // colonial tongue of their region until pools of their own exist.
+  const NATIVE_CULTURE = {
+    japan: 'japanese', china: 'chinese', india: 'indian', brazil: 'brazilian',
+    vietnam: 'chinese', tonkin: 'chinese', cambodia: 'chinese', siam: 'chinese',
+    philippines: 'spanish', peru: 'spanish', mexico: 'spanish', chile: 'spanish',
+    paraguay: 'spanish', 'new-granada': 'spanish', quito: 'spanish',
+    guatemala: 'spanish', 'west-indies': 'spanish', huronia: 'spanish',
+    congo: 'portuguese', angola: 'portuguese', mozambique: 'portuguese',
+    madagascar: 'portuguese', aethiopia: 'portuguese', 'east-indies': 'portuguese',
+    england: 'spanish',
   };
   const g = ensureData();
-  for (const [destId, culture] of Object.entries(NATIVE_MISSIONS)) {
+  for (const dest of g.destinations || []) {
+    const destId = dest.id;
+    const culture = NATIVE_CULTURE[destId] || 'spanish';
     const dst = state.destState[destId] || {};
-    if (dst.collapsed || dst.access === 'closed') continue;
+    if (dst.collapsed || dst.access !== 'open') continue;
     const st = missionStaff(state, destId);
     if (!st) continue;
-    const staffed = missionStaffed(st);
+    const staffed0 = missionStaffed(st);
     const capacity = st.capacity || 5;
-    // Must be thriving: 60%+ staffing
-    if (staffed < capacity * 0.6) continue;
-    if (staffed >= capacity) continue;
-    // Must be established 10+ years
-    const foundedYear = typeof st.foundedYear === 'number' ? st.foundedYear : state.year;
-    if (state.year - foundedYear < 10) continue;
-    // 20% chance per year
-    if (rng.int(1, 100) > 20) continue;
-    // 90% nF (Brother track), 10% nS (Scholastic)
-    const isScholastic = rng.int(1, 100) <= 10;
-    const firstArr = FIRST_NAMES[culture];
-    const lastArr = LAST_NAMES[culture];
-    const first = firstArr ? firstArr[rng.int(0, firstArr.length - 1)] : 'Paulo';
-    const last = lastArr ? lastArr[rng.int(0, lastArr.length - 1)] : 'Silva';
-    const name = `${first} ${last}`;
-    const pid = `native-${destId}-${state.year}-${staffed}`;
-    if (!st.staffIds) st.staffIds = [];
-    st.staffIds.push(pid);
-    if (isScholastic) {
-      st.coadjutors = (st.coadjutors || 0) + 1;
-    } else {
-      st.brothers = (st.brothers || 0) + 1;
-    }
-    if (!state.petitioners[pid]) {
-      // A complete record, like every other man: history and status are
-      // read all over the engine and must exist from birth.
-      state.petitioners[pid] = {
-        id: pid, name, fictional: true, native: true, culture,
-        grade: isScholastic ? 'scholastic' : 'brother',
-        status: 'active', history: [], historyV: HISTORY_VERSION,
-        voyages: [],
-        genYear: state.year, nativeTo: destId,
-      };
-    }
-    // He is home, not a traveler — but the mission community is reckoned
-    // by arrivals, so his joining is recorded as an arrival at his own
-    // mission (Tran 2026-10-20: every man a profile, counted like any
-    // other). Without this he bore no fruit all his life.
-    {
-      const rec = state.petitioners[pid];
-      const hasArrival = (state.voyages || []).some((v) => v.petitionerId === pid && v.destination === destId && v.stage === 'arrived');
-      if (!hasArrival) {
-        const voyage = {
-          id: `voy-${pid}`, petitionerId: pid, name, destination: destId,
-          stage: 'arrived', outcome: 'thriving',
-          staffGrade: isScholastic ? 'coadjutors' : 'brothers',
-          departYear: state.year, arriveYear: state.year,
-          companions: 0, companionIds: [], nativeJoining: true,
-        };
-        state.voyages.push(voyage);
-        if (!Array.isArray(rec.voyages)) rec.voyages = [];
-        if (!rec.voyages.includes(voyage.id)) rec.voyages.push(voyage.id);
+    if (staffed0 <= 0 || staffed0 >= capacity) continue;
+    // This year's fruit: the mission's harvest since the last counting.
+    const annualFruit = Math.max(0, (st.fruits || 0) - (st._fruitCounted || 0));
+    st._fruitCounted = st.fruits || 0;
+    st.vocationBank = (st.vocationBank || 0) + annualFruit * rules.RESOURCES.NATIVE_VOCATION_RATE;
+    let toSpawn = Math.min(rules.RESOURCES.NATIVE_VOCATION_YEARLY_CAP,
+      Math.floor(st.vocationBank), capacity - staffed0);
+    if (toSpawn <= 0) continue;
+    st.vocationBank -= toSpawn;
+    for (let nSpawn = 0; nSpawn < toSpawn; nSpawn++) {
+      const staffed = missionStaffed(st);
+      // 90% nF (Brother track), 10% nS (Scholastic)
+      const isScholastic = rng.int(1, 100) <= 10;
+      const firstArr = FIRST_NAMES[culture];
+      const lastArr = LAST_NAMES[culture];
+      const first = firstArr ? firstArr[rng.int(0, firstArr.length - 1)] : 'Paulo';
+      const last = lastArr ? lastArr[rng.int(0, lastArr.length - 1)] : 'Silva';
+      const name = `${first} ${last}`;
+      const pid = `native-${destId}-${state.year}-${staffed}-${nSpawn}`;
+      if (!st.staffIds) st.staffIds = [];
+      st.staffIds.push(pid);
+      if (isScholastic) {
+        st.coadjutors = (st.coadjutors || 0) + 1;
+      } else {
+        st.brothers = (st.brothers || 0) + 1;
       }
+      if (!state.petitioners[pid]) {
+        // A complete record, like every other man: history and status are
+        // read all over the engine and must exist from birth.
+        state.petitioners[pid] = {
+          id: pid, name, fictional: true, native: true, culture,
+          grade: isScholastic ? 'scholastic' : 'brother',
+          status: 'active', history: [], historyV: HISTORY_VERSION,
+          voyages: [],
+          disposition: { initial: {}, current: {}, evidence: {}, observed: [] },
+          health: 'Good health', skills: [], letters: [],
+          entryYear: state.year, trueEntryYear: state.year, totalYearsInSociety: 0,
+          genYear: state.year, nativeTo: destId,
+        };
+      }
+      // He is home, not a traveler — but the mission community is reckoned
+      // by arrivals, so his joining is recorded as an arrival at his own
+      // mission (Tran 2026-10-20: every man a profile, counted like any
+      // other). Without this he bore no fruit all his life.
+      {
+        const rec = state.petitioners[pid];
+        const hasArrival = (state.voyages || []).some((v) => v.petitionerId === pid && v.destination === destId && v.stage === 'arrived');
+        if (!hasArrival) {
+          const voyage = {
+            id: `voy-${pid}`, petitionerId: pid, name, destination: destId,
+            stage: 'arrived', outcome: 'thriving',
+            staffGrade: isScholastic ? 'coadjutors' : 'brothers',
+            departYear: state.year, arriveYear: state.year,
+            companions: 0, companionIds: [], nativeJoining: true,
+          };
+          state.voyages.push(voyage);
+          if (!Array.isArray(rec.voyages)) rec.voyages = [];
+          if (!rec.voyages.includes(voyage.id)) rec.voyages.push(voyage.id);
+        }
+      }
+      const destName = (g.destinations || []).find((d) => d.id === destId)?.name || destId;
+      addLedger(state, {
+        year: state.year, type: 'native', destination: destId,
+        text: `A native vocation, ${name}, has joined the mission at ${destName}.`,
+      });
     }
-    const destName = (g.destinations || []).find((d) => d.id === destId)?.name || destId;
-    addLedger(state, {
-      year: state.year, type: 'native', destination: destId,
-      text: `A native vocation, ${name}, has joined the mission at ${destName}.`,
-    });
   }
 }
 

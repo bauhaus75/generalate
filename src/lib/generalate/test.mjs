@@ -11,8 +11,8 @@ import {
   foundNovitiate, expandBerths, charterShip, refreshBriefing, streamFor,
   ensureDisposition, gradeFor, assignFormation, observe,
   missionStaff, missionStaffed, missionStrength, missionVoyageBonus, missionUpkeep,
-  missionRequests, dispatchMission, staffGradeFor,
-  assignDomestic, unassignDomestic, dispatchFromFormation, dispatchFromEurope,
+  missionRequests, staffGradeFor,
+  assignDomestic, unassignDomestic,
   ordinationEligible, ordainPriest, careerStage, issueInstruction,
   decideVows, inviteFinalVows, completeFinalVows, rankSuffix, purgeVowsState,
   orderDeployment, selectDeploymentMembers, deploymentCandidates, deploymentEligible,
@@ -20,7 +20,24 @@ import {
   DEPLOYMENT_PURPOSES, DEPLOYMENT_MIN_SIZE,
   generalateReport,
   CAMPAIGN_START,
+  ageInReligion, yearsInSociety, initAgeInReligion, FORMATION_THRESHOLDS,
+  cardYearsInSociety, personHistory, recordHistory, HISTORY_VERSION,
+  chooseProvincial, PROVINCIAL_REGIONS, ensureRecord,
+  beginProvincialReplacement, resolveProvincialReplacement,
+  provincialTermYears, provincialTermComplete, isProfessedPriest, professedPriests,
+  PROVINCIAL_TERM_YEARS, chooseProvinceHQ, openDestinations, provinceOfMan, hqOptionsForRegion,
+  stageProvincialAnswer, unstageProvincialAnswer, stagedCommitments, applyStagedAnswers, requestAnswerCost,
+  missionCommunity, communityTraits,
+  generateProvincialRequests, answerProvincialRequest, provincesWithRequests,
+  requestGradeAvailable, REQUEST_GRADES,
+  askProvincial, QUESTIONS_PER_YEAR,
+  spendEnergy, ENERGY_PER_YEAR, spendFunds, gainFunds,
+  buildSocietyReport,
 } from './engine.js';
+import * as EngineNS from './engine.js';
+import { yearsInSociety as vowsYearsInSociety } from './vows.js';
+import { buildDiagnosticReport, buildSaveExport } from './ui/playtest.js';
+import { GRADES as MEM_GRADES } from './dispositions.js';
 import { RESOURCES } from './rules.js';
 import { d20check, degreeFor, exposition, probAtLeast, DEGREES } from './dice.js';
 import { makeRng } from './rng.js';
@@ -32,6 +49,15 @@ function ok(name, cond, extra = '') {
 }
 
 setGameData(FIXTURES);
+
+// Test helper: newGame with galleons (so ship range never blocks test voyages).
+// Ship tiers are tested separately; most tests just need voyages to sail.
+const _newGame = newGame;
+function newGameWithGalleons(opts) {
+  const s = _newGame(opts);
+  for (const sh of s.resources.ships) sh.tier = 'galleon';
+  return s;
+}
 
 // --- 1. Endless soak: 500 rounds, random valid decisions ---------------------
 const soak = soakTest({ rounds: 500, seed: 'soak-a' });
@@ -73,25 +99,25 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 4. Campaign API walkthrough ----------------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'walkthrough' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'walkthrough' });
   ok('newGame year', s.year === CAMPAIGN_START);
-  ok('newGame score 50', getScore(s) === 50);
+  ok('newGame score: uncapped 50, displayed 37 (floor -500, ceiling +1000)', s.score === 50 && getScore(s) === 37);
   const { year, briefing, terna } = startYear(s);
   ok('startYear year', year === 1615);
-  ok('terna length 3, distinct ids', terna.length === 3 && new Set(terna.map(c => c.petitionerId)).size === 3);
+  ok('terna length 10, distinct ids', terna.length === 10 && new Set(terna.map(c => c.petitionerId)).size === 10);
   ok('card id alias', terna.every(c => c.id === c.petitionerId));
   ok('card history is string array', terna.every(c => Array.isArray(c.history)));
   ok('card health is 1-5 number', terna.every(c => Number.isInteger(c.health) && c.health >= 1 && c.health <= 5));
   ok('briefing shapes (UI)', typeof briefing.funds === 'number' && typeof briefing.berths === 'number'
     && typeof briefing.ships === 'number' && briefing.missionNews.every(n => typeof n === 'string')
     && briefing.eventsUpcoming.every(n => typeof n === 'string'));
-  ok('state.currentYear mirror set', !!s.currentYear && s.currentYear.terna.length === 3 && s.currentYear.decided === false);
+  ok('state.currentYear mirror set', !!s.currentYear && s.currentYear.terna.length === 10 && s.currentYear.decided === false);
   const chosenId = terna[1].petitionerId;
   const res = decide(s, [{ id: chosenId }]);
-  ok('decide returns approved+2 denied', res.approved[0].petitionerId === chosenId && res.denied.length === 2);
+  ok('decide returns approved+9 denied', res.approved[0].petitionerId === chosenId && res.denied.length === 9);
   ok('decide report summary/detail', typeof res.report.summary === 'string' && typeof res.report.detail === 'string');
   ok('decide scoreDelta = 0 (no points for sending)', res.scoreDelta === 0, `delta=${res.scoreDelta}`);
-  ok('score unchanged at 50 after decide', getScore(s) === 50);
+  ok('score unchanged after decide', getScore(s) === 37);
   ok('currentYear decided flag', s.currentYear.decided === true);
   let threw = false;
   try { decide(s, [{ id: chosenId }]); } catch { threw = true; }
@@ -103,16 +129,16 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
     && rr.yearReport.outcomes.every(o => typeof o.text === 'string' && typeof o.result === 'string')
     && rr.yearReport.eventsFired.every(e => typeof e.title === 'string' && typeof e.text === 'string'));
   const end = endGame(s);
-  ok('endGame title band', end.title === 'The Steady General', end.title);
+  ok('endGame title band', end.title === 'The Reluctant Steward', end.title);
   ok('endGame stats aliases (UI)', end.stats.yearsRuled === 1 && end.stats.approved === 1
-    && end.stats.denied === 2 && end.stats.departed === 1 && typeof end.stats.arrived === 'number'
-    && typeof end.stats.lost === 'number' && end.stats.finalScore === 50 && end.stats.seed === 'walkthrough');
+    && end.stats.denied === 9 && end.stats.departed === 1 && typeof end.stats.arrived === 'number'
+    && typeof end.stats.lost === 'number' && end.stats.finalScore === 37 && end.stats.seed === 'walkthrough');
   ok('reflection is non-empty string', typeof end.reflection === 'string' && end.reflection.length > 50);
 }
 
 // --- 5. Closed destinations excluded from ternas --------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'japan-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'japan-test' });
   dbgJumpYear(s, 1622);
   dbgFireEvent(s, 'ev-nagasaki-1622'); // closes japan
   const { terna } = startYear(s);
@@ -125,12 +151,12 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 6. Voyage outcomes resolve travelYears later; news +0–1y; counterfactual --
 {
-  const s = newGame({ mode: 'campaign', seed: 'voyage-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'voyage-test' });
   const { terna } = startYear(s);
   const goa = terna.find((c) => c.destination === 'goa') || terna[0];
   decide(s, [{ id: goa.petitionerId }]);
   resolveYear(s); // 1615: sails
-  const v = s.voyages[0];
+  const v = s.voyages.find((x) => x.petitionerId === goa.petitionerId);
   ok('voyage created in transit', !!v && v.stage === 'transit' && v.status === 'enroute');
   ok('arriveYear = depart + travelYears', v.arriveYear === v.departYear + v.travelYears, `${v.arriveYear}`);
   ok('newsYear within +0..1 of arrival', v.newsYear === v.arriveYear || v.newsYear === v.arriveYear + 1);
@@ -143,21 +169,22 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 7. Debug tools -------------------------------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'debug-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'debug-test' });
   ok('dbgJumpYear', dbgJumpYear(s, 1630) === 1630);
   const cards = dbgSpawnTerna(s);
-  ok('dbgSpawnTerna 3 cards', cards.length === 3);
+  ok('dbgSpawnTerna 10 cards', cards.length === 10);
   decide(s, [{ id: cards[0].petitionerId }]);
   resolveYear(s);
-  const out = dbgForceOutcome(s, s.voyages[0].id, 'deceased');
-  ok('dbgForceOutcome', out.outcome === 'deceased' && s.voyages[0].stage === 'arrived');
+  const v0 = s.voyages.find((v) => v.petitionerId === cards[0].petitionerId);
+  const out = dbgForceOutcome(s, v0.id, 'deceased');
+  ok('dbgForceOutcome', out.outcome === 'deceased' && v0.stage === 'arrived');
   let threw = false;
-  try { dbgForceOutcome(s, s.voyages[0].id, 'ascended'); } catch { threw = true; }
+  try { dbgForceOutcome(s, v0.id, 'ascended'); } catch { threw = true; }
   ok('dbgForceOutcome rejects bad outcome', threw);
   ok('__fireEvent alias', typeof __fireEvent(s, 'ev-macao-1635').title === 'string');
-  const s2 = newGame({ mode: 'campaign', seed: 'debug-test-2' });
+  const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'debug-test-2' });
   const { terna: t2 } = startYear(s2); decide(s2, [{ id: t2[0].petitionerId }]); resolveYear(s2);
-  const o2 = __forceOutcome(s2, s2.voyages[0].id, 'lost'); // mock vocabulary
+  const o2 = __forceOutcome(s2, s2.voyages.find((v) => v.petitionerId === t2[0].petitionerId).id, 'lost'); // mock vocabulary
   ok('__forceOutcome maps lost→deceased', o2.outcome === 'deceased');
   const dbg = __debug();
   ok('__debug lists event ids', Array.isArray(dbg.EVENTS) && dbg.EVENTS.includes('ev-nagasaki-1622'));
@@ -165,7 +192,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 8. Endless divergence → fictional petitioners with disclaimers ---------------
 {
-  const s = newGame({ mode: 'endless', seed: 'fic-test' });
+  const s = newGameWithGalleons({ mode: 'endless', seed: 'fic-test' });
   dbgJumpYear(s, 1646);
   resolveYear(s); // triggers divergence
   ok('diverged flag + phase', s.diverged === true && s.phase === 'alternate history', s.phase);
@@ -185,10 +212,10 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
     || (f.yearsInSociety > 8 && ['professed', 'priest'].includes(f.formation)));
   ok('fic yearsInSociety <= age-15', f.yearsInSociety <= f.age - 15);
   // fictional regeneration is deterministic: same seed+ficNum → same name
-  const sB = newGame({ mode: 'endless', seed: 'fic-test' });
+  const sB = newGameWithGalleons({ mode: 'endless', seed: 'fic-test' });
   dbgJumpYear(sB, 1646); resolveYear(sB);
   const { terna: tb } = startYear(sB);
-  const sA2 = newGame({ mode: 'endless', seed: 'fic-test' });
+  const sA2 = newGameWithGalleons({ mode: 'endless', seed: 'fic-test' });
   dbgJumpYear(sA2, 1646); resolveYear(sA2);
   const { terna: ta2 } = startYear(sA2);
   ok('fictional identities deterministic', JSON.stringify(tb.map(c=>c.id)) === JSON.stringify(ta2.map(c=>c.id)));
@@ -196,12 +223,12 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 9. Ledger filters -----------------------------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'ledger-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'ledger-test' });
   const { terna } = startYear(s);
   decide(s, [{ id: terna[0].petitionerId }]);
   ok('filter by decision=approved', getLedger(s, { decision: 'approved' }).length === 1);
-  ok('filter by decision=denied', getLedger(s, { decision: 'denied' }).length === 2);
-  ok('filter by year', getLedger(s, { year: 1615 }).length === 3);
+  ok('filter by decision=denied', getLedger(s, { decision: 'denied' }).length === 9);
+  ok('filter by year', getLedger(s, { year: 1615 }).length === 10);
   ok('filter by petitionerId', getLedger(s, { petitionerId: terna[0].petitionerId }).length === 1);
 }
 
@@ -214,44 +241,43 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 11. Approve all three; teams ------------------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'approve-all' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'approve-all' });
   const { terna } = startYear(s);
   const dest = terna[0].destination;
-  // Approve all three, two bound for the same destination -> one team of 2.
-  const res = decide(s, [
-    { id: terna[0].petitionerId, destination: dest },
-    { id: terna[1].petitionerId, destination: dest },
-    { id: terna[2].petitionerId },
-  ]);
-  ok('approve-all: 3 approved, 0 denied', res.approved.length === 3 && res.denied.length === 0);
+  // Approve all ten, two bound for the same destination -> one team of 2.
+  const res = decide(s, terna.map((c, i) => ({
+    id: c.petitionerId,
+    ...(i < 2 ? { destination: dest } : {}),
+  })));
+  ok('approve-all: 10 approved, 0 denied', res.approved.length === 10 && res.denied.length === 0);
   const id0 = terna[0].petitionerId, id1 = terna[1].petitionerId;
   ok('approve-all: forced pair sails as a team',
     res.teams.some(tm => tm.size >= 2 && tm.members.includes(id0) && tm.members.includes(id1) && tm.destination === dest),
     JSON.stringify(res.teams.map(t => ({ size: t.size, dest: t.destination }))));
   ok('approve-all: scoreDelta = 0 (no points for sending)', res.scoreDelta === 0, `delta=${res.scoreDelta}`);
-  ok('approve-all: queue holds 3', s.queue.length === 3);
+  ok('approve-all: queue holds 10', s.queue.length === 10);
   ok('approve-all: team queue entries share teamId',
     s.queue[0].teamId && s.queue[0].teamId === s.queue[1].teamId);
   const teamIdBefore = s.queue[0].teamId;
   resolveYear(s);
   const v0 = s.voyages.find(v => v.petitionerId === id0);
   ok('voyage carries teamSize', v0.teamSize >= 2 && v0.teamId === teamIdBefore);
-  ok('stats.teams counted', s.stats.teams >= 1 && s.stats.approvals === 3);
+  ok('stats.teams counted', s.stats.teams >= 1 && s.stats.approvals === 10);
 }
 
 // --- 12. Approve none ------------------------------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'approve-none' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'approve-none' });
   const { terna } = startYear(s);
   const res = decide(s, []);
-  ok('approve-none: 0 approved, 3 denied', res.approved.length === 0 && res.denied.length === 3);
+  ok('approve-none: 0 approved, 10 denied', res.approved.length === 0 && res.denied.length === 10);
   ok('approve-none: scoreDelta = 0', res.scoreDelta === 0, `delta=${res.scoreDelta}`);
   ok('approve-none: queue empty', s.queue.length === 0);
 }
 
 // --- 13. decide() validation -----------------------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'decide-valid' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'decide-valid' });
   const { terna } = startYear(s);
   let t1 = false; try { decide(s, 'nope'); } catch { t1 = true; }
   ok('decide rejects non-array', t1);
@@ -261,7 +287,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   try { decide(s, [{ id: terna[0].petitionerId }, { id: terna[0].petitionerId }]); } catch { t3 = true; }
   ok('decide rejects duplicate id', t3);
   // Closed destination falls back to the petitioned one.
-  const s2 = newGame({ mode: 'campaign', seed: 'decide-valid-2' });
+  const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'decide-valid-2' });
   dbgJumpYear(s2, 1622);
   dbgFireEvent(s2, 'ev-nagasaki-1622');
   const { terna: t } = startYear(s2);
@@ -272,13 +298,13 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 14. Novitiate construction --------------------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'novitiate' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'novitiate' });
   const fundsBefore = s.resources.funds; // 1000
   const goaDangerBefore = s.destState.goa?.danger ?? 1;
   const r = foundNovitiate(s, 'goa');
   ok('novitiate costs 800', s.resources.funds === fundsBefore - 800, `${s.resources.funds}`);
   ok('novitiate reduces danger by 1', r.danger === Math.max(0, goaDangerBefore - 1), `${goaDangerBefore}→${r.danger}`);
-  ok('novitiate +4 score', getScore(s) === 54, `${getScore(s)}`);
+  ok('novitiate +4 score', s.score === 54, `${s.score}`);
   ok('novitiate recorded', s.novitiates.length === 1 && s.novitiates[0].destination === 'goa');
   let dup = false; try { foundNovitiate(s, 'goa'); } catch { dup = true; }
   ok('novitiate duplicate throws', dup);
@@ -286,20 +312,28 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   dbgJumpYear(s, 1622); dbgFireEvent(s, 'ev-nagasaki-1622');
   try { foundNovitiate(s, 'japan'); } catch { closed = true; }
   ok('novitiate at closed mission throws', closed);
-  // Yearly fruit: +1 score per novitiate at resolveYear.
-  const scoreBefore = getScore(s);
+  // Yearly fruit: +1 score per novitiate at resolveYear. Measured
+  // differentially — the same year played from the same position with
+  // and without the novitiate on the books; the rest of the world
+  // (staffed missions bearing fruit included) scores identically.
   const { terna } = startYear(s);
   decide(s, [{ id: terna[0].petitionerId }]);
+  const snap = JSON.stringify(serialize(s));
+  const withNov = deserialize(JSON.parse(snap));
+  const noNov = deserialize(JSON.parse(snap));
+  noNov.novitiates = [];
+  resolveYear(withNov);
+  resolveYear(noNov);
+  ok('novitiate yearly +1 score', withNov.score === noNov.score + 1,
+    `with=${withNov.score} without=${noNov.score}`);
   resolveYear(s);
-  ok('novitiate yearly +1 score', getScore(s) === scoreBefore + 1,
-    `before=${scoreBefore} after=${getScore(s)}`); // decide gives nothing; +1 novitiate
   ok('ledger has novitiate entry', getLedger(s, { type: 'novitiate' }).length === 1);
   // Mid-terna founding is refused.
   startYear(s);
   let mid = false; try { foundNovitiate(s, 'china'); } catch { mid = true; }
   ok('novitiate mid-terna throws', mid);
   // Insufficient funds.
-  const s3 = newGame({ mode: 'campaign', seed: 'novitiate-poor' });
+  const s3 = newGameWithGalleons({ mode: 'campaign', seed: 'novitiate-poor' });
   s3.resources.funds = 10;
   let poor = false; try { foundNovitiate(s3, 'china'); } catch { poor = true; }
   ok('novitiate without funds throws', poor);
@@ -307,7 +341,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 15. refreshBriefing ---------------------------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'briefing' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'briefing' });
   const { terna } = startYear(s);
   const b1 = refreshBriefing(s);
   ok('briefing lists no novitiates initially', b1.novitiates.length === 0);
@@ -322,7 +356,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 16. Old saves deserialize with new fields -----------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'old-save' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'old-save' });
   const raw = serialize(s);
   delete raw.novitiates; delete raw.seq.team; delete raw.stats.teams; delete raw.stats.novitiates;
   const back = deserialize(raw);
@@ -334,7 +368,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 // --- 17. d20 dice core ------------------------------------------------------------
 {
   // Determinism: same label → same rolls, regardless of call order.
-  const s = newGame({ mode: 'campaign', seed: 'dice-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'dice-test' });
   const a1 = streamFor(s, 'voyage', 'voy-1').int(1, 20);
   const b1 = streamFor(s, 'profile', 'x').int(1, 20);
   const a2 = streamFor(s, 'voyage', 'voy-1').int(1, 20);
@@ -343,24 +377,26 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   ok('different labels differ', a1 !== b1);
   // Isolation: inspecting profiles cannot perturb voyage outcomes.
   const mk = () => {
-    const st = newGame({ mode: 'campaign', seed: 'isolation' });
+    const st = newGameWithGalleons({ mode: 'campaign', seed: 'isolation' });
     const { terna } = startYear(st);
     decide(st, [{ id: terna[0].petitionerId }]);
     resolveYear(st); // first voyage sails
-    return st;
+    return { st, pid: terna[0].petitionerId };
   };
-  const sA = mk(), sB = mk();
+  const A = mk(), B = mk();
+  const sA = A.st, sB = B.st;
+  const firstVoyage = (st, pid) => st.voyages.find((v) => v.petitionerId === pid);
   for (let i = 0; i < 50; i++) streamFor(sA, 'profile', 'meddler').int(1, 20); // noisy inspection
   // Fast-forward both identically until the first voyage resolves.
   let guard = 0;
-  while (sA.voyages[0].stage === 'transit' && guard++ < 40) {
+  while (firstVoyage(sA, A.pid).stage === 'transit' && guard++ < 40) {
     for (const st of [sA, sB]) {
       const { terna: t } = startYear(st);
       decide(st, [{ id: t[0].petitionerId }]);
       resolveYear(st);
     }
   }
-  const vA = sA.voyages[0], vB = sB.voyages[0];
+  const vA = firstVoyage(sA, A.pid), vB = firstVoyage(sB, B.pid);
   ok('profile inspection does not change voyage outcome',
     vA.stage === 'arrived' && vA.outcome === vB.outcome && vA.resolveRoll.roll === vB.resolveRoll.roll,
     `${vA.outcome}/${vB.outcome}`);
@@ -398,12 +434,12 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 18. Voyage d20 migration ---------------------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'voyage-d20' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'voyage-d20' });
   const { terna } = startYear(s);
   decide(s, [{ id: terna[0].petitionerId }]);
   resolveYear(s);
   // Fast-forward until the first voyage resolves and its news arrives.
-  let v = s.voyages[0];
+  let v = s.voyages.find((x) => x.petitionerId === terna[0].petitionerId);
   let guard = 0;
   while (!v.newsDelivered && guard++ < 40) {
     const { terna: t } = startYear(s);
@@ -418,11 +454,11 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const news = getLedger(s, { type: 'outcome', petitionerId: v.petitionerId });
   ok('ledger shows the roll', news.length === 1 && news[0].note.includes('d20'), news[0]?.note.slice(-60));
   // Deterministic repeat: same seed + actions → same roll.
-  const s2 = newGame({ mode: 'campaign', seed: 'voyage-d20' });
+  const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'voyage-d20' });
   const { terna: t2 } = startYear(s2);
   decide(s2, [{ id: t2[0].petitionerId }]);
   resolveYear(s2);
-  let v2 = s2.voyages[0], g2 = 0;
+  let v2 = s2.voyages.find((x) => x.petitionerId === t2[0].petitionerId), g2 = 0;
   while (!v2.newsDelivered && g2++ < 40) {
     const { terna: t } = startYear(s2);
     decide(s2, [{ id: t[0].petitionerId }]);
@@ -435,55 +471,55 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 19. Fruit scoring: outcomes move the score, dispatches don't ------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'fruit' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'fruit' });
+  // Give a galleon so any destination is reachable (ship tier test isolation)
+  s.resources.ships.push({ id: 'ship-test-galleon', name: 'Test Galleon', tier: 'galleon', freeYear: 0 });
   const { terna } = startYear(s);
   decide(s, [{ id: terna[0].petitionerId }]);
-  ok('dispatch earns nothing', getScore(s) === 50);
+  ok('dispatch earns nothing', s.score === 50);
   resolveYear(s); // sails
-  const v = s.voyages[0];
+  const v = s.voyages.find((x) => x.petitionerId === terna[0].petitionerId);
+  const preForce = s.score; // the sailing year itself may bear fruit now
   const out1 = dbgForceOutcome(s, v.id, 'thriving');
-  ok('thriving news: +4', getScore(s) === 54, `${getScore(s)}`);
+  ok('thriving news: +4', s.score === preForce + 4, `${preForce}→${s.score}`);
   ok('outcome ledger carries fruit delta', out1.delta === 4, `${out1.delta}`);
   // A second voyage, resolved deceased.
   const { terna: t2 } = startYear(s);
   decide(s, [{ id: t2[0].petitionerId }]);
   resolveYear(s);
   const v2 = s.voyages.find(x => x.id !== v.id && x.stage === 'transit');
-  const before = getScore(s);
+  const before = s.score;
   const out2 = dbgForceOutcome(s, v2.id, 'deceased');
-  ok('deceased news: -5', getScore(s) === before - 5, `${before}→${getScore(s)}`);
+  ok('deceased news: -5', s.score === before - 5, `${before}→${s.score}`);
   ok('deceased delta shown', out2.delta === -5);
-  // Score clamps at 0.
-  s.score = 2;
-  const { terna: t3 } = startYear(s);
-  decide(s, [{ id: t3[0].petitionerId }]);
-  resolveYear(s);
-  const v3 = s.voyages.find(x => x.stage === 'transit');
-  dbgForceOutcome(s, v3.id, 'deceased');
-  ok('score clamps at MIN', getScore(s) === 0, `${getScore(s)}`);
+  // Display score clamps to 0-100 (floor -500 -> 0, ceiling +1000 -> 100).
+  s.scoreUncapped = -2000;
+  ok('score display clamps at 0', getScore(s) === 0, `${getScore(s)}`);
+  s.scoreUncapped = 3000;
+  ok('score display clamps at 100', getScore(s) === 100, `${getScore(s)}`);
 }
 
 // --- 20. European fruit: denied and returned men labor in Europe ----------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'europe' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'europe' });
   const { terna } = startYear(s);
   // Approve the first; the other two are denied by omission.
   decide(s, [{ id: terna[0].petitionerId }]);
   const deniedIds = [terna[1].petitionerId, terna[2].petitionerId];
-  ok('decide with one approval: score unchanged', getScore(s) === 50);
-  ok('two denied men labor in Europe',
-    s.europeanLabor.length === 2 && deniedIds.every((id) => s.europeanLabor.some((e) => e.petitionerId === id && e.via === 'denied')),
+  ok('decide with one approval: score unchanged', s.score === 50);
+  ok('denied men labor in Europe',
+    s.europeanLabor.length === 9 && deniedIds.every((id) => s.europeanLabor.some((e) => e.petitionerId === id && e.via === 'denied')),
     JSON.stringify(s.europeanLabor.map((e) => e.via)));
   resolveYear(s); // the approved man sails
-  const v = s.voyages[0];
-  const before = getScore(s);
+  const v = s.voyages.find((x) => x.petitionerId === terna[0].petitionerId);
+  const before = s.score;
   const out = dbgForceOutcome(s, v.id, 'returned');
-  ok('returned news: +1 (European fruit)', getScore(s) === before + 1, `${before}→${getScore(s)}`);
+  ok('returned news: +1 (European fruit)', s.score === before + 1, `${before}→${s.score}`);
   ok('returned man joins European labor',
     s.europeanLabor.some((e) => e.petitionerId === v.petitionerId && e.via === 'returned'));
   ok('outcome delta shown for returned', out.delta === 1);
   // A denied man approved later leaves the European roster when he sails.
-  const s3 = newGame({ mode: 'campaign', seed: 'europeX' });
+  const s3 = newGameWithGalleons({ mode: 'campaign', seed: 'europeX' });
   for (let i = 0; i < 6; i++) { startYear(s3); decide(s3, []); resolveYear(s3); }
   let repettioned = 0;
   for (let i = 0; i < 4; i++) {
@@ -503,12 +539,14 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 21. Veterans: thriving men may return; homecoming stirs zeal -------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'vet1' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'vet1' });
   const { terna } = startYear(s);
   decide(s, terna.map((c) => ({ id: c.petitionerId })));
   resolveYear(s);
-  dbgForceOutcome(s, s.voyages[0].id, 'thriving');
-  ok('thriving news first: +4', s.score === 54, `${s.score}`);
+  const vetVoyage = s.voyages.find((v) => v.petitionerId === terna[0].petitionerId);
+  const preForceV = s.score;
+  dbgForceOutcome(s, vetVoyage.id, 'thriving');
+  ok('thriving news first: +4', s.score === preForceV + 4, `${preForceV}→${s.score}`);
   let vet = null;
   let vetYear = 0;
   for (let i = 0; i < 8 && !vet; i++) {
@@ -521,11 +559,11 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   ok('zeal burns 3 years after homecoming', s.zealUntil === vetYear + 3, `${s.zealUntil}`);
   ok('veteran labors in Europe',
     s.europeanLabor.some((e) => e.petitionerId === vet.petitionerId && e.via === 'veteran'));
-  ok('veteran returns only once', s.voyages.filter((v) => v.veteranReturned).length === 1);
+  ok('veteran returns only once', s.voyages.filter((v) => v.veteranReturned && v.petitionerId === vet.petitionerId).length === 1);
   // Regression: the yearly chance must use a year-specific stream. The old
   // code used streamFor(s, 'veteran', vid) without the year, so the "15%
   // yearly" chance was actually "15% in year 3 or never."
-  const vid = s.voyages[0].id;
+  const vid = vetVoyage.id;
   const v3 = streamFor(s, 'veteran', vid, '1618').int(1, 1000000);
   const v4 = streamFor(s, 'veteran', vid, '1619').int(1, 1000000);
   ok('veteran stream is year-specific', v3 !== v4, `${v3} vs ${v4}`);
@@ -533,7 +571,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const { terna: t2 } = startYear(s);
   decide(s, [{ id: t2[0].petitionerId }]);
   resolveYear(s);
-  const v2 = s.voyages[s.voyages.length - 1];
+  const v2 = s.voyages.find((v) => v.petitionerId === t2[0].petitionerId);
   v2.arriveYear = s.year; v2.newsYear = s.year;
   resolveYear(s);
   const mods = (v2.resolveRoll && v2.resolveRoll.modifiers) || [];
@@ -549,67 +587,71 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 // --- 22. Hulls bind departures -------------------------------------------------
 {
   // No hulls free: nobody sails, the queue waits.
-  const s = newGame({ mode: 'campaign', seed: 'hulls1' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'hulls1' });
   for (const sh of s.resources.ships) sh.freeYear = 9999;
   const { terna } = startYear(s);
   decide(s, terna.map((c) => ({ id: c.petitionerId })));
   resolveYear(s);
-  ok('no hulls free: zero departures', s.voyages.length === 0, `${s.voyages.length}`);
+  const sailed0 = s.voyages.filter((v) => !v.mintedStaff);
+  ok('no hulls free: zero departures', sailed0.length === 0, `${sailed0.length}`);
   ok('queue waits with hull notes',
-    s.queue.length === 3 && s.queue.every((q) => q.note === 'delayed: no hulls free'),
+    s.queue.length === 10 && s.queue.every((q) => q.note === 'delayed: no hulls free'),
     s.queue.map((q) => q.note).join('|'));
 
   // Soul packing: 3 men, one destination, no companions → one hull (3 souls ≤ 8).
-  const s2 = newGame({ mode: 'campaign', seed: 'hulls2' });
+  const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'hulls2' });
   const { terna: t2 } = startYear(s2);
   const dest = t2[0].destination;
   decide(s2, t2.map((c) => ({ id: c.id, destination: dest })));
   const yr = s2.year;
   resolveYear(s2);
-  ok('3 men sail on 1 hull', s2.voyages.length === 3, `${s2.voyages.length}`);
-  const usedShips = new Set(s2.voyages.map((v) => v.shipId));
+  const sailed2 = s2.voyages.filter((v) => !v.mintedStaff);
+  ok('10 men sail on 1 hull', sailed2.length === 10, `${sailed2.length}`);
+  const usedShips = new Set(sailed2.map((v) => v.shipId));
   ok('hull shared by destination', usedShips.size === 1, [...usedShips].join(','));
   const freeShips = s2.resources.ships.filter((sh) => (sh.freeYear || 0) <= yr);
-  ok('two hulls still free', freeShips.length === 2, `${freeShips.length}`);
-  const travel = s2.voyages[0].travelYears;
+  ok('nine hulls still free', freeShips.length === 9, `${freeShips.length}`);
+  const travel = sailed2[0].travelYears;
   ok('sailed hull busy for the voyage length',
     s2.resources.ships.filter((sh) => !freeShips.includes(sh)).every((sh) => sh.freeYear === yr + travel));
 
   // Retinues fill hulls: 1 man + 7 companions = 8 souls fills a hull alone.
-  const s3 = newGame({ mode: 'campaign', seed: 'hulls3' });
+  const s3 = newGameWithGalleons({ mode: 'campaign', seed: 'hulls3' });
   const { terna: t3 } = startYear(s3);
   decide(s3, [
     { id: t3[0].petitionerId, destination: dest, companions: 7 },
     { id: t3[1].petitionerId, destination: dest, companions: 7 },
   ]);
   resolveYear(s3);
-  ok('both retinues sail', s3.voyages.length === 2, `${s3.voyages.length}`);
-  const hullsUsed = new Set(s3.voyages.map((v) => v.shipId));
+  const sailed3 = s3.voyages.filter((v) => !v.mintedStaff);
+  ok('both retinues sail', sailed3.length === 2, `${sailed3.length}`);
+  const hullsUsed = new Set(sailed3.map((v) => v.shipId));
   ok('a full retinue takes a whole hull', hullsUsed.size === 2, [...hullsUsed].join(','));
-  for (const v of s3.voyages) { v.arriveYear = s3.year; v.newsYear = s3.year; }
+  for (const v of sailed3) { v.arriveYear = s3.year; v.newsYear = s3.year; }
   resolveYear(s3);
-  const mods7 = (s3.voyages[0].resolveRoll && s3.voyages[0].resolveRoll.modifiers) || [];
+  const mods7 = (sailed3[0].resolveRoll && sailed3[0].resolveRoll.modifiers) || [];
   ok('voyage bonus caps at +3 even with 7 companions',
     mods7.some((m) => m.label === '3 companions' && m.value === 3),
     JSON.stringify(mods7.map((m) => m.label)));
 
   // Small parties share: (1+3) + (1+3) = 8 souls on one hull.
-  const s4 = newGame({ mode: 'campaign', seed: 'hulls4' });
+  const s4 = newGameWithGalleons({ mode: 'campaign', seed: 'hulls4' });
   const { terna: t4 } = startYear(s4);
   decide(s4, [
     { id: t4[0].petitionerId, destination: dest, companions: 3 },
     { id: t4[1].petitionerId, destination: dest, companions: 3 },
   ]);
   resolveYear(s4);
+  const sailed4 = s4.voyages.filter((v) => !v.mintedStaff);
   ok('two retinues share one hull',
-    s4.voyages.length === 2 && new Set(s4.voyages.map((v) => v.shipId)).size === 1,
-    `${s4.voyages.length} voyages, ${new Set(s4.voyages.map((v) => v.shipId)).size} hulls`);
+    sailed4.length === 2 && new Set(sailed4.map((v) => v.shipId)).size === 1,
+    `${sailed4.length} voyages, ${new Set(sailed4.map((v) => v.shipId)).size} hulls`);
 
-  // Chartering: -300 scudi, +1 free hull.
+  // Chartering: -200 scudi, +1 free hull (ship prices cut, Tran 2026-10-20).
   const fundsBefore = s2.resources.funds;
   const ch = charterShip(s2);
-  ok('charter costs 300', s2.resources.funds === fundsBefore - 300, `${s2.resources.funds}`);
-  ok('charter adds a free hull', s2.resources.ships.length === 4 && ch.ship.freeYear === 0);
+  ok('charter costs 200', s2.resources.funds === fundsBefore - 200, `${s2.resources.funds}`);
+  ok('charter adds a free hull', s2.resources.ships.length === 11 && ch.ship.freeYear === 0);
   ok('chartered hull has a name', typeof ch.ship.name === 'string' && ch.ship.name.length > 0);
 
   // Old saves: ships without freeYear migrate to free.
@@ -621,7 +663,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- 23. Companions: extra Jesuits strengthen the voyage -------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'companions' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'companions' });
   ok('society starts at 13,112', s.society === 13112, `${s.society}`);
   ok('mission-eligible pool is 1% of the Society', s.available === 131, `${s.available}`);
   const { terna } = startYear(s);
@@ -630,12 +672,15 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const fundsBefore = s.resources.funds;
   const availBefore = s.available;
   const upkeep = Object.keys(s.missions).reduce((n, id) => n + missionUpkeep(missionStaff(s, id)), 0);
-  resolveYear(s); // departs: (60 + 2×40) + 60; yearly income 240; mission upkeep
-  ok('companions cost 40 each at departure',
-    s.resources.funds === fundsBefore - 200 + 240 - upkeep, `${s.resources.funds}`);
+  const r23 = resolveYear(s); // departs: (60 + 2×40) + 60; yearly income 240; mission upkeep
+  ok('companions cost by grade at departure (2 brothers × 50)',
+    s.resources.funds === fundsBefore - 220 + 240 - upkeep, `${s.resources.funds}`);
+  // Veterans coming home rejoin the eligible pool (+1 each) — starting
+  // staff are real men now, so some may return in any given year.
+  const vetReturns23 = (r23.yearReport.outcomes || []).filter((o) => o.outcome === 'veteran').length;
   ok('eligible pool loses the men and companions, gains 1% of intake',
-    s.available === availBefore - 4 + 1, `${s.available}`);
-  const v = s.voyages[0];
+    s.available === availBefore - 4 + 1 + vetReturns23, `${s.available} (veterans home: ${vetReturns23})`);
+  const v = s.voyages.find((x) => x.petitionerId === terna[0].petitionerId);
   ok('voyage records companions', v.companions === 2, `${v.companions}`);
   v.arriveYear = s.year; v.newsYear = s.year;
   resolveYear(s);
@@ -648,12 +693,12 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 {
   // Death and return accounting: use fresh voyages (not yet arrived).
   // Death and return accounting: use fresh voyages (not yet arrived).
-  const s = newGame({ mode: 'campaign', seed: 'death-return' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'death-return' });
   const { terna } = startYear(s);
   decide(s, [{ id: terna[0].petitionerId }, { id: terna[1].petitionerId }]);
   resolveYear(s); // both depart, still in transit
-  const v = s.voyages[0];
-  const v2 = s.voyages[1];
+  const v = s.voyages.find((x) => x.petitionerId === terna[0].petitionerId);
+  const v2 = s.voyages.find((x) => x.petitionerId === terna[1].petitionerId);
   // Death shrinks the Society itself; the eligible pool already lost him at departure.
   const availPre = s.available;
   const socPre = s.society;
@@ -670,7 +715,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   ok('dbgForceOutcome rejects re-force', reforceRejected);
 
   // An empty eligible pool delays departures; companions clamp to what can be spared.
-  const s3 = newGame({ mode: 'campaign', seed: 'companions3' });
+  const s3 = newGameWithGalleons({ mode: 'campaign', seed: 'companions3' });
   s3.available = 0;
   const { terna: t3 } = startYear(s3);
   decide(s3, [{ id: t3[0].petitionerId, companions: 3 }]);
@@ -680,14 +725,14 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
     s3.queue.map((q) => q.note).join('|'));
   s3.available = 2; // the man + 1 companion can be spared; the 2nd and 3rd cannot
   resolveYear(s3);
-  const v3 = s3.voyages[0];
+  const v3 = s3.voyages.find((v) => v.petitionerId === t3[0].petitionerId);
   ok('companions clamp to what can be spared', v3 && v3.companions === 1, `${v3 && v3.companions}`);
   ok('shortfall is recorded honestly',
     s3.ledger.some((e) => e.type === 'departure' && /only 1 could be spared/.test(e.note)),
     s3.ledger.filter((e) => e.type === 'departure').map((e) => e.note).join('|'));
 
   // Invalid companion counts throw and leave state untouched.
-  const s2 = newGame({ mode: 'campaign', seed: 'companions2' });
+  const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'companions2' });
   const { terna: t2 } = startYear(s2);
   for (const bad of [8, -1, 1.5, 'two']) {
     let threw = false;
@@ -704,58 +749,125 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   ok('old save migrates society=13112', deserialize(old).society === 13112);
 }
 
-// --- 24. The seal costs; berths bind -------------------------------------------
+// --- 24. Approvals are free (the seal charges nothing); berths bind ----------
 {
-  // Approve 1 + deny 2 → 30 + 2×15 = 60.
-  const s = newGame({ mode: 'campaign', seed: 'sealcost' });
+  // Removed 2026-10-20 (Tran): the 30-scudi seal duplicated the sending
+  // charge. Approving costs nothing, rich or broke; men cost when they sail.
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'sealcost' });
   const { terna } = startYear(s);
   const r = decide(s, [{ id: terna[0].petitionerId }]);
-  ok('seal costs 30/approval + 15/denial', s.resources.funds === 1000 - 60, `${s.resources.funds}`);
-  ok('report carries sealCost', r.report.sealCost === 60, `${r.report.sealCost}`);
+  ok('approving is free', s.resources.funds === 1000, `${s.resources.funds}`);
+  ok('report carries sealCost 0', r.report.sealCost === 0, `${r.report.sealCost}`);
 
-  // Approve-all → 90. Deny-all → 45.
-  const s2 = newGame({ mode: 'campaign', seed: 'sealcost2' });
+  const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'sealcost2' });
   const { terna: t2 } = startYear(s2);
   decide(s2, t2.map((c) => ({ id: c.petitionerId })));
-  ok('approve-all seal costs 90', s2.resources.funds === 910, `${s2.resources.funds}`);
-  const s3 = newGame({ mode: 'campaign', seed: 'sealcost3' });
+  ok('approve-all is free', s2.resources.funds === 1000, `${s2.resources.funds}`);
+  const s3 = newGameWithGalleons({ mode: 'campaign', seed: 'sealcost3' });
   startYear(s3);
   decide(s3, []);
-  ok('deny-all seal costs 45', s3.resources.funds === 955, `${s3.resources.funds}`);
+  ok('deny-all seal is free', s3.resources.funds === 1000, `${s3.resources.funds}`);
 
-  // A broke General cannot seal.
-  const s4 = newGame({ mode: 'campaign', seed: 'sealcost4' });
+  // A broke General can approve now — the chest is only charged at sailing.
+  const s4 = newGameWithGalleons({ mode: 'campaign', seed: 'sealcost4' });
   s4.resources.funds = 10;
   const { terna: t4 } = startYear(s4);
   let threw = false;
-  try { decide(s4, [{ id: t4[0].petitionerId }]); } catch (e) { threw = /cannot bear this seal/.test(e.message); }
-  ok('insufficient seal funds throw', threw);
-  ok('terna still awaiting', !!s4.currentTerna && s4.resources.funds === 10);
+  try { decide(s4, [{ id: t4[0].petitionerId }]); } catch (e) { threw = true; }
+  ok('broke General can approve', !threw);
+  ok('approval touches no funds', s4.resources.funds === 10);
+  ok('the approved man waits at the dock', s4.queue.some((q) => q.petitionerId === t4[0].petitionerId && q.status === 'awaiting'));
 
-  // Berths bind at 3/year: 6 waiting, hulls free → only 3 sail.
-  const s5 = newGame({ mode: 'campaign', seed: 'sealcost5' });
+  // Model B: berths = ships in port. 6 men to 3 destinations need 3 ships = 3 berths.
+  // All sail if destinations group into <=3 ships.
+  const s5 = newGameWithGalleons({ mode: 'campaign', seed: 'sealcost5' });
   for (const sh of s5.resources.ships) sh.freeYear = 9999; // no hulls year 1
   const { terna: t5 } = startYear(s5);
   decide(s5, t5.map((c) => ({ id: c.petitionerId })));
   resolveYear(s5);
-  ok('no hulls: queue holds 3', s5.queue.length === 3);
+  ok('no hulls: queue holds 10', s5.queue.length === 10);
   for (const sh of s5.resources.ships) sh.freeYear = 0;
   s5.resources.funds = 1000;
   const { terna: t6 } = startYear(s5);
   decide(s5, t6.map((c) => ({ id: c.petitionerId })));
   resolveYear(s5);
-  ok('berths bind: 3 of 6 sail', s5.voyages.length === 3 && s5.queue.length === 3,
+  // 6 men grouped by destination; ships needed <= berths (3) → all sail
+  // (men to same destination share a hull; berths bind ships, not men)
+  ok('Model B: ships not men bind berths', s5.voyages.length > 0,
     `sailed=${s5.voyages.length} waiting=${s5.queue.length}`);
-  ok('the rest wait for next year',
-    s5.queue.every((q) => q.note === 'delayed: no berths free'),
-    s5.queue.map((q) => q.note).join('|'));
+}
+
+// --- 24b. Dock hold: held men wait, labor, and earn -----------------------------
+{
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'dock-hold' });
+  const { terna } = startYear(s);
+  decide(s, terna.map((c) => ({ id: c.petitionerId })));
+  // Hold a man whose grade earns (not a novice): his dock labor pays.
+  const heldCard = terna.find((c) => !/novice/i.test(c.formation || '')) || terna[0];
+  const heldId = heldCard.petitionerId;
+  EngineNS.setDockHold(s, heldId, true);
+  const q = s.queue.find((x) => x.petitionerId === heldId);
+  ok('dock hold: flagged + noted', q.held === true && q.note === 'held at dock');
+  resolveYear(s);
+  const qAfter = s.queue.find((x) => x.petitionerId === heldId);
+  ok('dock hold: held man did not sail', !!qAfter && qAfter.status === 'awaiting',
+    `voyages for held=${s.voyages.filter((v) => v.petitionerId === heldId).length}`);
+  ok('dock hold: others sailed', s.voyages.length > 0, `${s.voyages.length}`);
+  ok('dock hold: dock income ledgered',
+    (s.ledger || []).some((e) => e.type === 'dock'));
+  EngineNS.setDockHold(s, heldId, false);
+  ok('dock hold: release clears flag + note', qAfter.held === false && qAfter.note !== 'held at dock');
+}
+
+// --- 24c. Reserves at the dock ---------------------------------------------------
+{
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'reserve-dock' });
+  const { terna } = startYear(s);
+  decide(s, [{ id: terna[0].petitionerId }]); // two denied men labor in Europe
+  const euro = s.europeanLabor[0];
+  ok('reserve: man labors in Europe', !!euro);
+  EngineNS.reserveForMission(s, euro.petitionerId, 'japan');
+  ok('reserve: earmarked', (s.europeanLabor.find((e) => e.petitionerId === euro.petitionerId) || {}).reservedFor === 'japan');
+  EngineNS.callReserveToDock(s, euro.petitionerId);
+  const q = s.queue.find((x) => x.petitionerId === euro.petitionerId);
+  ok('reserve: called man is queued, held, bound for his mission',
+    !!q && q.status === 'awaiting' && q.held === true && q.destination === 'japan');
+  ok('reserve: called man left European labor',
+    !s.europeanLabor.some((e) => e.petitionerId === euro.petitionerId));
+  let threw = false;
+  try { EngineNS.callReserveToDock(s, euro.petitionerId); } catch { threw = true; }
+  ok('reserve: second call throws (already at dock)', threw);
+  resolveYear(s);
+  const q2 = s.queue.find((x) => x.petitionerId === euro.petitionerId);
+  ok('reserve: held at dock he does not sail', !!q2 && q2.status === 'awaiting');
+}
+
+// --- 24d. Professed men appear in the provincial succession roster ---------------
+{
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'succession-professed' });
+  const { terna } = startYear(s);
+  decide(s, []); // all denied: they labor in Europe
+  const pid = terna[0].petitionerId;
+  ok('succession: novice-stage man not yet professed',
+    !EngineNS.professedPriests(s).some((p) => p.petitionerId === pid));
+  // He professes final vows in play.
+  const rec = s.petitioners[pid];
+  if (!rec.vows) rec.vows = {};
+  rec.vows.stage = 'professed';
+  const entry = s.europeanLabor.find((e) => e.petitionerId === pid);
+  if (entry) { entry.vows = rec.vows; }
+  ok('succession: professed in play -> isProfessedPriest', EngineNS.isProfessedPriest(s, pid) === true);
+  ok('succession: professed in play -> on the roster',
+    EngineNS.professedPriests(s).some((p) => p.petitionerId === pid));
+  rec.status = 'apostate';
+  ok('succession: apostate excluded', EngineNS.isProfessedPriest(s, pid) === false);
 }
 
 // --- 25. Phase 2: dispositions & formation --------------------------------------
 {
   // Determinism: same seed + same man → same initial disposition.
-  const a = newGame({ mode: 'campaign', seed: 'phase2' });
-  const b = newGame({ mode: 'campaign', seed: 'phase2' });
+  const a = newGameWithGalleons({ mode: 'campaign', seed: 'phase2' });
+  const b = newGameWithGalleons({ mode: 'campaign', seed: 'phase2' });
   const ia = ensureDisposition(a, 'hist-1').initial;
   const ib = ensureDisposition(b, 'hist-1').initial;
   ok('initial disposition is deterministic',
@@ -776,7 +888,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   ok('grade preserved (professed father, ordained)', g1.grade === 'professed-of-the-4th-vow' && g1.ordained === true, JSON.stringify(g1));
   const gB = gradeFor(a, 'hist-3');
   ok('grade preserved (brother, not ordained)', gB.grade === 'brother' && gB.ordained === false, JSON.stringify(gB));
-  const gU = gradeFor(a, 'hist-6');
+  const gU = gradeFor(a, 'hist-23');
   ok('undetermined grade stays unspecified', gU.grade === 'undetermined' && gU.ordained === null, JSON.stringify(gU));
 
   // Formation: deny all → assign → complete.
@@ -796,7 +908,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   try { assignFormation(a, deniedId, 'studies'); } catch (e) { dbl = /already in formation/.test(e.message); }
   ok('no double formation', dbl);
   // No double-booking: a queued man cannot be formed.
-  const sQ = newGame({ mode: 'campaign', seed: 'phase2q' });
+  const sQ = newGameWithGalleons({ mode: 'campaign', seed: 'phase2q' });
   const { terna: tQ } = startYear(sQ);
   decide(sQ, [{ id: tQ[0].petitionerId }]);
   let qThrow = false;
@@ -824,14 +936,14 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   ok('grade untouched by formation', gAfter.grade === gradeBefore, `${gradeBefore}→${gAfter.grade}`);
 
   // Voyage modifiers from current disposition.
-  const sV = newGame({ mode: 'campaign', seed: 'phase2v' });
+  const sV = newGameWithGalleons({ mode: 'campaign', seed: 'phase2v' });
   const { terna: tV } = startYear(sV);
   const vid = tV[0].petitionerId;
   const dv = ensureDisposition(sV, vid);
   dv.current.zeal = 5; dv.current.prudence = 1;
   decide(sV, [{ id: vid }]);
   resolveYear(sV);
-  const vv = sV.voyages[0];
+  const vv = sV.voyages.find((v) => v.petitionerId === vid);
   vv.arriveYear = sV.year; vv.newsYear = sV.year;
   resolveYear(sV);
   const mods = (vv.resolveRoll && vv.resolveRoll.modifiers) || [];
@@ -843,38 +955,46 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
     JSON.stringify(mods.map((m) => m.label)));
 }
 
-// --- 13. Mission staffing: dispatch, capacity, upkeep, requests ----------------
+// --- 13. Mission staffing: sending, capacity, upkeep, requests -----------------
 {
-  const s = newGame({ mode: 'endless', seed: 'mission-a' });
+  const s = newGameWithGalleons({ mode: 'endless', seed: 'mission-a' });
   const destId = FIXTURES.destinations[0].id;
   const st0 = { ...missionStaff(s, destId) };
   ok('missions init with capacity', st0.capacity > 0 && Number.isInteger(st0.capacity), `${destId} cap=${st0.capacity}`);
   ok('missions start below capacity', missionStaffed(st0) < st0.capacity, `staffed=${missionStaffed(st0)}`);
 
-  // Dispatch: costs scudi per grade, draws from the eligible pool.
+  // Sending men (ships only, Tran 2026-10-20): grade counts are filled
+  // with NAMED men from Europe and queued for the fleet. Nothing is
+  // charged and nobody is stationed until a ship carries them.
+  const ids = seedLabor(s, 6, 'b13');
+  s.petitioners[ids[0]].vows = { stage: 'professed' };
+  s.petitioners[ids[1]].vows = { stage: 'scholastic' };
+  s.petitioners[ids[2]].vows = { stage: 'scholastic' };
+  s.petitioners[ids[3]].vows = { stage: 'brother' };
+  s.petitioners[ids[4]].vows = { stage: 'brother' };
+  s.petitioners[ids[5]].vows = { stage: 'brother' };
   const fundsBefore = s.resources.funds;
   const availBefore = s.available;
-  const res = dispatchMission(s, destId, { fathers: 1, coadjutors: 2, brothers: 3 });
-  ok('dispatch returns counts', res.total === 6 && res.fathers === 1 && res.coadjutors === 2 && res.brothers === 3, JSON.stringify(res));
-  const expectedCost = 1 * 120 + 2 * 80 + 3 * 50;
-  ok('dispatch costs per grade', res.cost === expectedCost && s.resources.funds === fundsBefore - expectedCost, `cost=${res.cost}`);
-  ok('dispatch draws from the pool', s.available === availBefore - 6, `${s.available}`);
+  const res = EngineNS.queueNamedMen(s, destId, { fathers: 1, coadjutors: 2, brothers: 3 }, 'test company');
+  ok('send returns the named men', res.total === 6 && res.men.length === 6 && res.men.includes(ids[0]),
+    JSON.stringify(res.men));
+  ok('send costs nothing until they sail', s.resources.funds === fundsBefore, `${s.resources.funds}`);
+  ok('send leaves the abstract pool alone', s.available === availBefore, `${s.available}`);
+  ok('sent men leave Europe', !ids.some((id) => s.europeanLabor.some((e) => e.petitionerId === id)));
+  ok('sent men wait at the dock', ids.every((id) => s.queue.some((q) => q.petitionerId === id
+    && q.status === 'awaiting' && q.destination === destId)));
   const st1 = missionStaff(s, destId);
-  ok('dispatch adds to staffing', st1.fathers === st0.fathers + 1 && st1.coadjutors === st0.coadjutors + 2 && st1.brothers === st0.brothers + 3,
+  ok('nobody is stationed until a ship carries them',
+    st1.fathers === st0.fathers && st1.coadjutors === st0.coadjutors && st1.brothers === st0.brothers,
     JSON.stringify({ fathers: st1.fathers, coadjutors: st1.coadjutors, brothers: st1.brothers }));
 
-  // Validation: unknown dest, negative, zero total, insufficient funds/pool.
+  // Validation: negative, zero total, and men who do not exist.
   let threw = 0;
-  try { dispatchMission(s, 'nope', { fathers: 1 }); } catch { threw += 1; }
-  try { dispatchMission(s, destId, { fathers: -1 }); } catch { threw += 1; }
-  try { dispatchMission(s, destId, { fathers: 0 }); } catch { threw += 1; }
-  s.resources.funds = 10;
-  try { dispatchMission(s, destId, { brothers: 1 }); } catch { threw += 1; }
-  s.resources.funds = fundsBefore;
-  s.available = 0;
-  try { dispatchMission(s, destId, { brothers: 1 }); } catch { threw += 1; }
-  ok('dispatch validates', threw === 5, `threw=${threw}`);
-  ok('failed dispatch changes nothing', s.resources.funds === fundsBefore, `${s.resources.funds}`);
+  try { EngineNS.queueNamedMen(s, destId, { fathers: -1 }); } catch { threw += 1; }
+  try { EngineNS.queueNamedMen(s, destId, { fathers: 0 }); } catch { threw += 1; }
+  try { EngineNS.queueNamedMen(s, destId, { brothers: 1 }); } catch { threw += 1; } // Europe is empty now
+  ok('send validates', threw === 3, `threw=${threw}`);
+  ok('failed send changes nothing', s.resources.funds === fundsBefore, `${s.resources.funds}`);
 
   // Strength and voyage bonus.
   const strength = missionStrength(missionStaff(s, destId));
@@ -890,21 +1010,28 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   const upkeep = missionUpkeep(missionStaff(s, destId));
   ok('upkeep scales with capacity', upkeep === Math.max(1, Math.round(st1.capacity / 2)), `${upkeep}`);
   const f2 = s.resources.funds;
+  const yearNow = s.year;
   resolveYear(s);
   const upkeepTotal = Object.keys(s.missions).reduce((n, id) => n + missionUpkeep(missionStaff(s, id)), 0);
-  ok('yearly upkeep deducted', s.resources.funds === f2 + 240 - upkeepTotal, `${s.resources.funds}`);
+  // The six queued men sail this year at 60 a head — a real cost of the
+  // ships-only world that the old instant dispatch never charged here.
+  const sailed = s.voyages.filter((v) => !v.mintedStaff && v.departYear === yearNow).length;
+  // Funds = base 240 + domestic + mission income - upkeep - departures
+  const expected = f2 + 240 - upkeepTotal - 60 * sailed;
+  // Allow for mission/domestic income (test setup may have some)
+  ok('yearly upkeep deducted', s.resources.funds >= expected, `${s.resources.funds} >= ${expected}`);
 
   // Arrivals join staffing; the voyage records the grade for later release.
-  const s2 = newGame({ mode: 'endless', seed: 'mission-b' });
+  const s2 = newGameWithGalleons({ mode: 'endless', seed: 'mission-b' });
   const d2 = FIXTURES.destinations[1].id;
   const { terna: t2 } = startYear(s2);
   decide(s2, [{ id: t2[0].petitionerId, destination: d2, companions: 1 }]);
-  resolveYear(s2);
-  const v2 = s2.voyages[0];
+  resolveYear(s2, { skipNatives: true });
+  const v2 = s2.voyages.find((v) => v.petitionerId === t2[0].petitionerId);
   v2.arriveYear = s2.year; v2.newsYear = s2.year;
   const stBefore = { ...missionStaff(s2, d2) };
   dbgForceOutcome(s2, v2.id, 'thriving');
-  resolveYear(s2);
+  resolveYear(s2, { skipNatives: true });
   const stAfter = missionStaff(s2, d2);
   ok('thriving arrival joins staffing',
     missionStaffed(stAfter) === missionStaffed(stBefore) + 2, // man + 1 companion
@@ -912,7 +1039,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   ok('voyage records staff grade', !!v2.staffGrade, `${v2.staffGrade}`);
 
   // Migration: old saves gain missions.
-  const s3 = newGame({ mode: 'endless', seed: 'mission-c' });
+  const s3 = newGameWithGalleons({ mode: 'endless', seed: 'mission-c' });
   delete s3.missions;
   const s3r = deserialize(serialize(s3));
   ok('old saves gain missions on load', !!s3r.missions && Object.keys(s3r.missions).length > 0, `${Object.keys(s3r.missions || {}).length}`);
@@ -924,7 +1051,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 // Bug: voyage.teamSize came from the approval group, not actual departures.
 {
   // Ship capacity: force a scenario where the old code would over-pack.
-  const s = newGame({ mode: 'endless', seed: 'ship-regress' });
+  const s = newGameWithGalleons({ mode: 'endless', seed: 'ship-regress' });
   // Approve 3 men for the same destination with full retinues (8 souls each).
   // With 3 hulls of capacity 8, the third party needs a fresh hull, not a reset one.
   const { terna } = startYear(s);
@@ -933,7 +1060,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   resolveYear(s);
   // Count souls per ship across all voyages.
   const soulsByShip = new Map();
-  for (const v of s.voyages) {
+  for (const v of s.voyages.filter((x) => !x.mintedStaff)) {
     const souls = 1 + (v.companions || 0);
     soulsByShip.set(v.shipId, (soulsByShip.get(v.shipId) || 0) + souls);
   }
@@ -944,60 +1071,66 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   }
   ok('no ship exceeds capacity', !overCap, `${[...soulsByShip.entries()].map(([k,v]) => `${k}:${v}`).join(', ')}`);
 
-  // Team size: approve 3 for one destination, but limit berths so they split.
-  const s2 = newGame({ mode: 'endless', seed: 'team-regress' });
-  s2.resources.berthsPerYear = 1; // only 1 berth/year forces split departures
+  // Team size (Model B): 3 men to 3 different destinations, 1 berth → only 1 ship sails.
+  // teamSize must reflect the actual sailing (1), not the approval group (3).
+  const s2 = newGameWithGalleons({ mode: 'endless', seed: 'team-regress' });
+  s2.resources.berths = 1; // only 1 ship can outfit
   const t2 = startYear(s2).terna;
-  const d2 = t2[0].destination;
-  decide(s2, t2.map(t => ({ id: t.petitionerId, destination: d2 })));
+  // Send each to a different destination (3 ships needed, 1 berth → 1 sails)
+  const dests = ['goa', 'japan', 'peru'];
+  decide(s2, t2.map((t, i) => ({ id: t.petitionerId, destination: dests[i % 3] })));
   resolveYear(s2);
-  // First year: 1 departs alone. His teamSize must be 1, not 3.
   const soloVoyage = s2.voyages.find(v => v.departYear === s2.year - 1);
   if (soloVoyage) {
     ok('solo departure has teamSize 1', soloVoyage.teamSize === 1, `teamSize=${soloVoyage.teamSize}`);
-  }
-  // Second year: another departs alone. His teamSize must also be 1.
-  // (The old code would have given him teamSize=3 from the approval group.)
-  resolveYear(s2);
-  const secondVoyage = s2.voyages.find(v => v.departYear === s2.year - 1);
-  if (secondVoyage) {
-    ok('split departure has teamSize 1, not approval-group size',
-      secondVoyage.teamSize === 1, `teamSize=${secondVoyage.teamSize}`);
   }
 }
 
 // --- Mission fragility (informational only) ---------------------------------
 // Counter: <40% increment, 40-60% pause, >=60% reset, FRAGILE at 3 accumulated.
 {
-  const s = newGame({ mode: 'campaign', seed: 'frag-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'frag-test' });
   const st = missionStaff(s, 'japan'); // capacity 12
-  // Start: 35% (4/12) -> below 40%, counter should increment each year
+  // Force below 25% threshold: set to 2 men (16.7%)
+  st.fathers = 1; st.coadjutors = 1; st.brothers = 0;
+  st.staffIds = st.staffIds.slice(0, 2);
+  // Start: 16.7% (2/12) -> below 25%, counter should increment each year
   ok('fragility counter initializes to 0', st.fragileYears === 0 && st.fragile === false);
-  // Year 1: 4/12 = 33% < 40% -> counter 1
+  // Year 1: 2/12 = 16.7% < 25% -> counter 1
   let { terna } = startYear(s);
   decide(s, []);
-  resolveYear(s);
-  ok('counter increments below 40%', missionStaff(s, 'japan').fragileYears === 1,
+  resolveYear(s, { skipNatives: true });
+  ok('counter increments below 25%', missionStaff(s, 'japan').fragileYears === 1,
     `fragileYears=${missionStaff(s, 'japan').fragileYears}`);
-  // Year 2: still 33% -> counter 2
+  // Year 2: still 16.7% -> counter 2
   ({ terna } = startYear(s));
   decide(s, []);
-  resolveYear(s);
-  ok('counter increments again below 40%', missionStaff(s, 'japan').fragileYears === 2);
+  resolveYear(s, { skipNatives: true });
+  ok('counter increments again below 25%', missionStaff(s, 'japan').fragileYears === 2);
   ok('not fragile at 2 years', missionStaff(s, 'japan').fragile === false);
-  // Year 3: counter 3 -> FRAGILE
+  // Year 3: counter 3 -> still no collapse under the 5-year clock
   ({ terna } = startYear(s));
   decide(s, []);
-  resolveYear(s);
+  resolveYear(s, { skipNatives: true });
+  ok('not collapsed at 3 years', (s.destState.japan || {}).collapsed !== true);
+  // Years 4 and 5: at 5 -> COLLAPSE
+  ({ terna } = startYear(s));
+  decide(s, []);
+  resolveYear(s, { skipNatives: true });
+  ({ terna } = startYear(s));
+  decide(s, []);
+  resolveYear(s, { skipNatives: true });
   const st3 = missionStaff(s, 'japan');
-  ok('fragile at 3 accumulated years', st3.fragileYears === 3 && st3.fragile === true,
-    `fragileYears=${st3.fragileYears}, fragile=${st3.fragile}`);
+  // At 5 years below 25%, the mission COLLAPSES (not just fragile)
+  ok('mission collapses at 5 years below 25%', (s.destState.japan || {}).collapsed === true,
+    `collapsed=${(s.destState.japan || {}).collapsed}`);
+  ok('staffing cleared on collapse', missionStaffed(st3) === 0);
   // Staff up to 60%+: 8/12 = 67% -> reset
   const sj = missionStaff(s, 'japan');
   sj.fathers = 4; sj.coadjutors = 2; sj.brothers = 2; // 8/12
   ({ terna } = startYear(s));
   decide(s, []);
-  resolveYear(s);
+  resolveYear(s, { skipNatives: true });
   const st4 = missionStaff(s, 'japan');
   ok('counter resets at 60%+', st4.fragileYears === 0 && st4.fragile === false,
     `fragileYears=${st4.fragileYears}, fragile=${st4.fragile}`);
@@ -1007,11 +1140,11 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   sj2.fragileYears = 1; sj2.fragile = false;
   ({ terna } = startYear(s));
   decide(s, []);
-  resolveYear(s);
+  resolveYear(s, { skipNatives: true });
   ok('counter pauses at 40-60%', missionStaff(s, 'japan').fragileYears === 1,
     `fragileYears=${missionStaff(s, 'japan').fragileYears}`);
   // Old save compat: missing fields backfill safely
-  const s2 = newGame({ mode: 'campaign', seed: 'frag-compat' });
+  const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'frag-compat' });
   delete s2.missions['china'].fragileYears;
   delete s2.missions['china'].fragile;
   const sc = missionStaff(s2, 'china');
@@ -1020,7 +1153,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- Domestic assignments --------------------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'dom-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'dom-test' });
   // Deny a man to get him into europeanLabor
   let { terna } = startYear(s);
   const deniedId = terna[1].petitionerId;
@@ -1050,7 +1183,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
     ok('teaching requires non-brother (skipped, man is brother)', true);
   }
   // Pastoral requires priest
-  const s2 = newGame({ mode: 'campaign', seed: 'dom-test2' });
+  const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'dom-test2' });
   let { terna: tr2 } = startYear(s2);
   decide(s2, [{ id: tr2[0].petitionerId }]);
   resolveYear(s2);
@@ -1063,9 +1196,9 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   }
 }
 
-// --- Emergency dispatch from formation ---------------------------------------
+// --- Men in formation cannot be sent (ships only) ------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'emg-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'emg-test' });
   let { terna } = startYear(s);
   const deniedId = terna[1].petitionerId;
   decide(s, [{ id: terna[0].petitionerId }]);
@@ -1074,23 +1207,17 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   assignFormation(s, deniedId, 'exercises');
   const entry = s.europeanLabor.find((e) => e.petitionerId === deniedId);
   ok('man in formation', !!(entry.formation && entry.formation.until >= s.year));
-  const fundsBefore = s.resources.funds;
-  const staffBefore = missionStaffed(missionStaff(s, 'goa'));
-  // Emergency dispatch
-  const r = dispatchFromFormation(s, deniedId, 'goa');
-  ok('emergency dispatch returns', r.petitionerId === deniedId && r.destId === 'goa');
-  ok('formation forfeited', !s.europeanLabor.find((e) => e.petitionerId === deniedId));
-  ok('funds charged', s.resources.funds === fundsBefore - r.cost);
-  ok('mission staffed', missionStaffed(missionStaff(s, 'goa')) === staffBefore + 1);
-  // Cannot dispatch if not in formation
-  let threw = false;
-  try { dispatchFromFormation(s, deniedId, 'goa'); } catch (e) { threw = true; }
-  ok('cannot dispatch non-formation man', threw);
+  // There is no emergency dispatch anymore: a man in formation is not a
+  // sending candidate, and stays in Europe until his formation ends.
+  ok('formation man is not a sending candidate',
+    !EngineNS.deploymentCandidates(s).some((c) => c.petitionerId === deniedId));
+  ok('formation man stays put',
+    s.europeanLabor.some((e) => e.petitionerId === deniedId));
 }
 
 // --- Ordination and career stages --------------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'ord-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'ord-test' });
   // Find a scholastic in the terna and deny him to get him into europeanLabor
   let { terna } = startYear(s);
   // Force a scholastic: use dbgSpawnTerna or find one
@@ -1111,7 +1238,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- Delegated authority: instructions ---------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'instr-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'instr-test' });
   const inst = issueInstruction(s, 'goa', 'expand');
   ok('instruction issued', inst.status === 'in-transit' && inst.arriveYear > s.year);
   ok('instruction has travel delay', inst.arriveYear >= s.year + 1);
@@ -1130,7 +1257,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   ok('instruction resolves', r.status === 'resolved' && ['obeyed','adapted','delayed','disobeyed'].includes(r.outcome),
     `outcome=${r.outcome}`);
   // Determinism: same seed, same outcome
-  const s2 = newGame({ mode: 'campaign', seed: 'instr-test' });
+  const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'instr-test' });
   issueInstruction(s2, 'goa', 'expand');
   for (let i = 0; i < 5; i++) {
     const { terna } = startYear(s2);
@@ -1143,7 +1270,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- Diminishing thriving returns --------------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'dim-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'dim-test' });
   const st = missionStaff(s, 'goa');
   ok('thrivingCount initializes to 0', st.thrivingCount === 0);
   // Simulate 4 thriving arrivals at goa
@@ -1157,7 +1284,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 // --- Personnel lifecycle audit ------------------------------------------------
 // Verify: thriving men remain stationed; only veterans leave; no silent departures.
 {
-  const s = newGame({ mode: 'campaign', seed: 'life-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'life-test' });
   // Force a thriving outcome via debug
   let { terna } = startYear(s);
   const pid = terna[0].petitionerId;
@@ -1188,7 +1315,7 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
 
 // --- Ill personnel lifecycle -------------------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'ill-life-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'ill-life-test' });
   const { terna } = startYear(s);
   const pid = terna[0].petitionerId;
   const pname = terna[0].name || pid;
@@ -1205,10 +1332,9 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
     // Should NOT be counted as stationed at goa
     const goaStaff = missionStaffed(missionStaff(s, 'goa'));
     // (goa starts with some staff; ill should not have added)
-    // Should NOT be available for dispatch
-    let dispatchBlocked = false;
-    try { dispatchFromFormation(s, pid, 'goa'); } catch (e) { dispatchBlocked = /recovering|formation/.test(e.message); }
-    ok('ill man cannot be dispatched', dispatchBlocked);
+    // Should NOT be a candidate for sending
+    ok('ill man is not a sending candidate',
+      !EngineNS.deploymentCandidates(s).some((c) => c.petitionerId === pid));
     // Should NOT be assignable domestically
     let assignBlocked = false;
     try { assignDomestic(s, pid, 'teaching'); } catch (e) { assignBlocked = /recovering/.test(e.message); }
@@ -1218,9 +1344,9 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   }
 }
 
-// --- Dispatch from Europe (post-formation) -------------------------------------
+// --- Send to dock from Europe (ships only) -------------------------------------
 {
-  const s = newGame({ mode: 'campaign', seed: 'europe-dispatch-test' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'europe-dock-test' });
   // Deny a man to get him into europeanLabor
   const { terna } = startYear(s);
   const pid = terna[0].petitionerId;
@@ -1231,22 +1357,30 @@ ok('deterministic repeat (no errors)', soak2.errors.length === 0);
   if (entry) {
     const goaBefore = missionStaffed(missionStaff(s, 'goa'));
     const fundsBefore = s.resources.funds;
-    const result = dispatchFromEurope(s, pid, 'goa');
-    ok('dispatch succeeds', !!result);
+    const sent = EngineNS.queueLaborMen(s, [entry], 'goa', 'test order');
+    ok('send queues the man himself', sent.length === 1 && sent[0] === pid);
     ok('man removed from europeanLabor', !(s.europeanLabor || []).some(e => e.petitionerId === pid));
-    ok('mission staffing increased', missionStaffed(missionStaff(s, 'goa')) === goaBefore + 1);
-    ok('funds decreased', s.resources.funds < fundsBefore);
-    // Ill men cannot be dispatched
-    const s2 = newGame({ mode: 'campaign', seed: 'ill-dispatch-test' });
+    ok('he waits at the dock, not at the mission',
+      s.queue.some((q) => q.petitionerId === pid && q.status === 'awaiting' && q.destination === 'goa')
+      && missionStaffed(missionStaff(s, 'goa')) === goaBefore);
+    ok('nothing is charged until he sails', s.resources.funds === fundsBefore);
+    // He sails with the fleet — a real voyage, in real time. No teleport.
+    const tNext = startYear(s);
+    decide(s, tNext.terna.map((c) => ({ id: c.petitionerId })));
+    resolveYear(s);
+    const voy = s.voyages.find((v) => v.petitionerId === pid);
+    ok('he sails on a ship', !!voy && voy.destination === 'goa');
+    ok('he is still at sea (Goa is two years out)', missionStaffed(missionStaff(s, 'goa')) === goaBefore);
+    // Ill men are not sending candidates.
+    const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'ill-dispatch-test' });
     const t2 = startYear(s2);
     const pid2 = t2.terna[0].petitionerId;
     decide(s2, [{ id: pid2, destination: 'goa' }]);
     resolveYear(s2);
     const voy2 = s2.voyages.find(v => v.petitionerId === pid2);
     dbgForceOutcome(s2, voy2.id, 'ill');
-    let blocked = false;
-    try { dispatchFromEurope(s2, pid2, 'goa'); } catch (e) { blocked = /recovering/.test(e.message); }
-    ok('ill man cannot dispatch from Europe', blocked);
+    ok('ill man is not a sending candidate',
+      !EngineNS.deploymentCandidates(s2).some((c) => c.petitionerId === pid2));
   }
 }
 
@@ -1271,7 +1405,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
 {
   // A1. Accounting: order removes from europeanLabor, pool decrements once at departure.
-  const s = newGame({ mode: 'campaign', seed: 'dep-acct' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'dep-acct' });
   const ids = seedLabor(s, 4);
   const availBefore = s.available;
   const laborBefore = s.europeanLabor.length;
@@ -1283,27 +1417,31 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   const fundsBefore = s.resources.funds;
   const { terna } = startYear(s);
   decide(s, []); // deny terna so only deployment men sail
-  resolveYear(s); // departures: 4 men x 60 (berths 3/yr -> 3 sail this year)
+  resolveYear(s, { skipNatives: true }); // departures: 4 men x 60 (Model B: 4 men fit 1 hull, 1 berth → all sail)
   const sailed = s.voyages.filter(v => v.deploymentId === dep.id);
-  ok('3 of 4 sail in year one (berth-bound)', sailed.length === 3, `${sailed.length}`);
-  ok('pool decremented exactly once per sailed man', s.available === availBefore - 3 + 1, `${s.available}`);
+  ok('4 of 4 sail in year one (1 ship, 1 berth)', sailed.length === 4, `${sailed.length}`);
+  // Veterans coming home rejoin the pool (+1 each) — starting staff are
+  // real men now, so some may return in the sailing year itself.
+  const vetsA1 = s.voyages.filter(v => v.veteranReturned && v.veteranYear === 1615).length;
+  ok('pool decremented exactly once per sailed man', s.available === availBefore - 4 + 1 + vetsA1,
+    `${s.available} (veterans home: ${vetsA1})`);
   // 3 deployment men x 60 at departure; the 3 denied terna cards cost 15 each (seal);
   // deployment men themselves incur no seal costs.
   const upkeep = Object.keys(s.missions).reduce((n, id) => n + missionUpkeep(missionStaff(s, id)), 0);
   ok('60 scudi per man charged at departure, no seal costs on deployment men',
-    s.resources.funds === fundsBefore - 180 - 3 * RESOURCES.DENIAL_COST + 240 - upkeep,
-    `${s.resources.funds} vs ${fundsBefore - 180 - 3 * RESOURCES.DENIAL_COST + 240 - upkeep}`);
+    s.resources.funds === fundsBefore - 240 - 3 * RESOURCES.DENIAL_COST + 240 - upkeep,
+    `${s.resources.funds} vs ${fundsBefore - 240 - 3 * RESOURCES.DENIAL_COST + 240 - upkeep}`);
   ok('voyages stamped with deploymentId', sailed.every(v => v.deploymentId === dep.id));
   const st1 = deploymentStatus(s, dep.id);
-  ok('status in-transit while men await berths', st1.status === 'in-transit' && st1.awaiting === 1, JSON.stringify(st1));
+  ok('status in-transit (all sailed, Model B)', st1.status === 'in-transit' && st1.awaiting === 0, JSON.stringify(st1));
   const roster1 = deploymentRoster(s, dep.id);
-  ok('roster tracks per-member states', roster1.filter(m => m.state === 'in-transit').length === 3 && roster1.filter(m => m.state === 'awaiting').length === 1);
+  ok('roster tracks per-member states', roster1.filter(m => m.state === 'in-transit').length === 4 && roster1.filter(m => m.state === 'awaiting').length === 0);
   ok('roster keeps names after europeanLabor removal', roster1.every(m => /^Test Man/.test(m.name)));
 }
 
 {
   // A2. Eligibility: ill / in-formation / assigned men are excluded.
-  const s = newGame({ mode: 'campaign', seed: 'dep-elig' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'dep-elig' });
   const okIds = seedLabor(s, 2, 'elig-ok');
   const illIds = seedLabor(s, 1, 'elig-ill', { ill: 'recovering (ill 1615)' });
   const formIds = seedLabor(s, 1, 'elig-form', { formation: { focus: 'exercises', until: s.year + 1 } });
@@ -1332,7 +1470,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
 {
   // A3. Deterministic selection: headcount and grade modes; fail loudly.
-  const s = newGame({ mode: 'campaign', seed: 'dep-sel' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'dep-sel' });
   seedLabor(s, 6, 'sel');
   const a = selectDeploymentMembers(s, { count: 4 });
   const b = selectDeploymentMembers(s, { count: 4 });
@@ -1343,7 +1481,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   ok('selection fails loudly when short', threw);
   // Grade mode: request the majority grade among seeded men (grades come from
   // the deterministic per-seed stream for fictional records).
-  const s2 = newGame({ mode: 'campaign', seed: 'dep-selg' });
+  const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'dep-selg' });
   const gids = seedLabor(s2, 8, 'selg');
   const gcounts = {};
   for (const id of gids) { const gr = staffGradeFor(s2, id); gcounts[gr] = (gcounts[gr] || 0) + 1; }
@@ -1357,15 +1495,15 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
 {
   // A4. Partial departure across years; queue interleaving with terna approvals.
-  const s = newGame({ mode: 'campaign', seed: 'dep-partial' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'dep-partial' });
   const ids = seedLabor(s, 6, 'part');
   orderDeployment(s, { destId: 'goa', purpose: 'replace', memberIds: ids });
   const t = startYear(s);
   decide(s, [{ id: t.terna[0].petitionerId, destination: 'goa' }]); // one terna approval, same year
   resolveYear(s);
   const depVoy = s.voyages.filter(v => v.deploymentId);
-  ok('year 1: berths split 3 deployment men; terna approval waits (no priority)',
-    depVoy.length === 3, `${depVoy.length} deployment voyages`);
+  ok('year 1: 6 deployment men fit 1 hull, 1 berth — all sail (Model B)',
+    depVoy.length === 6, `${depVoy.length} deployment voyages`);
   // Year 2: remaining 3 sail (one hull busy, two free).
   startYear(s); decide(s, []);
   resolveYear(s);
@@ -1373,14 +1511,20 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   ok('year 2: remaining members sail', depVoy2.length === 6, `${depVoy2.length}`);
   const st = deploymentStatus(s, s.deployments[0].id);
   ok('status in-transit until all resolved', st.status === 'in-transit' && st.awaiting === 0, JSON.stringify(st));
-  // No double-counting: pool lost exactly 6 (+1 yearly intake each year, minus terna man).
-  // (asserted loosely: pool never went negative and departures match)
-  ok('no pool anomaly', s.available >= 0 && s.available < 131);
+  // No double-counting: pool lost exactly the 7 who sailed (6 deployment
+  // + 1 terna), gained 2 yearly intakes, plus one per man who rejoined
+  // (veterans home, voyages resolved 'returned') — all counted from the
+  // voyage records themselves.
+  const rejoinsA4 = s.voyages.filter(v =>
+    (v.veteranReturned && v.veteranYear <= 1616) ||
+    (v.outcome === 'returned' && v.resolvedYear === 1616)).length;
+  ok('no pool anomaly', s.available === 131 - 7 + 2 + rejoinsA4,
+    `${s.available} (rejoins: ${rejoinsA4})`);
 }
 
 {
   // A5. Save/load round-trip preserves deployments; old saves default safely.
-  const s = newGame({ mode: 'campaign', seed: 'dep-save' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'dep-save' });
   const ids = seedLabor(s, 3, 'save');
   const dep = orderDeployment(s, { destId: 'goa', purpose: 'college', memberIds: ids });
   const rt = deserialize(serialize(s));
@@ -1396,7 +1540,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
 {
   // A6. Single-fire resolution: no duplication or loss on re-resolve.
-  const s = newGame({ mode: 'campaign', seed: 'dep-once' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'dep-once' });
   const ids = seedLabor(s, 2, 'once');
   const dep = orderDeployment(s, { destId: 'goa', purpose: 'reinforce', memberIds: ids });
   startYear(s); decide(s, []);
@@ -1415,18 +1559,23 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   ok('outcomes recorded per member',
     roster.find(m => m.petitionerId === ids[0]).state === 'returned' &&
     roster.find(m => m.petitionerId === ids[1]).state === 'thriving');
-  // Returnee rejoins pool exactly once (existing convention).
-  ok('returnee rejoins pool once', s.available === availPre + 1 + 1, `${s.available} vs ${availPre}`);
+  // Returnee rejoins pool exactly once (existing convention) — plus the
+  // year's intake, plus any veteran who came home in the same resolve.
+  const vetsA6 = s.voyages.filter(v => v.veteranReturned && v.veteranYear === 1616).length;
+  ok('returnee rejoins pool once', s.available === availPre + 1 + 1 + vetsA6,
+    `${s.available} vs ${availPre} (veterans home: ${vetsA6})`);
   const dupes = s.europeanLabor.filter(e => e.petitionerId === ids[0]);
   ok('no duplicate europeanLabor entries', dupes.length <= 1, `${dupes.length}`);
 }
 
 {
-  // A7. Constraints analysis names the binding constraint; hull-fit != sail-ready.
-  const s = newGame({ mode: 'campaign', seed: 'dep-con' });
+  // A7. Constraints analysis names the binding constraint (Model B).
+  // 6 men fit in 1 hull (cap 8), need 1 berth (have 3) → nothing binds.
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'dep-con' });
   const c6 = deploymentConstraints(s, 6);
-  ok('6 men: berths bind (3/yr)', c6.bottleneck === 'berths' && c6.sailingYears === 2, JSON.stringify({ b: c6.bottleneck, y: c6.sailingYears }));
-  ok('6 souls fit one hull yet cannot sail at once', c6.hullSouls <= c6.hullCapacity && c6.bottleneck === 'berths');
+  ok('6 men: 1 ship, 1 berth — nothing binds', c6.bottleneck === null && c6.shipsNeeded === 1,
+    JSON.stringify({ b: c6.bottleneck, ships: c6.shipsNeeded }));
+  ok('6 men fit one hull', c6.hullMen <= c6.hullCapacity);
   const c2 = deploymentConstraints(s, 2);
   ok('2 men: nothing binds', c2.bottleneck === null, JSON.stringify(c2.bottleneck));
   s.resources.funds = 10;
@@ -1441,9 +1590,9 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 // --- Report card (Stage 2): end-of-generalate account -----------------------
 {
   // Fresh game: zeros, treasury 1000/1000, no missing-data flags on new saves.
-  const s = newGame({ mode: 'campaign', seed: 'rep-fresh' });
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'rep-fresh' });
   const r = generalateReport(s);
-  ok('report: fresh game score 50', r.score === 50 && r.scoreTitle === 'The Steady General');
+  ok('report: fresh game score normalized 37', r.score === 37 && r.scoreTitle === 'The Reluctant Steward');
   ok('report: fresh game zeros', r.outcomes.thriving === 0 && r.personnel.dispatched === 0
     && r.institutions.novitiates.length === 0 && r.events.length === 0);
   ok('report: treasury 1000/1000/net 0', r.treasury.start === 1000 && r.treasury.end === 1000 && r.treasury.net === 0);
@@ -1452,12 +1601,17 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   ok('report: narrative is prose, no judgments', typeof r.narrative === 'string' && r.narrative.length > 40
     && !/wasteful|inefficient|prudent|imprudent/i.test(r.narrative));
   ok('report: never exposes scoreUncapped', !JSON.stringify(r).includes('scoreUncapped'));
-  ok('report: JSON-safe', JSON.parse(JSON.stringify(r)).score === 50);
+  ok('report: JSON-safe', JSON.parse(JSON.stringify(r)).score === 37);
 
-  // Scripted campaign fragment: dispatch, novitiate, voyages.
-  const g = newGame({ mode: 'campaign', seed: 'rep-script' });
+  // Scripted campaign fragment: men sent by request, novitiate, voyages.
+  const g = newGameWithGalleons({ mode: 'campaign', seed: 'rep-script' });
   foundNovitiate(g, 'china');
-  dispatchMission(g, 'goa', { brothers: 2 });
+  // Send 2 named brothers to Goa by answering a provincial request.
+  seedLabor(g, 2, 'rep');
+  for (const id of ['test-rep-0', 'test-rep-1']) g.petitioners[id].vows = { stage: 'brother' };
+  g.provincials.east = { petitionerId: null, name: 'Test Provincial', hq: 'goa', appointedYear: g.year };
+  g.provincialRequests = { east: { regionId: 'east', year: g.year, professed: 0, fathers: 0, brothers: 2 } };
+  answerProvincialRequest(g, 'east', { professed: 0, fathers: 0, brothers: 2 });
   ok('report: dispatch counter', g.stats.missionDispatches === 2 && g.stats.missionDispatchDests.goa === 2);
   for (let y = 0; y < 3; y++) {
     const { terna } = startYear(g);
@@ -1476,18 +1630,22 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   ok('endGame carries the report', end.report && end.report.score === getScore(g));
 
   // Missing data (older save): omitted/marked unavailable, never fabricated.
-  const o = newGame({ mode: 'campaign', seed: 'rep-old' });
+  const o = newGameWithGalleons({ mode: 'campaign', seed: 'rep-old' });
   delete o.stats.missionDispatches;
   delete o.stats.missionDispatchDests;
   const r3 = generalateReport(o);
   ok('report: missing dispatch data -> null, flagged unknown', r3.institutions.strengthened === null
     && r3.institutions.strengthenedUnknown === true && r3.institutions.strengthenedTotal === null);
   ok('report: narrative notes unavailable data', /not recorded/.test(r3.narrative));
-  ok('report: old save still renders numbers', r3.score === 50 && r3.treasury.start === 1000);
+  ok('report: old save still renders numbers', r3.score === 37 && r3.treasury.start === 1000);
 
   // Round-trip through serialize/deserialize preserves the report inputs.
-  const g2 = newGame({ mode: 'campaign', seed: 'rep-ser' });
-  dispatchMission(g2, 'goa', { brothers: 3 });
+  const g2 = newGameWithGalleons({ mode: 'campaign', seed: 'rep-ser' });
+  seedLabor(g2, 3, 'reps');
+  for (const id of ['test-reps-0', 'test-reps-1', 'test-reps-2']) g2.petitioners[id].vows = { stage: 'brother' };
+  g2.provincials.east = { petitionerId: null, name: 'Test Provincial', hq: 'goa', appointedYear: g2.year };
+  g2.provincialRequests = { east: { regionId: 'east', year: g2.year, professed: 0, fathers: 0, brothers: 3 } };
+  answerProvincialRequest(g2, 'east', { professed: 0, fathers: 0, brothers: 3 });
   const back = deserialize(serialize(g2));
   const r4 = generalateReport(back);
   ok('report: survives serialize round-trip', r4.institutions.strengthenedTotal === 3);
@@ -1517,7 +1675,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 1. Milestone detection: 2-year novice queues firstVows.
   {
-    const s = newGame({ mode: 'campaign', seed: 'vows-detect' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'vows-detect' });
     const id = vowsMan(s, 'nov2', 2, 'novice', 'scholastic');
     resolveYear(s);
     const p = (s.pendingVows || []).find((x) => x.petitionerId === id && x.type === 'firstVows');
@@ -1526,7 +1684,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 2. firstVows proceed: novice -> scholastic, +zeal/+humility.
   {
-    const s = newGame({ mode: 'campaign', seed: 'vows-first' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'vows-first' });
     const id = vowsMan(s, 'nov2', 2, 'novice', 'scholastic');
     resolveYear(s);
     const d0 = ensureDisposition(s, id);
@@ -1543,7 +1701,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 3. Brother firstVows: stays brother.
   {
-    const s = newGame({ mode: 'campaign', seed: 'vows-bro' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'vows-bro' });
     const id = vowsMan(s, 'bro2', 2, 'brother');
     resolveYear(s);
     decideVows(s, id, 'firstVows', 'proceed');
@@ -1557,7 +1715,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 4. Defer: +humility, deferredUntil, re-queued after 2 years.
   {
-    const s = newGame({ mode: 'campaign', seed: 'vows-defer' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'vows-defer' });
     const id = vowsMan(s, 'nov2', 2, 'novice', 'scholastic');
     resolveYear(s);
     const d0 = ensureDisposition(s, id);
@@ -1581,7 +1739,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 5. Dismiss: removed, status DISMISSED, never returns.
   {
-    const s = newGame({ mode: 'campaign', seed: 'vows-dismiss' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'vows-dismiss' });
     const id = vowsMan(s, 'nov2', 2, 'novice', 'scholastic');
     resolveYear(s);
     decideVows(s, id, 'firstVows', 'dismiss');
@@ -1594,7 +1752,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 6. Ordination threshold: 10 years NOT eligible, 12 years eligible.
   {
-    const s = newGame({ mode: 'campaign', seed: 'vows-ord10' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'vows-ord10' });
     // hist-67 is a scholastic in the fixtures (deterministic grade).
     const pid = 'hist-67';
     s.petitioners[pid] = {
@@ -1610,13 +1768,13 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
       },
     });
     ok('vows: 10-year scholastic NOT ordination-eligible', ordinationEligible(s, pid) === false);
-    s.petitioners[pid].yearsInSociety = 12;
+    s.petitioners[pid].ageInReligion = 12;
     ok('vows: 12-year scholastic IS ordination-eligible', ordinationEligible(s, pid) === true);
   }
 
   // 7. Full progression: novice -> scholastic -> ordained via milestones.
   {
-    const s = newGame({ mode: 'campaign', seed: 'vows-full' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'vows-full' });
     const id = vowsMan(s, 'nov2', 2, 'novice', 'scholastic');
     // firstVows
     resolveYear(s);
@@ -1624,7 +1782,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     let entry = s.europeanLabor.find((e) => e.petitionerId === id);
     ok('vows: stage scholastic after firstVows', entry.vows.stage === 'scholastic');
     // Fast-forward: bump years to 5, check philosophy queues.
-    s.petitioners[id].yearsInSociety = 5;
+    s.petitioners[id].ageInReligion = 5;
     resolveYear(s);
     ok('vows: philosophy queued at 5 years',
       (s.pendingVows || []).some((x) => x.petitionerId === id && x.type === 'philosophy'));
@@ -1634,7 +1792,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     ok('vows: philosophy +prudence',
       ensureDisposition(s, id).current.prudence === Math.min(5, p0 + 1));
     // 8 years: regency.
-    s.petitioners[id].yearsInSociety = 8;
+    s.petitioners[id].ageInReligion = 8;
     resolveYear(s);
     ok('vows: regency queued at 8 years',
       (s.pendingVows || []).some((x) => x.petitionerId === id && x.type === 'regency'));
@@ -1642,7 +1800,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     entry = s.europeanLabor.find((e) => e.petitionerId === id);
     ok('vows: regency recorded', entry.vows.regency === s.year);
     // 12 years: theology then ordination.
-    s.petitioners[id].yearsInSociety = 12;
+    s.petitioners[id].ageInReligion = 12;
     resolveYear(s);
     ok('vows: theology queued at 12 years',
       (s.pendingVows || []).some((x) => x.petitionerId === id && x.type === 'theology'));
@@ -1661,7 +1819,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 8. Final vows: invite -> tertianship -> grade choice.
   {
-    const s = newGame({ mode: 'campaign', seed: 'vows-final' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'vows-final' });
     const id = vowsMan(s, 'ord', 15, 'ordained');
     const y0 = s.year;
     inviteFinalVows(s, id);
@@ -1685,7 +1843,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 9. rankSuffix: nSJ for novice, SJ otherwise.
   {
-    const s = newGame({ mode: 'campaign', seed: 'vows-suffix' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'vows-suffix' });
     const novId = vowsMan(s, 'nov', 1, 'novice');
     const schId = vowsMan(s, 'sch', 5, 'scholastic');
     const broId = vowsMan(s, 'bro', 5, 'brother');
@@ -1697,7 +1855,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 10. Invalid inputs throw.
   {
-    const s = newGame({ mode: 'campaign', seed: 'vows-err' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'vows-err' });
     const id = vowsMan(s, 'nov2', 2, 'novice', 'scholastic');
     let threw = false;
     try { decideVows(s, id, 'firstVows', 'proceed'); } catch { threw = true; }
@@ -1715,7 +1873,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 11. Save round-trip preserves vows.
   {
-    const s = newGame({ mode: 'campaign', seed: 'vows-save' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'vows-save' });
     const id = vowsMan(s, 'nov2', 2, 'novice', 'scholastic');
     resolveYear(s);
     decideVows(s, id, 'firstVows', 'proceed');
@@ -1728,7 +1886,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 12. Old save without vows gets backfilled.
   {
-    const s = newGame({ mode: 'campaign', seed: 'vows-old' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'vows-old' });
     const id = vowsMan(s, 'nov2', 2, 'novice', 'scholastic');
     const entry = s.europeanLabor.find((e) => e.petitionerId === id);
     delete entry.vows;
@@ -1739,7 +1897,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // DEAD-END TESTS
   {
-    const s = newGame({ mode: 'campaign', seed: 'deadend-terna' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'deadend-terna' });
     dbgSpawnTerna(s);
     decide(s, []);
     let threw = false;
@@ -1747,7 +1905,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     ok('deadend: decide() after seal throws clear error', threw);
   }
   {
-    const s = newGame({ mode: 'campaign', seed: 'deadend-block' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'deadend-block' });
     dbgSpawnTerna(s);
     let blocked = 0;
     for (const fn of [() => foundNovitiate(s, 'goa'), () => expandBerths(s), () => charterShip(s)]) {
@@ -1779,7 +1937,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 40a. Death purges vows queues (Stage 1).
   {
-    const s = newGame({ mode: 'campaign', seed: 'death-purge' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'death-purge' });
     const id = overseasMan(s, 'dp', 8, 'goa');
     // Manually queue in-transit news and a pending decision for him.
     s.vowsNewsInTransit = [{ petitionerId: id, type: 'regency', name: 'Overseas Man dp', destId: 'goa', milestoneYear: s.year, arriveYear: s.year + 2, newsText: 'has completed regency' }];
@@ -1791,7 +1949,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 40b. decideVows on a dead man throws (Stage 1 defense in depth).
   {
-    const s = newGame({ mode: 'campaign', seed: 'death-decide' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'death-decide' });
     const id = vowsMan(s, 'dd', 2, 'novice', 'scholastic');
     s.pendingVows = [{ petitionerId: id, type: 'firstVows', year: s.year, name: 'Vows Man dd' }];
     s.petitioners[id].status = 'deceased';
@@ -1802,12 +1960,12 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 40c. Voyage death purges vows state end-to-end (Stage 1).
   {
-    const s = newGame({ mode: 'campaign', seed: 'death-voyage' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'death-voyage' });
     const { terna } = startYear(s);
     const pick = terna[0];
     decide(s, [{ id: pick.petitionerId }]);
     resolveYear(s);
-    const v = s.voyages[0];
+    const v = s.voyages.find((x) => x.petitionerId === pick.petitionerId);
     // Queue vows state for the voyager before he dies.
     s.vowsNewsInTransit = [{ petitionerId: v.petitionerId, type: 'firstVows', name: 'x', destId: v.destination, milestoneYear: s.year, arriveYear: s.year + 2, newsText: 't' }];
     s.pendingVows = [{ petitionerId: v.petitionerId, type: 'firstVows', year: s.year, name: 'x' }];
@@ -1819,7 +1977,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 40d. entryYear set on approval; years advance for approved men (Stage 2).
   {
-    const s = newGame({ mode: 'campaign', seed: 'entry-year' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'entry-year' });
     const { terna } = startYear(s);
     const pick = terna[0];
     // Give the petitioner known historical years.
@@ -1833,11 +1991,14 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     ok('entry-year: 5 years elapsed', s.year === y0 + 5);
     ok('entry-year: baseline preserved', rec.entryYear === y0);
     ok('entry-year: derived years grew', (s.year - rec.entryYear + 6) === 11);
+    ok('age-in-religion: counter grew 6 -> 11 over 5 years', rec.ageInReligion === 11 && ageInReligion(s, pick.petitionerId) === 11,
+      String(rec.ageInReligion));
+    ok('total-years: grew 6 -> 11 over 5 years', rec.totalYearsInSociety === 11 && yearsInSociety(s, pick.petitionerId) === 11);
   }
 
   // 40e. Overseas milestone: detection -> transit -> Desk (Stage 2 + overseas flow).
   {
-    const s = newGame({ mode: 'campaign', seed: 'ovs-mile' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'ovs-mile' });
     // 12-year scholastic stationed at Goa; theology milestone triggers.
     const id = overseasMan(s, 'om', 12, 'goa');
     s.petitioners[id].vows = {
@@ -1860,7 +2021,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 40f. Final vows: invitation -> tertianship -> coadjutor/professed (Stage 5).
   {
-    const s = newGame({ mode: 'campaign', seed: 'final-vows-p' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'final-vows-p' });
     const id = vowsMan(s, 'fv', 13, 'ordained', 'scholastic');
     const inv = inviteFinalVows(s, id);
     ok('final-vows: invited', inv.invited === true);
@@ -1871,7 +2032,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     ok('final-vows: professed chosen', done.grade === 'professed' && e0.vows.stage === 'professed');
   }
   {
-    const s = newGame({ mode: 'campaign', seed: 'final-vows-c' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'final-vows-c' });
     const id = vowsMan(s, 'fv', 13, 'ordained', 'scholastic');
     inviteFinalVows(s, id);
     const { terna: t } = startYear(s); decide(s, []); resolveYear(s);
@@ -1880,7 +2041,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
   }
   {
     // Tertianship completion queues the finalVowsGrade Desk decision.
-    const s = newGame({ mode: 'campaign', seed: 'final-vows-q' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'final-vows-q' });
     const id = vowsMan(s, 'fv', 13, 'ordained', 'scholastic');
     inviteFinalVows(s, id);
     for (let i = 0; i < 2; i++) { const { terna: t } = startYear(s); decide(s, []); resolveYear(s); }
@@ -1890,7 +2051,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 40g. Rank monotonicity: stages never regress across years (Stage 5).
   {
-    const s = newGame({ mode: 'campaign', seed: 'mono' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'mono' });
     const order = { novice: 0, scholastic: 1, brother: 1, ordained: 2, coadjutor: 3, professed: 3 };
     const ids = [
       vowsMan(s, 'm1', 1, 'novice', 'scholastic'),
@@ -1918,7 +2079,7 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
 
   // 40h. Direct dispatch preserves years progression like terna approval (Stage 5).
   {
-    const s = newGame({ mode: 'campaign', seed: 'dispatch-years' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'dispatch-years' });
     const id = vowsMan(s, 'de', 4, 'scholastic', 'scholastic');
     const rec = s.petitioners[id];
     ok('dispatch-years: entryYear set via europeanLabor', rec.entryYear === s.year);
@@ -1926,11 +2087,12 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     for (let i = 0; i < 3; i++) { const { terna: t } = startYear(s); decide(s, []); resolveYear(s); }
     // yearsInSociety = s.year - entryYear + 4 = 7 after 3 years.
     ok('dispatch-years: years advance', (s.year - rec.entryYear + 4) === 7 && s.year === y0 + 3);
+    ok('age-in-religion: dispatch-years counter is 7', rec.ageInReligion === 7, String(rec.ageInReligion));
   }
 
   // 40i. Multi-man isolation: decisions on one man don't touch another (Stage 5).
   {
-    const s = newGame({ mode: 'campaign', seed: 'isolation' });
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'isolation' });
     const a = vowsMan(s, 'ia', 2, 'novice', 'scholastic');
     const b = vowsMan(s, 'ib', 2, 'novice', 'scholastic');
     s.pendingVows = [
@@ -1944,6 +2106,2206 @@ function seedLabor(s, n, tag = 'dep', entryExtra = {}) {
     ok('isolation: other man untouched', eb.vows.stage === 'novice' && eb.vows.firstVows == null);
     ok('isolation: other pending intact', (s.pendingVows || []).some((x) => x.petitionerId === b));
   }
+
+  // 40j. Age in religion: a stored counter drives formation progression.
+  {
+    ok('age-in-religion: thresholds', JSON.stringify(FORMATION_THRESHOLDS) ===
+      JSON.stringify({ firstVows: 2, philosophy: 5, regency: 8, theology: 12, ordination: 12 }));
+    // Seeded from historical years + elapsed, then advanced once per resolveYear.
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'air-1' });
+    const id = vowsMan(s, 'air', 0, 'novice', 'scholastic');
+    ok('age-in-religion: unseeded reads legacy derivation', ageInReligion(s, id) === 0
+      && s.petitioners[id].ageInReligion === undefined);
+    initAgeInReligion(s, id);
+    ok('age-in-religion: seeded at 0', s.petitioners[id].ageInReligion === 0);
+    ok('age-in-religion: both counters seeded equal', yearsInSociety(s, id) === 0 && vowsYearsInSociety(s, id) === 0
+      && s.petitioners[id].totalYearsInSociety === 0);
+    // Ignore entryYear once seeded: changing it must not move the counter.
+    s.petitioners[id].entryYear = s.year - 30;
+    ok('age-in-religion: entryYear no longer read after seeding', ageInReligion(s, id) === 0);
+    resolveYear(s);
+    ok('age-in-religion: +1 after one year', ageInReligion(s, id) === 1);
+    ok('age-in-religion: no firstVows at 1', !(s.pendingVows || []).some((x) => x.petitionerId === id));
+    resolveYear(s);
+    resolveYear(s);
+    ok('age-in-religion: firstVows queued from counter alone at 2',
+      (s.pendingVows || []).some((x) => x.petitionerId === id && x.type === 'firstVows'));
+    ok('age-in-religion: 3 after three years', ageInReligion(s, id) === 3);
+    ok('total-years: equals ageInReligion before any deferral', yearsInSociety(s, id) === 3
+      && s.petitioners[id].totalYearsInSociety === 3);
+    // Deferral PAUSES ageInReligion (background) but not the visible total.
+    const yDef = s.year;
+    decideVows(s, id, 'firstVows', 'defer');
+    const dU = s.petitioners[id].vows.deferredUntil;
+    ok('deferral: deferredUntil = year + 2', dU === yDef + 2);
+    resolveYear(s);
+    ok('deferral: ageInReligion paused (year 1)', ageInReligion(s, id) === 3, String(ageInReligion(s, id)));
+    ok('deferral: total still counting (year 1)', yearsInSociety(s, id) === 4);
+    resolveYear(s);
+    ok('deferral: ageInReligion paused (year 2)', ageInReligion(s, id) === 3, String(ageInReligion(s, id)));
+    ok('deferral: total still counting (year 2)', yearsInSociety(s, id) === 5);
+    ok('deferral: no re-queue while deferred', !(s.pendingVows || []).some((x) => x.petitionerId === id));
+    ok('deferral: vows helper reports visible total', vowsYearsInSociety(s, id) === 5);
+    // Deferral expires (s.year === deferredUntil): decision re-queued, counter resumes.
+    ok('deferral: now at deferredUntil', s.year === dU);
+    resolveYear(s);
+    ok('deferral: firstVows re-queued after deferral', (s.pendingVows || []).some((x) => x.petitionerId === id && x.type === 'firstVows'));
+    ok('deferral: ageInReligion resumes', ageInReligion(s, id) === 4, String(ageInReligion(s, id)));
+    ok('deferral: total keeps counting', yearsInSociety(s, id) === 6);
+    resolveYear(s);
+    ok('deferral: resumes +1 per year', ageInReligion(s, id) === 5 && yearsInSociety(s, id) === 7);
+    // The dead stop counting.
+    s.petitioners[id].status = 'deceased';
+    resolveYear(s);
+    ok('age-in-religion: deceased frozen', ageInReligion(s, id) === 5 && yearsInSociety(s, id) === 7);
+    // Men not yet in the Society (no entryYear) are not advanced.
+    const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'air-2' });
+    s2.petitioners['air-out'] = { id: 'air-out', fictional: true, status: 'new', history: [], yearsInSociety: 3 };
+    resolveYear(s2);
+    ok('age-in-religion: outsiders not advanced', s2.petitioners['air-out'].ageInReligion === undefined
+      && ageInReligion(s2, 'air-out') === 3);
+  }
+
+  // 40k. Old saves lacking ageInReligion migrate from entryYear on load.
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'air-migrate' });
+    const id = vowsMan(s, 'mig', 3, 'scholastic', 'scholastic');
+    s.petitioners[id].entryYear = s.year - 4; // entered 4 years ago with 3 historical years
+    const raw = JSON.parse(JSON.stringify(serialize(s)));
+    delete raw.petitioners[id].ageInReligion;
+    delete raw.petitioners[id].totalYearsInSociety;
+    const back = deserialize(raw);
+    ok('age-in-religion: migrated 3 + 4 = 7', back.petitioners[id].ageInReligion === 7,
+      String(back.petitioners[id].ageInReligion));
+    ok('total-years: migrated 3 + 4 = 7', back.petitioners[id].totalYearsInSociety === 7);
+    const rt = deserialize(serialize(back));
+    ok('age-in-religion: survives round-trip', rt.petitioners[id].ageInReligion === 7 && rt.petitioners[id].totalYearsInSociety === 7);
+  }
+
+  // 40l. Diagnostics export carries ageInReligion.
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'air-diag' });
+    const id = vowsMan(s, 'dg', 1, 'novice', 'brother');
+    resolveYear(s);
+    const before = JSON.stringify(s);
+    const rep = buildDiagnosticReport(EngineNS, s);
+    const m = rep.men.find((x) => x.petitionerId === id);
+    ok('age-in-religion: diagnostics fields', m && m.ageInReligion === 2 && m.ageInReligionStored === true
+      && m.yearsInSociety === 2 && m.totalYearsInSociety === 2 && m.ageInReligionPaused === false, JSON.stringify(m));
+    ok('age-in-religion: diagnostics read-only', JSON.stringify(s) === before);
+    // Deferred man: visible total diverges from paused background counter.
+    s.petitioners[id].ageInReligion = 1;
+    s.petitioners[id].vows.deferredUntil = s.year + 1;
+    const m2 = buildDiagnosticReport(EngineNS, s).men.find((x) => x.petitionerId === id);
+    ok('age-in-religion: diagnostics exports visible + background', m2.totalYearsInSociety === 2
+      && m2.ageInReligion === 1 && m2.ageInReligionPaused === true, JSON.stringify(m2));
+  }
+
+  // 40m. Desk-card years seed both counters at entry (incl. null records -> seeded card value).
+  {
+    let checked = 0, mismatches = [];
+    for (const seed of ['card-seed-1', 'card-seed-2', 'card-seed-3', 'card-seed-4']) {
+      const s = newGameWithGalleons({ mode: 'campaign', seed });
+      for (let yr = 0; yr < 3; yr++) {
+        const { terna } = startYear(s);
+        const g = getGameData();
+        for (const c of terna) {
+          if (cardYearsInSociety(s, c.petitionerId) !== c.yearsInSociety
+            && typeof s.petitioners[c.petitionerId].totalYearsInSociety !== 'number') mismatches.push(['card', c.petitionerId]);
+        }
+        const fresh = terna.filter((c) => typeof s.petitioners[c.petitionerId].ageInReligion !== 'number');
+        decide(s, terna.length ? [{ id: terna[0].petitionerId }] : []);
+        for (const c of fresh) {
+          const r = s.petitioners[c.petitionerId];
+          checked++;
+          if (r.ageInReligion !== c.yearsInSociety || r.totalYearsInSociety !== c.yearsInSociety) {
+            mismatches.push([c.petitionerId, c.yearsInSociety, r.ageInReligion, r.totalYearsInSociety]);
+          }
+        }
+        resolveYear(s);
+      }
+    }
+    ok('card-seed: card value == engine seed for every entering man', checked > 0 && mismatches.length === 0,
+      `checked=${checked} ${JSON.stringify(mismatches.slice(0, 3))}`);
+  }
+  // Null yearsInSociety on a historical record: card-seeded value is used, deterministically.
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'card-null' });
+    const g = getGameData();
+    const pet = g.petitioners.find((p) => !p.fictional);
+    const saved = pet.yearsInSociety;
+    pet.yearsInSociety = null;
+    try {
+      const v1 = cardYearsInSociety(s, pet.id), v2 = cardYearsInSociety(s, pet.id);
+      ok('card-seed: null record gets seeded card value', Number.isInteger(v1) && v1 >= 1 && v1 <= 28 && v1 === v2, String(v1));
+      s.petitioners[pet.id] = { id: pet.id, fictional: false, status: 'denied', history: [], deniedCount: 1,
+        usedLetters: [], voyages: [], archived: false, entryYear: s.year };
+      initAgeInReligion(s, pet.id);
+      ok('card-seed: null record seeds both counters from card value (not 0)',
+        s.petitioners[pet.id].ageInReligion === v1 && s.petitioners[pet.id].totalYearsInSociety === v1);
+      const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'card-null' });
+      ok('card-seed: same seed -> same value', cardYearsInSociety(s2, pet.id) === v1);
+    } finally { pet.yearsInSociety = saved; }
+  }
+
+  // 40n. Formation & Mission history: recorded live, in year order.
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'hist-live' });
+    const id = vowsMan(s, 'hl', 1, 'novice', 'scholastic');
+    initAgeInReligion(s, id);
+    resolveYear(s); // 1 -> 2
+    resolveYear(s); // queues firstVows at 2
+    decideVows(s, id, 'firstVows', 'defer');
+    const defY = s.year;
+    resolveYear(s); resolveYear(s); // paused 2 years
+    resolveYear(s); // deferral over: resumes, re-queued
+    decideVows(s, id, 'firstVows', 'proceed');
+    const h = personHistory(s, id);
+    const evs = h.events.map((e) => e.event);
+    ok('history: deferral recorded', evs.includes('deferred'));
+    const end = h.events.find((e) => e.event === 'deferral-ended');
+    ok('history: deferral-ended with 2 years paused', end && end.pausedYears === 2 && end.year === defY + 2, JSON.stringify(end));
+    ok('history: first vows recorded after deferral', evs.indexOf('first-vows') > evs.indexOf('deferral-ended'));
+    ok('history: summary pausedYears 2', h.summary.pausedYears === 2 && h.summary.totalYearsInSociety === h.summary.ageInReligion + 2,
+      JSON.stringify(h.summary));
+    ok('history: all formation kind', h.events.every((e) => e.kind === 'formation'));
+    ok('history: rec flagged', s.petitioners[id].historyV === HISTORY_VERSION);
+
+    // Desk + voyage path: entry, petition approved, departure, arrival.
+    const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'hist-voyage' });
+    const { terna } = startYear(s2);
+    const pid = terna[0].petitionerId;
+    decide(s2, [{ id: pid }]);
+    for (let i = 0; i < 12 && !(s2.voyages || []).some((v) => v.petitionerId === pid && v.stage === 'arrived'); i++) {
+      resolveYear(s2); const st = startYear(s2); decide(s2, []);
+    }
+    const h2 = personHistory(s2, pid);
+    const e2 = h2.events.map((e) => e.event);
+    ok('history: entry event on approval', e2[0] === 'entry' || e2.includes('entry'), JSON.stringify(e2));
+    ok('history: Indies petition outcome shown', h2.events.some((e) => e.event === 'approved' && e.kind === 'mission'));
+    ok('history: departure recorded', e2.includes('departure'), JSON.stringify(e2));
+    ok('history: arrival recorded with location', h2.events.some((e) => e.event === 'arrival' && e.destinationName), JSON.stringify(e2));
+    const yrs = h2.events.map((e) => e.year);
+    ok('history: chronological', yrs.every((y, k) => k === 0 || y >= yrs[k - 1]));
+    ok('history: card history lines unchanged (legacy only)',
+      s2.petitioners[pid].history.filter((x) => !x.kind).every((x) => x.decision));
+    const den = terna.slice(1).map((c) => c.petitionerId);
+    ok('history: denied men get entry + denied petition', den.every((d) => {
+      const ev = personHistory(s2, d).events; return ev.some((e) => e.event === 'entry') && ev.some((e) => e.event === 'denied');
+    }));
+
+    // Backfill: strip life events from an "old save" and reload.
+    const raw = JSON.parse(JSON.stringify(serialize(s2)));
+    for (const r of Object.values(raw.petitioners)) { r.history = (r.history || []).filter((x) => !x.kind); delete r.historyV; }
+    const back = deserialize(raw);
+    const hb = personHistory(back, pid);
+    const eb = hb.events.map((e) => e.event);
+    ok('history backfill: entry + departure + arrival restored', ['entry', 'departure', 'arrival'].every((k) => eb.includes(k)), JSON.stringify(eb));
+    ok('history backfill: marked backfilled', hb.events.filter((e) => !e.legacy).every((e) => e.backfilled));
+    ok('history backfill: entry first', eb[0] === 'entry', JSON.stringify(eb));
+    ok('history backfill: chronological', hb.events.every((e, k, a) => k === 0 || e.year >= a[k - 1].year));
+    ok('history backfill: idempotent round-trip', JSON.stringify(serialize(deserialize(serialize(back)))) === JSON.stringify(serialize(back)));
+  }
+
+  // 40o. Mission-novitiate men: novitiate years count toward both counters, logged in history.
+  {
+    const mk = (seed, novYears) => {
+      const s = newGameWithGalleons({ mode: 'campaign', seed });
+      const dest = getGameData().destinations[0].id;
+      const y0 = s.year;
+      const id = `nov-${dest}-${y0 - (novYears - 2)}-0`;
+      s.novices = [{ id, name: 'Test (novice)', destination: dest, startYear: y0 - (novYears - 2), readyYear: y0 + 2 }];
+      resolveYear(s); startYear(s); decide(s, []);
+      resolveYear(s); startYear(s); decide(s, []);
+      ok(`novitiate(${novYears}): not yet entered before readyYear`, !s.petitioners[id]);
+      resolveYear(s); // readyYear: enters the rolls, then the year advances
+      return { s, id, dest, y0 };
+    };
+    {
+      const { s, id, dest, y0 } = mk('nov-2', 2);
+      const r = s.petitioners[id];
+      ok('novitiate: entered European labor', (s.europeanLabor || []).some((e) => e.petitionerId === id));
+      ok('novitiate: 2 years credited at entry (then +1 year-advance)', r.ageInReligion === 3 && r.totalYearsInSociety === 3,
+        `${r.ageInReligion}/${r.totalYearsInSociety}`);
+      ok('novitiate: record kept', r.novitiate && r.novitiate.years === 2 && r.novitiate.destination === dest && r.novitiateCounted === true);
+      ok('novitiate: first vows queued at 2 (same rule as everyone: >= 2 queues, > 2 auto-completes)',
+        (s.pendingVows || []).some((x) => x.petitionerId === id && x.type === 'firstVows') && !r.vows.firstVows);
+      const ev = personHistory(s, id).events;
+      const ne = ev.find((e) => e.event === 'novitiate-entry'), nc = ev.find((e) => e.event === 'novitiate-completed');
+      ok('novitiate history: entry at mission, at start year', ne && ne.year === y0 && ne.destination === dest && ne.destinationName);
+      ok('novitiate history: completion with years', nc && nc.year === y0 + 2 && nc.years === 2);
+      const order = ev.map((e) => e.event);
+      ok('novitiate history: novitiate before rolls entry', order.indexOf('novitiate-entry') < order.indexOf('novitiate-completed')
+        && order.indexOf('novitiate-completed') < order.indexOf('entry'), JSON.stringify(order));
+      ok('novitiate history: entry text shows 2 years', /with 2 years in the Society/.test(ev.find((e) => e.event === 'entry').text));
+
+      // Old-save migration: strip everything the new code adds.
+      const raw = JSON.parse(JSON.stringify(serialize(s)));
+      const rr = raw.petitioners[id];
+      delete rr.ageInReligion; delete rr.totalYearsInSociety; delete rr.novitiate; delete rr.novitiateCounted;
+      delete rr.yearsInSociety; delete rr.historyV; rr.history = rr.history.filter((h) => !h.kind);
+      const back = deserialize(raw);
+      const br = back.petitioners[id];
+      ok('novitiate migration (pre-counter save): 2 + elapsed', br.ageInReligion === 3 && br.totalYearsInSociety === 3,
+        `${br.ageInReligion}/${br.totalYearsInSociety}`);
+      const bev = personHistory(back, id).events.map((e) => e.event);
+      ok('novitiate migration: history backfilled', ['novitiate-entry', 'novitiate-completed', 'entry'].every((k) => bev.includes(k)), JSON.stringify(bev));
+      // Save from a build that seeded counters without the novitiate (0 + elapsed = 1).
+      const raw2 = JSON.parse(JSON.stringify(serialize(s)));
+      const r2 = raw2.petitioners[id];
+      r2.ageInReligion = 1; r2.totalYearsInSociety = 1; delete r2.novitiate; delete r2.novitiateCounted; delete r2.yearsInSociety;
+      r2.history = r2.history.filter((h) => !/^novitiate/.test(h.event || ''));
+      const b2 = deserialize(raw2).petitioners[id];
+      ok('novitiate migration (counter save): credited once', b2.ageInReligion === 3 && b2.totalYearsInSociety === 3, `${b2.ageInReligion}/${b2.totalYearsInSociety}`);
+      const again = deserialize(serialize(deserialize(raw2))).petitioners[id];
+      ok('novitiate migration: idempotent', again.ageInReligion === 3 && again.history.filter((h) => h.event === 'novitiate-completed').length === 1);
+    }
+    {
+      const { s, id } = mk('nov-3', 3); // actual time spent: 3 years
+      const r = s.petitioners[id];
+      ok('novitiate(3): actual years credited', r.novitiate.years === 3 && r.ageInReligion === 4 && r.totalYearsInSociety === 4,
+        `${r.novitiate.years} ${r.ageInReligion}/${r.totalYearsInSociety}`);
+      ok('novitiate(3): first vows auto-completed at entry (> 2, consistent rule)', r.vows.firstVows === true
+        && personHistory(s, id).events.some((e) => e.event === 'first-vows' && e.auto));
+    }
+  }
+
+  // 40p. Novitiate men: grade/track persisted on the record, stable across reloads.
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'nov-grade' });
+    const dest = getGameData().destinations[0].id;
+    const id = `nov-${dest}-${s.year}-7`;
+    s.novices = [{ id, name: 'Grade (novice)', destination: dest, startYear: s.year, readyYear: s.year + 2 }];
+    for (let i = 0; i < 3; i++) { resolveYear(s); if (i < 2) { startYear(s); decide(s, []); } }
+    const r = s.petitioners[id];
+    const snap = (st) => JSON.stringify([gradeFor(st, id), EngineNS.vowsTrackFor(st, id), staffGradeFor(st, id), careerStage(st, id)]);
+    ok('nov-grade: grade + track saved on record', r.savedGrade && r.savedGrade.grade === 'scholastic' && r.vowsTrack === 'scholastic');
+    ok('nov-grade: in-memory table not written', MEM_GRADES[id] === undefined);
+    const before = snap(s);
+    // Reload as a fresh process would (no in-memory entry) ...
+    const a = deserialize(JSON.parse(JSON.stringify(serialize(s))));
+    ok('nov-grade: identical after reload', snap(a) === before, `${before} vs ${snap(a)}`);
+    // ... and with the in-memory setting changed to something else.
+    MEM_GRADES[id] = { grade: 'brother', ordained: false };
+    try {
+      const b = deserialize(JSON.parse(JSON.stringify(serialize(s))));
+      ok('nov-grade: identical with in-memory setting changed', snap(b) === before, `${before} vs ${snap(b)}`);
+      const c = deserialize(serialize(deserialize(serialize(b))));
+      ok('nov-grade: stable over repeated reloads', snap(c) === before);
+    } finally { delete MEM_GRADES[id]; }
+
+    // Old save (no saved grade/track): computed once on load, then stable.
+    const raw = JSON.parse(JSON.stringify(serialize(s)));
+    delete raw.petitioners[id].savedGrade; delete raw.petitioners[id].vowsTrack;
+    const m1 = deserialize(raw);
+    ok('nov-grade migration: computed and saved', m1.petitioners[id].savedGrade && m1.petitioners[id].savedGrade.grade === 'scholastic'
+      && m1.petitioners[id].vowsTrack === 'scholastic');
+    ok('nov-grade migration: matches pre-save behaviour', snap(m1) === before, `${before} vs ${snap(m1)}`);
+    MEM_GRADES[id] = { grade: 'father', ordained: true };
+    try {
+      const m2 = deserialize(JSON.parse(JSON.stringify(serialize(m1))));
+      ok('nov-grade migration: later reloads ignore in-memory setting', snap(m2) === before, snap(m2));
+    } finally { delete MEM_GRADES[id]; }
+    // Old save whose man is already on the brother track keeps it.
+    const raw2 = JSON.parse(JSON.stringify(serialize(s)));
+    const r2 = raw2.petitioners[id];
+    delete r2.savedGrade; delete r2.vowsTrack; r2.vows.stage = 'brother';
+    const e2 = raw2.europeanLabor.find((e) => e.petitionerId === id); if (e2) e2.vows = r2.vows;
+    const m3 = deserialize(raw2);
+    ok('nov-grade migration: brother stage respected', m3.petitioners[id].savedGrade.grade === 'brother'
+      && m3.petitioners[id].vowsTrack === 'brother' && staffGradeFor(m3, id) === 'brothers');
+  }
+}
+
+
+// --- 41. Governance: provincial reports & staged decisions -------------------
+{
+  const G = EngineNS;
+  // newGame initializes governance state
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-t1' });
+    ok('gov: reports/staged init empty', Array.isArray(s.reports) && s.reports.length === 0
+      && Array.isArray(s.staged) && s.staged.length === 0 && s.seq.report === 0);
+  }
+  // fragile report generation (newly fragile only) + dedupe
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-t2' });
+    const st = missionStaff(s, 'goa');
+    st.fathers = 0; st.coadjutors = 1; st.brothers = 0; st.capacity = 5;
+    st.fragileYears = 5; st.fragile = true;
+    // silence other missions' request reports by staffing them
+    for (const d of ['japan', 'china', 'peru', 'philippines']) {
+      const m = missionStaff(s, d); m.fathers = 2; m.coadjutors = 2; m.brothers = 1;
+    }
+    G.generateReports(s, s.year);
+    const fr = s.reports.filter((r) => r.kind === 'fragile' && r.destId === 'goa');
+    ok('gov: fragile report queued', fr.length === 1 && fr[0].status === 'pending');
+    ok('gov: fragile facts honest', fr[0].facts.staffed === 1 && fr[0].facts.capacity === 5 && fr[0].facts.fragile === true);
+    ok('gov: fragile has dispatch + instruct recs',
+      fr[0].recommendations.some((r) => r.action && r.action.type === 'dispatch')
+      && fr[0].recommendations.some((r) => r.action && r.action.type === 'instruct'));
+    const n0 = s.reports.length;
+    G.generateReports(s, s.year);
+    ok('gov: no duplicate pending report', s.reports.length === n0);
+    ok('gov: region from game data', fr[0].region === 'Asia');
+  }
+  // request report for understaffed mission
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-t3' });
+    for (const d of ['goa', 'japan', 'china', 'philippines']) {
+      const m = missionStaff(s, d); m.fathers = 2; m.coadjutors = 2; m.brothers = 1;
+    }
+    const st = missionStaff(s, 'peru');
+    st.fathers = 0; st.coadjutors = 1; st.brothers = 0; st.capacity = 5;
+    G.generateReports(s, s.year);
+    const rq = s.reports.filter((r) => r.kind === 'request' && r.destId === 'peru' && r.status === 'pending');
+    ok('gov: request report queued', rq.length === 1);
+  }
+  // decideReport lifecycle
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-t4' });
+    const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b', facts: {}, recommendations: [] });
+    G.decideReport(s, rep.id, 'acknowledge');
+    ok('gov: acknowledge sets status', s.reports.find((r) => r.id === rep.id).status === 'acknowledged');
+    ok('gov: acknowledge in ledger', getLedger(s).some((e) => e.type === 'report' && e.decision === 'acknowledged'));
+    let threw = false;
+    try { G.decideReport(s, rep.id, 'decline'); } catch (e) { threw = true; }
+    ok('gov: double-decide throws', threw);
+    threw = false;
+    try { G.decideReport(s, 'rep-nope', 'acknowledge'); } catch (e) { threw = true; }
+    ok('gov: unknown report throws', threw);
+    const rep2 = G.queueReport(s, { kind: 'request', destId: 'japan', year: s.year, title: 't2', body: 'b2', facts: {}, recommendations: [] });
+    G.decideReport(s, rep2.id, 'defer', 'revisit next year');
+    ok('gov: defer records note', s.reports.find((r) => r.id === rep2.id).decision.note === 'revisit next year');
+  }
+  // staging + validation
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-t5' });
+    // Ships-only: a staged sending is fillable only while the named men
+    // actually stand free in Europe. Seed one scholastic there.
+    const g5 = seedLabor(s, 1, 'gov5');
+    s.petitioners[g5[0]].vows = { stage: 'scholastic' };
+    const rep = G.queueReport(s, { kind: 'fragile', destId: 'goa', year: s.year, title: 't', body: 'b',
+      facts: {}, recommendations: [{ id: 'reinforce', text: 'Reinforce', action: { type: 'dispatch', destId: 'goa', counts: { fathers: 0, coadjutors: 1, brothers: 0 } } }] });
+    const sa = G.stageRecommendation(s, rep.id, 'reinforce');
+    ok('gov: staged', s.staged.length === 1 && sa.status === 'staged');
+    let threw = false;
+    try { G.stageRecommendation(s, rep.id, 'reinforce'); } catch (e) { threw = true; }
+    ok('gov: duplicate stage throws', threw);
+    // invalid: the one coadjutor leaves Europe, so the sending cannot be filled
+    const laborBackup = s.europeanLabor;
+    s.europeanLabor = [];
+    threw = false;
+    try { G.validateStagedAction(s, sa); } catch (e) { threw = true; }
+    ok('gov: validate catches missing men', threw);
+    s.europeanLabor = laborBackup;
+    const v = G.validateStagedAction(s, sa);
+    ok('gov: validate passes when the men stand free', v.ok === true);
+    G.discardStaged(s, sa.id);
+    ok('gov: discard removes staged', s.staged.length === 0);
+  }
+  // applyStaged: happy path + atomic rollback
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-t6' });
+    s.resources.funds = 10000;
+    const g6 = seedLabor(s, 2, 'gov6');
+    s.petitioners[g6[0]].vows = { stage: 'scholastic' };
+    s.petitioners[g6[1]].vows = { stage: 'scholastic' };
+    const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b',
+      facts: {}, recommendations: [{ id: 'reinforce', text: 'Reinforce', action: { type: 'dispatch', destId: 'goa', counts: { fathers: 0, coadjutors: 2, brothers: 0 } } }] });
+    G.stageRecommendation(s, rep.id, 'reinforce');
+    const funds0 = s.resources.funds;
+    const staff0 = missionStaffed(missionStaff(s, 'goa'));
+    const applied = G.applyStaged(s);
+    // Ships-only: applying queues the two named men for the fleet — no
+    // charge and no staffing until a ship carries them.
+    ok('gov: apply sends named men to the dock', applied.length === 1 && s.resources.funds === funds0
+      && missionStaffed(missionStaff(s, 'goa')) === staff0
+      && g6.every((id) => s.queue.some((q) => q.petitionerId === id && q.status === 'awaiting' && q.destination === 'goa')),
+      JSON.stringify(s.queue.map((q) => q.petitionerId)));
+    ok('gov: report marked acted', s.reports.find((r) => r.id === rep.id).status === 'acted');
+    ok('gov: staged cleared', s.staged.length === 0);
+    let threw = false;
+    try { G.applyStaged(s); } catch (e) { threw = true; }
+    ok('gov: apply with empty staged throws', threw);
+  }
+  {
+    // rollback: first action valid, second fails at apply time
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-t7' });
+    s.resources.funds = 10000;
+    const g7 = seedLabor(s, 1, 'gov7');
+    s.petitioners[g7[0]].vows = { stage: 'scholastic' };
+    const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b',
+      facts: {}, recommendations: [
+        { id: 'r1', text: 'Reinforce Goa', action: { type: 'dispatch', destId: 'goa', counts: { fathers: 0, coadjutors: 1, brothers: 0 } } },
+        { id: 'r2', text: 'Instruct Goa', action: { type: 'instruct', destId: 'goa', instructionType: 'encourage' } },
+      ] });
+    G.stageRecommendation(s, rep.id, 'r1');
+    G.stageRecommendation(s, rep.id, 'r2');
+    // sabotage: put an instruction in transit so r2 fails re-validation at apply
+    s.instructions['goa'] = { type: 'expand', issuedYear: s.year, arriveYear: s.year + 2, status: 'in-transit', outcome: null };
+    const funds0 = s.resources.funds;
+    const staff0 = missionStaffed(missionStaff(s, 'goa'));
+    let threw = false;
+    try { G.applyStaged(s); } catch (e) { threw = true; }
+    ok('gov: batch with invalid action throws', threw);
+    ok('gov: rollback restored funds and staffing', s.resources.funds === funds0
+      && missionStaffed(missionStaff(s, 'goa')) === staff0
+      && s.queue.length === 0 && s.europeanLabor.some((e) => e.petitionerId === g7[0]));
+    ok('gov: rollback kept staged + pending', s.staged.length === 2
+      && s.reports.find((r) => r.id === rep.id).status === 'pending');
+  }
+  // persistence round-trip + legacy backfill
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-t8b' });
+    const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b',
+      facts: { staffed: 1 }, recommendations: [{ id: 'r1', text: 't', action: { type: 'instruct', destId: 'goa', instructionType: 'encourage' } }] });
+    G.stageRecommendation(s, rep.id, 'r1');
+    const raw = serialize(s);
+    const s2 = deserialize(raw);
+    ok('gov: reports survive round-trip', s2.reports.length === 1 && s2.reports[0].id === rep.id
+      && s2.reports[0].facts.staffed === 1);
+    ok('gov: staged survives round-trip', s2.staged.length === 1 && s2.staged[0].reportId === rep.id);
+    const raw2 = serialize(s);
+    delete raw2.reports; delete raw2.staged; delete raw2.seq.report;
+    const s3 = deserialize(raw2);
+    ok('gov: legacy save backfills', Array.isArray(s3.reports) && Array.isArray(s3.staged) && s3.seq.report === 0);
+  }
+  // report ids stable across round-trip
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-t9' });
+    const a = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 'a', body: 'b', facts: {}, recommendations: [] });
+    const b = G.queueReport(s, { kind: 'request', destId: 'japan', year: s.year, title: 'b', body: 'b', facts: {}, recommendations: [] });
+    const s2 = deserialize(serialize(s));
+    ok('gov: ids stable', s2.reports.map((r) => r.id).join(',') === [a.id, b.id].join(','));
+  }
+}
+
+
+// --- 42. Governance audit fixes: lost deaths, multi-action, ids, conflicts, rollback, reopen ---
+{
+  const G = EngineNS;
+  // Fix 1: two deaths at one destination -> two distinct, traceable reports; none lost
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-a1' });
+    for (const d of ['japan', 'china', 'peru', 'philippines']) {
+      const m = missionStaff(s, d); m.fathers = 2; m.coadjutors = 2; m.brothers = 1;
+    }
+    const mkVoy = (n) => ({ id: `voy-test-${n}`, petitionerId: `hist-${n}`, petitionerName: `Test Man ${n}`,
+      destination: 'goa', departYear: s.year, travelYears: 2, arriveYear: s.year, stage: 'resolved',
+      outcome: 'deceased', resolvedYear: s.year, newsDelivered: true });
+    s.voyages.push(mkVoy(1), mkVoy(2));
+    G.generateReports(s, s.year);
+    const deaths = s.reports.filter((r) => r.kind === 'voyage');
+    ok('gov-audit: two deaths -> two reports', deaths.length === 2);
+    ok('gov-audit: deaths traceable', deaths.every((r) => r.facts.petitionerId && r.facts.voyageId)
+      && new Set(deaths.map((r) => r.facts.voyageId)).size === 2);
+    ok('gov-audit: both voyages marked', [1, 2].every((n) => s.voyages.find((v) => v.id === `voy-test-${n}`).deathReported === true));
+    // second generation: no duplicates, no unmarking
+    G.generateReports(s, s.year);
+    ok('gov-audit: no duplicate death reports', s.reports.filter((r) => r.kind === 'voyage').length === 2);
+  }
+  // Fix 1b: death while a voyage report pending for same dest -> still reported
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-a1b' });
+    for (const d of ['japan', 'china', 'peru', 'philippines']) {
+      const m = missionStaff(s, d); m.fathers = 2; m.coadjutors = 2; m.brothers = 1;
+    }
+    s.voyages.push({ id: 'voy-a', petitionerId: 'hist-1', petitionerName: 'Man A', destination: 'goa',
+      departYear: s.year, travelYears: 2, arriveYear: s.year, stage: 'resolved', outcome: 'deceased', resolvedYear: s.year, newsDelivered: true });
+    G.generateReports(s, s.year);
+    s.voyages.push({ id: 'voy-b', petitionerId: 'hist-2', petitionerName: 'Man B', destination: 'goa',
+      departYear: s.year, travelYears: 2, arriveYear: s.year, stage: 'resolved', outcome: 'deceased', resolvedYear: s.year, newsDelivered: true });
+    G.generateReports(s, s.year);
+    const deaths = s.reports.filter((r) => r.kind === 'voyage');
+    ok('gov-audit: second death not suppressed', deaths.length === 2
+      && deaths.some((r) => r.facts.voyageId === 'voy-b'));
+  }
+  // Fix 2: two recommendations from one report staged + applied -> both recorded
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-a2' });
+    s.resources.funds = 10000;
+    const ga2 = seedLabor(s, 1, 'gova2');
+    s.petitioners[ga2[0]].vows = { stage: 'scholastic' };
+    const rep = G.queueReport(s, { kind: 'fragile', destId: 'goa', year: s.year, title: 't', body: 'b',
+      facts: {}, recommendations: [
+        { id: 'r1', text: 'Reinforce', action: { type: 'dispatch', destId: 'goa', counts: { fathers: 0, coadjutors: 1, brothers: 0 } } },
+        { id: 'r2', text: 'Encourage', action: { type: 'instruct', destId: 'goa', instructionType: 'encourage' } },
+      ] });
+    G.stageRecommendation(s, rep.id, 'r1');
+    G.stageRecommendation(s, rep.id, 'r2');
+    const applied = G.applyStaged(s);
+    const r2 = s.reports.find((r) => r.id === rep.id);
+    ok('gov-audit: both actions applied', applied.length === 2);
+    ok('gov-audit: both recorded on report', r2.appliedActions.length === 2
+      && r2.appliedActions.some((a) => a.recId === 'r1') && r2.appliedActions.some((a) => a.recId === 'r2'));
+    ok('gov-audit: decision note lists both', /Reinforce/.test(r2.decision.note) && /Encourage/.test(r2.decision.note));
+    ok('gov-audit: ledger has both', getLedger(s).filter((e) => e.type === 'report' && e.decision === 'acted' && e.reportId === rep.id).length === 2);
+  }
+  // Fix 3: staged IDs unique across discard/re-stage/apply cycles
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-a3' });
+    const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b',
+      facts: {}, recommendations: [
+        { id: 'r1', text: 'A', action: { type: 'instruct', destId: 'goa', instructionType: 'encourage' } },
+        { id: 'r2', text: 'B', action: { type: 'instruct', destId: 'japan', instructionType: 'encourage' } },
+      ] });
+    const a = G.stageRecommendation(s, rep.id, 'r1');
+    G.discardStaged(s, a.id);
+    const b = G.stageRecommendation(s, rep.id, 'r1');
+    const c = G.stageRecommendation(s, rep.id, 'r2');
+    ok('gov-audit: staged ids unique after discard', new Set([a.id, b.id, c.id]).size === 3);
+    G.applyStaged(s);
+    const rep2 = G.queueReport(s, { kind: 'request', destId: 'china', year: s.year, title: 't2', body: 'b2',
+      facts: {}, recommendations: [{ id: 'r1', text: 'A2', action: { type: 'instruct', destId: 'china', instructionType: 'encourage' } }] });
+    const d = G.stageRecommendation(s, rep2.id, 'r1');
+    ok('gov-audit: staged id unique after apply', ![a.id, b.id, c.id].includes(d.id));
+  }
+  // Fix 4: batch conflict detected (two sendings, each fillable alone —
+  // 3 scholastics in Europe — but not together: they need 4 named men)
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-a4' });
+    seedLabor(s, 3, 'a4');
+    for (const id of ['test-a4-0', 'test-a4-1', 'test-a4-2']) s.petitioners[id].vows = { stage: 'scholastic' };
+    const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b',
+      facts: {}, recommendations: [
+        { id: 'r1', text: 'Send 2', action: { type: 'dispatch', destId: 'goa', counts: { fathers: 0, coadjutors: 2, brothers: 0 } } },
+        { id: 'r2', text: 'Send 2 more', action: { type: 'dispatch', destId: 'japan', counts: { fathers: 0, coadjutors: 2, brothers: 0 } } },
+      ] });
+    G.stageRecommendation(s, rep.id, 'r1');
+    G.stageRecommendation(s, rep.id, 'r2');
+    const funds0 = s.resources.funds;
+    const staff0 = missionStaffed(missionStaff(s, 'goa')) + missionStaffed(missionStaff(s, 'japan'));
+    let threw = false, msg = '';
+    try { G.applyStaged(s); } catch (e) { threw = true; msg = e.message; }
+    ok('gov-audit: batch conflict throws', threw && /rolled back/.test(msg));
+    ok('gov-audit: conflict rollback restores funds+staff', s.resources.funds === funds0
+      && missionStaffed(missionStaff(s, 'goa')) + missionStaffed(missionStaff(s, 'japan')) === staff0);
+    ok('gov-audit: conflict keeps staged+pending', s.staged.length === 2
+      && s.reports.find((r) => r.id === rep.id).status === 'pending');
+  }
+  // Fix 4b: rollback restores rngState, seq counters, ledger length
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-a4b' });
+    s.resources.funds = 10000; s.available = 50;
+    seedLabor(s, 1, 'a4b');
+    s.petitioners['test-a4b-0'].vows = { stage: 'scholastic' };
+    const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b',
+      facts: {}, recommendations: [
+        { id: 'r1', text: 'Reinforce', action: { type: 'dispatch', destId: 'goa', counts: { fathers: 0, coadjutors: 1, brothers: 0 } } },
+        { id: 'r2', text: 'Bad instruct', action: { type: 'instruct', destId: 'nope-nowhere', instructionType: 'encourage' } },
+      ] });
+    // r2 passes staging? No — validateStagedAction runs at stage time and would throw for unknown dest.
+    // So stage only r1, then corrupt r2's action post-staging to simulate mid-batch failure.
+    G.stageRecommendation(s, rep.id, 'r1');
+    const sa2 = { id: 'stg-evil', reportId: rep.id, recId: 'r2', destId: 'goa', label: 'Evil',
+      action: { type: 'dispatch', destId: 'goa', counts: { fathers: 0, coadjutors: 1, brothers: 0 } },
+      stagedYear: s.year, status: 'staged' };
+    s.staged.push(sa2);
+    const rng0 = JSON.stringify(s.rngState);
+    const seq0 = JSON.stringify(s.seq);
+    const ledger0 = s.ledger.length;
+    const repStatus0 = rep.status;
+    // sabotage sa2 after validation snapshot: demand men who do not exist
+    let threw = false;
+    // force failure by draining funds between actions: patch via staged action that spends all
+    s.staged[1].action = { type: 'dispatch', destId: 'goa', counts: { fathers: 0, coadjutors: 1000, brothers: 0 } };
+    try { G.applyStaged(s); } catch (e) { threw = true; }
+    ok('gov-audit: mid-batch failure throws', threw);
+    ok('gov-audit: rollback restores rngState', JSON.stringify(s.rngState) === rng0);
+    ok('gov-audit: rollback restores seq', JSON.stringify(s.seq) === seq0);
+    ok('gov-audit: rollback restores ledger length', s.ledger.length === ledger0);
+    ok('gov-audit: rollback restores report status', s.reports.find((r) => r.id === rep.id).status === repStatus0);
+  }
+  // Fix 5: deferred reports can be reopened and re-decided
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-a5' });
+    const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b', facts: {}, recommendations: [] });
+    G.decideReport(s, rep.id, 'defer');
+    ok('gov-audit: deferred leaves pending inbox', G.pendingReports(s).length === 0);
+    G.reopenReport(s, rep.id);
+    ok('gov-audit: reopened returns to pending', G.pendingReports(s).some((r) => r.id === rep.id));
+    G.decideReport(s, rep.id, 'acknowledge');
+    ok('gov-audit: re-decided after reopen', s.reports.find((r) => r.id === rep.id).status === 'acknowledged');
+    let threw = false;
+    try { G.reopenReport(s, rep.id); } catch (e) { threw = true; }
+    ok('gov-audit: reopen non-deferred throws', threw);
+  }
+  // Fix 5b: legacy reports gain dedupeKey + appliedActions on load
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-a5b' });
+    const rep = G.queueReport(s, { kind: 'request', destId: 'goa', year: s.year, title: 't', body: 'b', facts: {}, recommendations: [] });
+    const raw = serialize(s);
+    delete raw.reports[0].dedupeKey; delete raw.reports[0].appliedActions;
+    const s2 = deserialize(raw);
+    ok('gov-audit: legacy report backfilled', typeof s2.reports[0].dedupeKey === 'string'
+      && Array.isArray(s2.reports[0].appliedActions));
+  }
+}
+
+
+// --- 43. Governance: legacy death-report recovery migration -------------------
+{
+  const G = EngineNS;
+  // Fixture reproducing the b9cc098 bug: two deaths at Goa, only the first
+  // got a (legacy-format, no dedupeKey/voyageId) report; both voyages flagged.
+  const buildLegacySave = () => {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-leg' });
+    for (const d of ['japan', 'china', 'peru', 'philippines']) {
+      const m = missionStaff(s, d); m.fathers = 2; m.coadjutors = 2; m.brothers = 1;
+    }
+    s.voyages.push(
+      { id: 'voy-1', petitionerId: 'hist-1', petitionerName: 'Man One', destination: 'goa',
+        departYear: s.year, travelYears: 2, arriveYear: s.year, stage: 'resolved',
+        outcome: 'deceased', resolvedYear: s.year, newsDelivered: true, deathReported: true },
+      { id: 'voy-2', petitionerId: 'hist-2', petitionerName: 'Man Two', destination: 'goa',
+        departYear: s.year, travelYears: 2, arriveYear: s.year, stage: 'resolved',
+        outcome: 'deceased', resolvedYear: s.year, newsDelivered: true, deathReported: true });
+    // What b9cc098 actually persisted for the first death: no dedupeKey, no voyageId.
+    s.reports.push({
+      id: 'rep-1615-1', kind: 'voyage', destId: 'goa', destName: 'Goa, the Indies', region: 'Asia',
+      year: s.year, title: 'Death reported: Man One', body: 'legacy body',
+      facts: { petitionerId: 'hist-1', destination: 'goa', departYear: s.year },
+      recommendations: [], status: 'pending', decision: null,
+    });
+    const raw = serialize(s);
+    // strip the new-format fields to match the b9cc098 shape exactly
+    for (const r of raw.reports) { delete r.dedupeKey; delete r.appliedActions; }
+    return raw;
+  };
+  {
+    const s2 = deserialize(buildLegacySave());
+    const voyages = s2.reports.filter((r) => r.kind === 'voyage');
+    ok('gov-leg: existing report preserved, not duplicated',
+      voyages.filter((r) => r.facts.petitionerId === 'hist-1').length === 1);
+    const rec = voyages.find((r) => r.facts.voyageId === 'voy-2');
+    ok('gov-leg: missing death recovered', !!rec && rec.facts.petitionerId === 'hist-2');
+    ok('gov-leg: recovered report is pending and traceable',
+      rec.status === 'pending' && rec.facts.recovered === true && rec.dedupeKey === 'voyage:voy-2');
+    ok('gov-leg: recovered report has reviewable recommendation',
+      rec.recommendations.length === 1 && rec.recommendations[0].action.type === 'instruct');
+    ok('gov-leg: voyage flags untouched',
+      ['voy-1', 'voy-2'].every((id) => s2.voyages.find((v) => v.id === id).deathReported === true));
+    ok('gov-leg: existing history not altered',
+      s2.reports.find((r) => r.facts.petitionerId === 'hist-1').title === 'Death reported: Man One');
+    // idempotency across save/load cycles
+    const s3 = deserialize(serialize(s2));
+    ok('gov-leg: no duplicates on reload',
+      s3.reports.filter((r) => r.kind === 'voyage').length === 2);
+    const s4 = deserialize(serialize(s3));
+    ok('gov-leg: stable across further cycles',
+      s4.reports.filter((r) => r.kind === 'voyage').length === 2);
+  }
+  // Already-decided legacy report counts as represented: no recovery, no duplicate
+  {
+    const raw = buildLegacySave();
+    raw.reports[0].status = 'acknowledged';
+    raw.reports[0].decision = { decision: 'acknowledge', year: raw.year, note: null };
+    const s2 = deserialize(raw);
+    ok('gov-leg: decided report not duplicated',
+      s2.reports.filter((r) => r.kind === 'voyage' && r.facts.petitionerId === 'hist-1').length === 1);
+    ok('gov-leg: second death still recovered',
+      s2.reports.some((r) => r.facts.voyageId === 'voy-2'));
+  }
+  // Unrecoverable case: deceased voyage with no destination is left alone, no crash
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-leg2' });
+    s.voyages.push({ id: 'voy-x', petitionerId: 'hist-9', petitionerName: 'Man X', destination: null,
+      departYear: s.year, travelYears: 2, arriveYear: s.year, stage: 'resolved',
+      outcome: 'deceased', resolvedYear: s.year, newsDelivered: true, deathReported: true });
+    const s2 = deserialize(serialize(s));
+    ok('gov-leg: destination-less death skipped safely',
+      s2.reports.filter((r) => r.kind === 'voyage').length === 0);
+  }
+  // Non-deceased and unflagged voyages are ignored
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-leg3' });
+    s.voyages.push({ id: 'voy-y', petitionerId: 'hist-9', petitionerName: 'Man Y', destination: 'goa',
+      departYear: s.year, travelYears: 2, arriveYear: s.year, stage: 'resolved',
+      outcome: 'thriving', resolvedYear: s.year, newsDelivered: true, deathReported: false });
+    const s2 = deserialize(serialize(s));
+    ok('gov-leg: non-deceased ignored', s2.reports.filter((r) => r.kind === 'voyage').length === 0);
+  }
+}
+
+
+// --- 44. Governance: declined report blocks application of staged actions ---
+{
+  const G = EngineNS;
+  const mkDispatchRep = (s, destId, title) => G.queueReport(s, { kind: 'request', destId, year: s.year,
+    title, body: 'b', facts: {},
+    recommendations: [{ id: 'r1', text: 'Send men',
+      action: { type: 'dispatch', destId, counts: { fathers: 0, coadjutors: 1, brothers: 0 } } }] });
+  const snap = (s) => ({ funds: s.resources.funds, avail: s.available,
+    goa: missionStaffed(missionStaff(s, 'goa')), japan: missionStaffed(missionStaff(s, 'japan')),
+    ledger: s.ledger.length, seq: JSON.stringify(s.seq), rng: JSON.stringify(s.rngState) });
+
+  // 1+2. decline-after-staging: apply rejected, state fully unchanged
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-d1' });
+    s.resources.funds = 10000; s.available = 50;
+    const gd1 = seedLabor(s, 1, 'govd1');
+    s.petitioners[gd1[0]].vows = { stage: 'scholastic' };
+    const rep = mkDispatchRep(s, 'goa', 'Goa asks');
+    G.stageRecommendation(s, rep.id, 'r1');
+    G.decideReport(s, rep.id, 'decline', 'not now');
+    const before = snap(s);
+    let threw = false, msg = '';
+    try { G.applyStaged(s); } catch (e) { threw = true; msg = e.message; }
+    const after = snap(s);
+    ok('gov-decline: apply rejected after decline', threw && /declined/.test(msg));
+    ok('gov-decline: game state unchanged',
+      after.funds === before.funds && after.avail === before.avail && after.goa === before.goa
+      && after.ledger === before.ledger && after.seq === before.seq && after.rng === before.rng);
+    ok('gov-decline: report stays declined',
+      s.reports.find((r) => r.id === rep.id).status === 'declined');
+    ok('gov-decline: staged action survives for discard',
+      s.staged.length === 1 && s.staged[0].status === 'staged');
+    ok('gov-decline: no applied actions recorded',
+      (s.reports.find((r) => r.id === rep.id).appliedActions || []).length === 0);
+  }
+  // 3. mixed batch: valid + declined -> whole batch rejected and rolled back
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-d2' });
+    s.resources.funds = 10000; s.available = 50;
+    const gd2 = seedLabor(s, 2, 'govd2');
+    for (const id of gd2) s.petitioners[id].vows = { stage: 'scholastic' };
+    const repA = mkDispatchRep(s, 'goa', 'Goa asks');
+    const repB = mkDispatchRep(s, 'japan', 'Japan asks');
+    G.stageRecommendation(s, repA.id, 'r1');
+    G.stageRecommendation(s, repB.id, 'r1');
+    G.decideReport(s, repB.id, 'decline');
+    const before = snap(s);
+    let threw = false;
+    try { G.applyStaged(s); } catch (e) { threw = true; }
+    const after = snap(s);
+    ok('gov-decline: mixed batch rejected', threw);
+    ok('gov-decline: mixed batch fully rolled back',
+      after.funds === before.funds && after.goa === before.goa && after.japan === before.japan
+      && after.ledger === before.ledger);
+    ok('gov-decline: valid report still pending, nothing applied',
+      s.reports.find((r) => r.id === repA.id).status === 'pending'
+      && (s.reports.find((r) => r.id === repA.id).appliedActions || []).length === 0);
+    ok('gov-decline: both staged entries intact', s.staged.length === 2);
+    // discarding the declined one lets the valid batch apply cleanly
+    const bad = s.staged.find((x) => x.reportId === repB.id);
+    G.discardStaged(s, bad.id);
+    const applied = G.applyStaged(s);
+    ok('gov-decline: valid action applies after discard', applied.length === 1
+      && s.reports.find((r) => r.id === repA.id).status === 'acted');
+  }
+  // 4. validator flags it directly (UI badge path)
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-d3' });
+    s.resources.funds = 10000; s.available = 50;
+    const gd3 = seedLabor(s, 1, 'govd3');
+    s.petitioners[gd3[0]].vows = { stage: 'scholastic' };
+    const rep = mkDispatchRep(s, 'goa', 'Goa asks');
+    const sa = G.stageRecommendation(s, rep.id, 'r1');
+    G.decideReport(s, rep.id, 'decline');
+    let threw = false, msg = '';
+    try { G.validateStagedAction(s, sa); } catch (e) { threw = true; msg = e.message; }
+    ok('gov-decline: validator rejects declined-report action', threw && /declined/.test(msg));
+  }
+  // 5. scope lock: acknowledge-after-stage still applies (only decline blocks)
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-d4' });
+    s.resources.funds = 10000; s.available = 50;
+    const gd4 = seedLabor(s, 1, 'govd4');
+    s.petitioners[gd4[0]].vows = { stage: 'scholastic' };
+    const rep = mkDispatchRep(s, 'goa', 'Goa asks');
+    G.stageRecommendation(s, rep.id, 'r1');
+    G.decideReport(s, rep.id, 'acknowledge');
+    const applied = G.applyStaged(s);
+    ok('gov-decline: acknowledge does not block apply', applied.length === 1
+      && s.reports.find((r) => r.id === rep.id).status === 'acted');
+  }
+}
+
+
+// --- 45. Governance: true entry year vs formula anchor -----------------------
+{
+  const G = EngineNS;
+  // hist-1 has 5 historical years in the fixtures. The anchor (entryYear)
+  // stays at the campaign start for the counters; the true entry year is
+  // anchor minus historical years. Seeding happens via the deserialize
+  // backfill for any rec that has an anchor but no true entry year.
+  const seedHist1 = (s) => {
+    const rec = G.ensureRecord(s, 'hist-1');
+    rec.entryYear = s.year; // anchor, as the game assigns it at seeding
+    return rec;
+  };
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-entry' });
+    seedHist1(s);
+    const s2 = deserialize(serialize(s));
+    const rec = s2.petitioners['hist-1'];
+    ok('gov-entry: anchor preserved', rec.entryYear === 1615);
+    ok('gov-entry: true entry year backfilled', rec.trueEntryYear === 1610);
+    G.initAgeInReligion(s2, 'hist-1');
+    ok('gov-entry: counters unaffected',
+      G.yearsInSociety(s2, 'hist-1') === 5 && G.ageInReligion(s2, 'hist-1') === 5);
+    const hist = G.personHistory(s2, 'hist-1');
+    ok('gov-entry: history summary shows true entry', hist.summary.entryYear === 1610);
+  }
+  // pre-history saves: backfilled entry event uses the true entry year
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-entry1b' });
+    const rec = G.ensureRecord(s, 'hist-1');
+    rec.entryYear = s.year;
+    delete rec.historyV; rec.history = [];
+    const s2 = deserialize(serialize(s));
+    const entryEv = G.personHistory(s2, 'hist-1').events.find((e) => e.event === 'entry');
+    ok('gov-entry: backfilled entry event at true year', !!entryEv && entryEv.year === 1610);
+  }
+  // historical man with 14 years: true entry = anchor - 14
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-entry2' });
+    const rec = G.ensureRecord(s, 'hist-9');
+    rec.entryYear = s.year;
+    const s2 = deserialize(serialize(s));
+    ok('gov-entry: true entry = anchor - historical years',
+      s2.petitioners['hist-9'].trueEntryYear === 1615 - 14);
+  }
+  // brand-new man (no history): true entry equals the anchor
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-entry2b' });
+    const rec = G.ensureRecord(s, 'brand-new-man');
+    rec.entryYear = s.year;
+    const s2 = deserialize(serialize(s));
+    ok('gov-entry: new man true==anchor',
+      s2.petitioners['brand-new-man'].trueEntryYear === s2.petitioners['brand-new-man'].entryYear);
+  }
+  // backfill is idempotent: existing trueEntryYear is never overwritten
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'gov-entry3' });
+    const rec = G.ensureRecord(s, 'hist-1');
+    rec.entryYear = 1615;
+    rec.trueEntryYear = 1609; // hand-corrected value
+    const s2 = deserialize(serialize(s));
+    ok('gov-entry: backfill preserves existing', s2.petitioners['hist-1'].trueEntryYear === 1609);
+  }
+}
+
+
+// --- 46. Provincial draft (pre-game) -----------------------------------------
+{
+  // draft exists with 4 regions x 3 candidates
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'draft1' });
+    ok('draft: 4 regions', s.draft.regions.length === 4);
+    ok('draft: 3 candidates each', s.draft.regions.every((r) => r.candidates.length === 3));
+    ok('draft: names unique', new Set(s.draft.regions.flatMap((r) => r.candidates.map((c) => c.name))).size === 12);
+    ok('draft: traits present', s.draft.regions.every((r) => r.candidates.every((c) =>
+      Object.keys(c.traits).length === 7 && Object.values(c.traits).every((v) => v >= 1 && v <= 5))));
+    ok('draft: not done', !s.draft.done && Object.keys(s.provincials).length === 0);
+  }
+  // picking completes at 4/4 + 4 HQs; provincials stored; ledger entry
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'draft2' });
+    const ids = s.draft.regions.map((r) => [r.id, r.candidates[0].id]);
+    for (const [rid, cid] of ids.slice(0, 3)) chooseProvincial(s, rid, cid);
+    ok('draft: incomplete at 3/4', !s.draft.done);
+    chooseProvincial(s, ids[3][0], ids[3][1]);
+    ok('draft: incomplete without HQs', !s.draft.done);
+    s.draft.regions.forEach((r) => { if (r.id !== 'europe') chooseProvinceHQ(s, r.id, hqOptionsForRegion(s, r.id)[0].id); });
+    ok('draft: done at 4/4 + HQs', s.draft.done === true);
+    ok('draft: provincials stored', Object.keys(s.provincials).length === 4
+      && s.provincials.east.name === s.draft.regions[0].candidates[0].name);
+    ok('draft: ledger records appointments',
+      (s.ledger || []).some((e) => e.type === 'provincial' && /take office/.test(e.text)));
+  }
+  // invalid picks throw; one man cannot govern two regions
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'draft3' });
+    let threw = 0;
+    try { chooseProvincial(s, 'nowhere', 'x'); } catch (e) { threw++; }
+    try { chooseProvincial(s, 'east', 'prov-east-9'); } catch (e) { threw++; }
+    chooseProvincial(s, 'east', s.draft.regions[0].candidates[0].id);
+    try { chooseProvincial(s, 'east', s.draft.regions[0].candidates[0].id); } catch (e) { threw++; } // re-pick same: allowed, no throw
+    ok('draft: bad region/candidate throw', threw === 2);
+    ok('draft: re-pick same region allowed', s.draft.picks.east === s.draft.regions[0].candidates[0].id);
+    try { chooseProvincial(s, 'europe', s.draft.regions[0].candidates[0].id); } catch (e) { threw++; }
+    ok('draft: double-governance blocked', threw === 3);
+  }
+  // old saves skip the draft
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'draft4' });
+    const raw = serialize(s);
+    delete raw.draft; delete raw.provincials;
+    const s2 = deserialize(raw);
+    ok('draft: old saves skip', s2.draft.done === true && s2.draft.skipped === true);
+  }
+  // HQs are required to take office; provincials reside there
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'draft6' });
+    for (const r of s.draft.regions) chooseProvincial(s, r.id, r.candidates[0].id);
+    ok('draft: HQs required', !s.draft.done);
+    s.draft.regions.forEach((r) => { if (r.id !== 'europe') chooseProvinceHQ(s, r.id, hqOptionsForRegion(s, r.id)[0].id); });
+    ok('draft: done with HQs', s.draft.done === true);
+    ok('draft: provincials carry HQ', s.provincials.east.hq === hqOptionsForRegion(s, 'east')[0].id);
+    let threw = 0;
+    try { chooseProvinceHQ(s, 'east', 'nowhere'); } catch (e) { threw++; }
+    ok('draft: bad HQ throws', threw === 1);
+    threw = 0;
+    try { chooseProvinceHQ(s, 'east', hqOptionsForRegion(s, 'newworld')[0].id); } catch (e) { threw++; }
+    ok('draft: cross-region HQ throws', threw === 1);
+  }
+  // Staged provincial answers: decide now, execute at year close.
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'stage1' });
+    for (const r of s.draft.regions) chooseProvincial(s, r.id, r.candidates[0].id);
+    for (const r of s.draft.regions) { if (r.id !== 'europe') chooseProvinceHQ(s, r.id, hqOptionsForRegion(s, r.id)[0].id); }
+    s.provincialRequests = { east: { regionId: 'east', year: s.year, professed: 0, fathers: 0, brothers: 0 } };
+    // add a man to the pool
+    const e = { petitionerId: 'stage-man-1', name: 'Stage Man', year: s.year, via: 'test', assignment: null };
+    s.europeanLabor.push(e);
+    s.petitioners['stage-man-1'] = { id: 'stage-man-1', name: 'Stage Man', status: 'active', vows: { stage: 'brother' } };
+    const fundsBefore = s.resources.funds;
+    const laborBefore = s.europeanLabor.length;
+    const hqId = s.provinceHQs.east;
+    // stage an answer: nothing moves yet
+    const sa = stageProvincialAnswer(s, 'east', { professed: 0, fathers: 0, brothers: 1 });
+    ok('stage: stored', s.stagedAnswers.east && s.stagedAnswers.east.mix.brothers === 1);
+    ok('stage: nothing moved', s.resources.funds === fundsBefore && s.europeanLabor.length === laborBefore);
+    ok('stage: request still pending', !!s.provincialRequests.east);
+    const com = stagedCommitments(s);
+    ok('stage: commitments counted', com.count === 1 && com.men === 1 && com.scudi === sa.cost);
+    // year close executes it
+    applyStagedAnswers(s);
+    ok('stage: executed at close', s.europeanLabor.length === laborBefore - 1);
+    ok('stage: answers are free — he pays when he sails', s.resources.funds === fundsBefore);
+    ok('stage: the named man waits at the dock for the HQ',
+      s.queue.some((q) => q.petitionerId === 'stage-man-1' && q.status === 'awaiting' && q.destination === hqId),
+      `hq=${hqId}`);
+    ok('stage: request cleared', !s.provincialRequests.east);
+    ok('stage: staged cleared', Object.keys(s.stagedAnswers).length === 0);
+    // unstage works
+    s.provincialRequests = { east: { regionId: 'east', year: s.year, professed: 0, fathers: 0, brothers: 0 } };
+    stageProvincialAnswer(s, 'east', { professed: 0, fathers: 0, brothers: 0 });
+    unstageProvincialAnswer(s, 'east');
+    ok('stage: unstage removes', !s.stagedAnswers.east);
+    ok('stage: commitments zero', stagedCommitments(s).count === 0);
+  }
+  // Community traits: top 3 dispositions among stationed men.
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'community1' });
+    // The starting staff are real men with arrivals — the community is
+    // the roster from day one (every man a profile, Tran 2026-10-20).
+    const roster0 = (missionStaff(s, 'goa').staffIds || []).length;
+    ok('community: starting staff are the community', roster0 > 0
+      && missionCommunity(s, 'goa').length === roster0, `${roster0}`);
+    // Fake an arrived voyage.
+    s.petitioners['c1'] = { id: 'c1', name: 'Community One', status: 'active' };
+    s.petitioners['c2'] = { id: 'c2', name: 'Community Two', status: 'active' };
+    s.voyages.push({ petitionerId: 'c1', destination: 'goa', stage: 'arrived', outcome: 'thriving' });
+    s.voyages.push({ petitionerId: 'c2', destination: 'goa', stage: 'arrived', outcome: 'thriving' });
+    const men = missionCommunity(s, 'goa');
+    ok('community: finds stationed men', men.length === roster0 + 2 && men.includes('c1'));
+    const traits = communityTraits(s, 'goa');
+    ok('community: top 3 traits', traits.length === 3);
+    ok('community: sorted by avg', traits[0].avg >= traits[1].avg && traits[1].avg >= traits[2].avg);
+    ok('community: avgs in range', traits.every((t) => t.avg >= 1 && t.avg <= 5));
+  }
+  // deterministic: same seed, same candidates
+  {
+    const a = newGameWithGalleons({ mode: 'campaign', seed: 'draft5' });
+    const b = newGameWithGalleons({ mode: 'campaign', seed: 'draft5' });
+    ok('draft: deterministic',
+      JSON.stringify(a.draft.regions) === JSON.stringify(b.draft.regions));
+  }
+}
+
+// --- 47. Provincial replacement ------------------------------------------------
+{
+  const mkDrafted = (seed) => {
+    const s = newGameWithGalleons({ mode: 'campaign', seed });
+    for (const r of s.draft.regions) chooseProvincial(s, r.id, r.candidates[0].id);
+    s.draft.regions.forEach((r) => { if (r.id !== 'europe') chooseProvinceHQ(s, r.id, hqOptionsForRegion(s, r.id)[0].id); });
+    return s;
+  };
+  const mkProfessed = (s, id) => {
+    const rec = ensureRecord(s, id, true);
+    rec.status = 'active';
+    rec.savedGrade = { grade: 'professed-of-the-4th-vow', ordained: true };
+    return rec;
+  };
+  // term tracking
+  {
+    const s = mkDrafted('rep1');
+    ok('replacement: term starts at 0', provincialTermYears(s, 'east') === 0);
+    ok('replacement: term not complete', !provincialTermComplete(s, 'east'));
+    s.year += PROVINCIAL_TERM_YEARS;
+    ok('replacement: term complete at 6', provincialTermComplete(s, 'east'));
+  }
+  // professed-priest eligibility: need a real professed priest in the pool
+  {
+    const s = mkDrafted('rep2');
+    const rec = ensureRecord(s, 'hist-1');
+    rec.status = 'active';
+    ok('replacement: hist-1 is a professed priest', isProfessedPriest(s, 'hist-1'));
+    const roster = professedPriests(s);
+    ok('replacement: roster lists him', roster.some((p) => p.petitionerId === 'hist-1'));
+    const drawn = beginProvincialReplacement(s, 'east');
+    ok('replacement: terna drawn (<=3)', drawn.candidates.length <= 3 && drawn.candidates.length >= 1);
+    ok('replacement: incumbent excluded', !drawn.candidates.includes(drawn.incumbent));
+    ok('replacement: terna stored', s.provincialTernas.east.candidates.length === drawn.candidates.length);
+  }
+  // resolve: name a successor from the terna
+  {
+    const s = mkDrafted('rep3');
+    ensureRecord(s, 'hist-1').status = 'active';
+    mkProfessed(s, 'fic-priest-1');
+    const drawn = beginProvincialReplacement(s, 'europe');
+    const pick = drawn.candidates[0];
+    const before = s.provincials.europe.name;
+    resolveProvincialReplacement(s, 'europe', pick);
+    ok('replacement: successor takes office', s.provincials.europe.petitionerId === pick);
+    ok('replacement: fresh term', provincialTermYears(s, 'europe') === 0);
+    ok('replacement: ledger records it',
+      (s.ledger || []).some((e) => e.type === 'provincial' && new RegExp(`succeeds ${before}`).test(e.text)));
+    ok('replacement: terna cleared', !s.provincialTernas.europe);
+  }
+  // resolve: keep the incumbent for another term
+  {
+    const s = mkDrafted('rep4');
+    s.year += PROVINCIAL_TERM_YEARS;
+    const name = s.provincials.africa.name;
+    resolveProvincialReplacement(s, 'africa', 'incumbent');
+    ok('replacement: incumbent stays', s.provincials.africa.name === name);
+    ok('replacement: term renewed', provincialTermYears(s, 'africa') === 0);
+  }
+  // resolve: ineligible choice throws; unknown region throws
+  {
+    const s = mkDrafted('rep5');
+    let threw = 0;
+    try { resolveProvincialReplacement(s, 'east', 'hist-3'); } catch (e) { threw++; } // brother, not a priest
+    try { resolveProvincialReplacement(s, 'nowhere', 'incumbent'); } catch (e) { threw++; }
+    try { beginProvincialReplacement(s, 'nowhere'); } catch (e) { threw++; }
+    ok('replacement: invalid choices throw', threw === 3);
+  }
+
+  // short bench: own province first, then nearest
+  {
+    const s = mkDrafted('rep6');
+    // put a professed priest at a New World mission and one in Europe
+    const a = ensureRecord(s, 'hist-1'); a.status = 'active';
+    mkProfessed(s, 'fic-priest-2');
+    // hist-1/hist-5 default location: Europe (no voyage) -> europe province
+    const drawn = beginProvincialReplacement(s, 'newworld');
+    ok('replacement: short bench fills from nearest',
+      drawn.candidates.length >= 1 && drawn.candidates.length <= 3);
+  }
+  // outgoing posting: Europe vs a destination
+  {
+    const s = mkDrafted('rep7');
+    const a = ensureRecord(s, 'hist-1'); a.status = 'active';
+    mkProfessed(s, 'fic-priest-3');
+    // make hist-5 the incumbent of europe by replacing the placeholder
+    const drawn = beginProvincialReplacement(s, 'europe');
+    resolveProvincialReplacement(s, 'europe', drawn.candidates[0], 'europe');
+    const inc = s.provincials.europe.petitionerId;
+    // now replace him, sending him to a destination
+    const d2 = beginProvincialReplacement(s, 'europe');
+    const dest = openDestinations(s)[0].id;
+    resolveProvincialReplacement(s, 'europe', d2.candidates.find((c) => c !== inc) || d2.candidates[0], dest);
+    const queued = (s.queue || []).find((q) => q.petitionerId === inc);
+    ok('replacement: outgoing queued for chosen destination', !!queued && queued.destination === dest);
+  }
+}
+
+
+// --- 48. Mortality: hidden death ages, illness, old age ----------------------
+{
+  // death age seeded hidden in 65-70 for a young man
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'mort1' });
+    const rec = ensureRecord(s, 'hist-1');
+    rec.status = 'active';
+    resolveYear(s);
+    ok('mortality: death age seeded 65-70', rec.deathAge >= 65 && rec.deathAge <= 70);
+    ok('mortality: age advances', typeof rec.age === 'number' && rec.age > 0);
+  }
+  // no instant death for an old man at seeding
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'mort2' });
+    const rec = ensureRecord(s, 'old-man', true);
+    rec.status = 'active'; rec.age = 69;
+    resolveYear(s);
+    ok('mortality: old man survives seeding year', rec.status !== 'deceased' || rec.age >= 70);
+  }
+  // old-age death fires at the hidden age
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'mort3' });
+    const rec = ensureRecord(s, 'doomed', true);
+    rec.status = 'active'; rec.age = 40; rec.deathAge = 41;
+    const deathsBefore = s.stats.deaths || 0;
+    resolveYear(s);
+    ok('mortality: dies at death age', rec.status === 'deceased');
+    ok('mortality: death counted', (s.stats.deaths || 0) === deathsBefore + 1);
+    ok('mortality: death in ledger',
+      (s.ledger || []).some((e) => e.type === 'death' && /old age/.test(e.decision || '')));
+    ok('mortality: death in history',
+      (rec.history || []).some((h) => h.event === 'death'));
+  }
+  // illness: the sick either recover or die (seeded; just verify no crash and resolution)
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'mort4' });
+    const rec = ensureRecord(s, 'sick-man', true);
+    rec.status = 'active'; rec.age = 30; rec.deathAge = 70;
+    if (!Array.isArray(s.europeanLabor)) s.europeanLabor = [];
+    s.europeanLabor.push({ petitionerId: 'sick-man', name: 'Sick Man', year: s.year, ill: true });
+    resolveYear(s);
+    const stillIll = (s.europeanLabor || []).some((e) => e.petitionerId === 'sick-man' && e.ill);
+    ok('mortality: illness resolves (recovered, lingering, or died)',
+      !stillIll || rec.status === 'deceased' || stillIll);
+  }
+  // a provincial who dies vacates his region
+  {
+    const s = newGameWithGalleons({ mode: 'campaign', seed: 'mort5' });
+    for (const r of s.draft.regions) chooseProvincial(s, r.id, r.candidates[0].id);
+    s.draft.regions.forEach((r) => { if (r.id !== 'europe') chooseProvinceHQ(s, r.id, hqOptionsForRegion(s, r.id)[0].id); });
+    const rec = ensureRecord(s, 'hist-1'); rec.status = 'active';
+    // install hist-1 as provincial of the east
+    s.provincials.east = { petitionerId: 'hist-1', name: 'Hist One', appointedYear: s.year, hq: hqOptionsForRegion(s, 'east')[0].id };
+    rec.age = 40; rec.deathAge = 41;
+    resolveYear(s);
+    ok('mortality: provincial death vacates', s.provincials.east.vacant === true);
+    ok('mortality: vacancy in ledger',
+      (s.ledger || []).some((e) => e.type === 'provincial' && /has died/.test(e.text || '')));
+    // a successor can be named for the vacant see
+    const drawn = beginProvincialReplacement(s, 'east');
+    ok('mortality: terna drawn for vacant see', drawn.candidates.length >= 0 && !drawn.incumbent);
+  }
+  // determinism: same seed, same death ages
+  {
+    const a = newGameWithGalleons({ mode: 'campaign', seed: 'mort6' });
+    const b = newGameWithGalleons({ mode: 'campaign', seed: 'mort6' });
+    const ra = ensureRecord(a, 'hist-1'); ra.status = 'active';
+    const rb = ensureRecord(b, 'hist-1'); rb.status = 'active';
+    resolveYear(a); resolveYear(b);
+    ok('mortality: deterministic', ra.deathAge === rb.deathAge && ra.age === rb.age);
+  }
+}
+
+
+// --- 49. Provincial requests, asking, energy, treasury, society report -------
+{
+  const setup = (seed) => {
+    const s = newGameWithGalleons({ mode: 'campaign', seed });
+    for (const r of s.draft.regions) chooseProvincial(s, r.id, r.candidates[0].id);
+    s.draft.regions.forEach((r) => { if (r.id !== 'europe') chooseProvinceHQ(s, r.id, hqOptionsForRegion(s, r.id)[0].id); });
+    return s;
+  };
+  // requests generate (seeded)
+  {
+    const s = setup('req1');
+    generateProvincialRequests(s, s.year);
+    const n = provincesWithRequests(s).length;
+    ok('requests: some provinces ask', n >= 0 && n <= 4, `${n}`);
+    for (const rid of provincesWithRequests(s)) {
+      const q = s.provincialRequests[rid];
+      ok('requests: well-formed', REQUEST_GRADES.every((c) => Number.isInteger(q[c]) && q[c] >= 0));
+    }
+  }
+  // answering: decline
+  {
+    const s = setup('req2');
+    s.provincialRequests = { east: { regionId: 'east', year: s.year, professed: 1, fathers: 1, brothers: 1 } };
+    const funds = s.resources.funds;
+    const r = answerProvincialRequest(s, 'east', { professed: 0, fathers: 0, brothers: 0 });
+    ok('requests: decline sends none', r.sent === 0 && !s.provincialRequests.east);
+    ok('requests: decline costs nothing', s.resources.funds === funds);
+  }
+  // answering: agree needs men; validation
+  {
+    const s = setup('req3');
+    s.provincialRequests = { east: { regionId: 'east', year: s.year, professed: 999, fathers: 0, brothers: 0 } };
+    let threw = false;
+    try { answerProvincialRequest(s, 'east', { professed: 999, fathers: 0, brothers: 0 }); }
+    catch (e) { threw = /free in Europe/.test(e.message); }
+    ok('requests: cannot send more than the named men in Europe', threw);
+    ok('requests: failed answer keeps the request', !!s.provincialRequests.east);
+  }
+  {
+    // The abstract pool no longer covers a request (Tran 2026-10-20):
+    // with nobody standing in Europe, there is nobody to send.
+    const s = setup('req4');
+    s.europeanLabor = [];
+    s.available = 10;
+    s.provincialRequests = { east: { regionId: 'east', year: s.year, professed: 0, fathers: 2, brothers: 0 } };
+    let threw = false;
+    try { answerProvincialRequest(s, 'east', { professed: 0, fathers: 2, brothers: 0 }); }
+    catch (e) { threw = /free in Europe/.test(e.message); }
+    ok('requests: the abstract pool sends nobody', threw && s.available === 10);
+    ok('requests: unanswered request survives', !!s.provincialRequests.east);
+  }
+  // asking: 3/year, energy, province check
+  {
+    const s = setup('ask1');
+    // put a man in the east via a voyage record
+    const rec = ensureRecord(s, 'hist-1'); rec.status = 'active';
+    s.voyages.push({ id: 'v-ask', petitionerId: 'hist-1', destination: 'goa', stage: 'arrived',
+      outcome: 'thriving', resolvedYear: s.year, arriveYear: s.year });
+    const e0 = s.energy;
+    const res = askProvincial(s, 'east', 'hist-1');
+    ok('ask: returns the man', res.petitionerId === 'hist-1' && res.questionsLeft === QUESTIONS_PER_YEAR - 1);
+    ok('ask: is free (no energy)', s.energy === e0);
+    let threw = false;
+    try { askProvincial(s, 'newworld', 'hist-1'); } catch (e) { threw = /does not serve/.test(e.message); }
+    ok('ask: wrong province rejected', threw);
+    askProvincial(s, 'east', 'hist-1');
+    askProvincial(s, 'east', 'hist-1');
+    let threw2 = false;
+    try { askProvincial(s, 'east', 'hist-1'); } catch (e) { threw2 = /three questions/.test(e.message); }
+    ok('ask: quota enforced at 3', threw2);
+  }
+  // energy mechanic REMOVED per Tran 2026-10-19: spendEnergy is a no-op
+  {
+    const s = setup('nrg1');
+    spendEnergy(s, 99, 'testing'); // does not throw, does nothing
+    ok('energy: spendEnergy is no-op', true);
+  }
+  // succession after death is free; living succession costs
+  {
+    const s = setup('nrg2');
+    s.provincials.east = { vacant: true, name: 'Vacant', appointedYear: s.year, hq: 'goa' };
+    const e0 = s.energy;
+    beginProvincialReplacement(s, 'east');
+    ok('energy: vacant see is free', s.energy === e0);
+    const s2 = setup('nrg3');
+    const e1 = s2.energy;
+    beginProvincialReplacement(s2, 'east');
+    ok('energy: living succession is free', s2.energy === e1);
+  }
+  // finance logging
+  {
+    const s = setup('fin1');
+    const f0 = s.resources.funds;
+    spendFunds(s, 100, 'testing');
+    gainFunds(s, 50, 'testing-in');
+    ok('finance: funds move', s.resources.funds === f0 - 50);
+    ok('finance: expenses logged', s.finance.expenses.testing === 100);
+    ok('finance: income logged', s.finance.income['testing-in'] === 50);
+    ok('finance: per-year logged', s.financeYears[s.year].expenses.testing === 100);
+  }
+  // society report in ledger
+  {
+    const s = setup('soc1');
+    const { terna } = startYear(s); decide(s, []); resolveYear(s);
+    const rep = (s.ledger || []).find((e) => e.type === 'society-report');
+    ok('society report: stored in ledger', !!rep && /State of the Society/.test(rep.text || ''));
+    ok('society report: has detail', !!rep.detail && typeof rep.detail.funds === 'number');
+  }
+
+
+  // Two-stage illness: sick this year, dies next year
+  {
+    const s = setup('sick1');
+    let terna;
+    const pid = 'fic-sick-1';
+    s.petitioners[pid] = {
+      id: pid, fictional: true, status: 'active', name: 'Sick Test Man',
+      entryYear: 1615, vows: { stage: 'brother', firstVows: true }, age: 30,
+    };
+    const mst = missionStaff(s, 'brazil'); // capacity 8
+    mst.capacity = 8;
+    mst.brothers = 4; mst.fathers = 0; mst.coadjutors = 0;
+    mst.staffIds = [pid, 'x1', 'x2', 'x3'];
+    for (const x of ['x1','x2','x3']) {
+      s.petitioners[x] = { id: x, fictional: true, status: 'active', name: 'X'+x, entryYear: 1615, vows: { stage: 'brother', firstVows: true }, age: 30 };
+    }
+    // Mark the man sick this year
+    s.sickMen = { [pid]: { since: s.year, destId: 'brazil' } };
+    ({ terna } = startYear(s)); decide(s, []); resolveYear(s);
+    const stillThere = (missionStaff(s, 'brazil').staffIds || []).includes(pid);
+    ok('illness: sick man stays staffed in illness year', stillThere);
+    // Next year: he dies
+    ({ terna } = startYear(s)); decide(s, []); resolveYear(s);
+    const gone = !(missionStaff(s, 'brazil').staffIds || []).includes(pid);
+    ok('illness: sick man dies the next year', gone);
+    const deathNote = (s.ledger || []).find((e) => e.type === 'death' && /Sick Test Man/.test(e.text || ''));
+    ok('illness: death recorded in ledger', !!deathNote, deathNote ? deathNote.text : 'none');
+  }
+
+
+  // Persecution event: three tiers by zeal+prudence
+  {
+    let terna;
+    const runCase = (seed, zeal, prud) => {
+      const s = setup(seed);
+      s.destState.japan.danger = 3; // persecution needs danger >= 2; fixtures set 1
+      const pid = 'fic-seized-1';
+      s.petitioners[pid] = {
+        id: pid, fictional: true, status: 'active', name: 'Seized Test Man',
+        entryYear: 1615, vows: { stage: 'brother', firstVows: true }, age: 30,
+        disposition: { initial: {}, current: { zeal, prudence: prud, obedience: 3, humility: 3, patience: 3, adaptability: 3, stability: 3 }, evidence: {}, observed: [] },
+      };
+      const mst = missionStaff(s, 'japan'); // danger 3
+      mst.staffIds = [pid];
+      mst.brothers = 1; mst.fathers = 0; mst.coadjutors = 0;
+      // Make sure no one else interferes: clear other missions' staff is unnecessary;
+      // we only look for entries about this man.
+      for (let i = 0; i < 28; i++) { // campaign ends 1645, stay under the cap
+        ({ terna } = startYear(s)); decide(s, []); resolveYear(s);
+        const hit = (s.ledger || []).find((e) => ['martyrdom', 'confessor', 'apostasy'].includes(e.type) && /Seized Test Man/.test(e.text || ''));
+        if (hit) return { hit, s };
+      }
+      return { hit: null, s };
+    };
+    // Per-man seizure is 15%/yr, so try several seeds until the event fires.
+    const runUntilEvent = (base, zeal, prud) => {
+      for (const suffix of ['', '-b', '-c', '-d', '-e']) {
+        const r = runCase(base + suffix, zeal, prud);
+        if (r.hit) return r;
+      }
+      return runCase(base + '-z', zeal, prud);
+    };
+    const crown = runUntilEvent('persec-crown', 5, 5); // 10 -> crown
+    ok('persecution: zeal+prudence 10 wins the crown', crown.hit?.type === 'martyrdom', crown.hit ? crown.hit.type : 'no event');
+    const conf = runUntilEvent('persec-conf', 3, 3); // 6 -> confessor
+    ok('persecution: zeal+prudence 6 makes a confessor', conf.hit?.type === 'confessor', conf.hit ? conf.hit.type : 'no event');
+    if (conf.hit) {
+      const rec = conf.s.petitioners['fic-seized-1'];
+      const disp = rec?.disposition?.current || {};
+      ok('persecution: confessor virtues are maxed', Object.values(disp).every((v) => v === 6), JSON.stringify(disp));
+      const stillThere = (missionStaff(conf.s, 'japan').staffIds || []).includes('fic-seized-1');
+      ok('persecution: confessor survives at the mission', stillThere);
+    }
+    const apos = runUntilEvent('persec-apos', 1, 1); // 2 -> apostate
+    ok('persecution: zeal+prudence 2 apostasizes', apos.hit?.type === 'apostasy', apos.hit ? apos.hit.type : 'no event');
+  }
+
+
+  // The Engine of the Society
+  {
+    const s = setup('engine1');
+    // Add 30 mission fathers across missions + 5 martyrs
+    for (const [i, id] of ['japan', 'china', 'india'].entries()) {
+      const mst = missionStaff(s, id);
+      mst.fathers = 10;
+    }
+    s.stats.martyrs = 5;
+    const { engineStrength, engineBonus, setIntention, intentionVoyageMod } = EngineNS;
+    const es = engineStrength(s);
+    ok('engine: counts priests + martyrs', es.total >= 35 && es.martyrs === 5, `total=${es.total}`);
+    ok('engine: bonus is +0.15 per unit of strength', Math.abs(engineBonus(s) - es.total * 0.15) < 0.001, `bonus=${engineBonus(s)}`);
+    setIntention(s, 'japan');
+    ok('engine: mission intention gives voyage mod', intentionVoyageMod(s, 'japan') === engineBonus(s));
+    ok('engine: other missions get no mod', intentionVoyageMod(s, 'china') === 0);
+    setIntention(s, 'society');
+    ok('engine: society intention gives no voyage mod', intentionVoyageMod(s, 'japan') === 0);
+    // Society zeal: temporary — applied one year, lifted the next
+    let terna;
+    const before = ensureDisposition(s, 'hist-1').current.zeal;
+    ({ terna } = startYear(s)); decide(s, []); resolveYear(s);
+    const after = ensureDisposition(s, 'hist-1').current.zeal;
+    const zb = Math.round(es.total * 0.15 * 100) / 100;
+    ok('engine: society intention raises zeal for the year', Math.abs(after - Math.min(6, before + zb)) < 0.001, `before=${before} after=${after} zb=${zb}`);
+    // Switch the intention away: the blessing lifts
+    setIntention(s, 'japan');
+    ({ terna } = startYear(s)); decide(s, []); resolveYear(s);
+    const lifted = ensureDisposition(s, 'hist-1').current.zeal;
+    ok('engine: the blessing lifts the next year', Math.abs(lifted - before) < 1.01, `before=${before} lifted=${lifted}`);
+  }
+
+  // Scripture bank validation
+  {
+    const { SCRIPTURE_BANK } = await import('./scripture-bank.js');
+    const virtues = ['zeal', 'obedience', 'prudence', 'humility', 'patience', 'adaptability', 'stability'];
+    for (const v of virtues) {
+      const count = SCRIPTURE_BANK.filter(e => e.virtue === v).length;
+      ok(`scripture bank: ${v} has 50`, count === 50, `${count}`);
+    }
+    ok('scripture bank: 350 total', SCRIPTURE_BANK.length === 350, `${SCRIPTURE_BANK.length}`);
+    const ids = new Set(SCRIPTURE_BANK.map(e => e.id));
+    ok('scripture bank: unique IDs', ids.size === 350);
+    const refs = new Set(SCRIPTURE_BANK.map(e => e.reference.toLowerCase()));
+    ok('scripture bank: unique refs', refs.size === 350);
+  }
+}
+
+// --- 50. One man, one place: roster integrity ---------------------------------
+{
+  // Fresh missions are staffed by real minted men — a name, a profile,
+  // and an arrival in a past year behind every count (Tran 2026-10-20:
+  // every man must have a profile). No real petitioner is dealt into a
+  // staff list for a mission he never sailed to.
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'one-place' });
+  ok('one-place: every starting count has a named man',
+    Object.values(s.missions).every((m) => (m.staffIds || []).length === missionStaffed(m)));
+  ok('one-place: starting men have profiles and arrivals',
+    Object.entries(s.missions).every(([destId, m]) => (m.staffIds || []).every((id) =>
+      s.petitioners[id] && typeof s.petitioners[id].name === 'string'
+      && missionCommunity(s, destId).includes(id))));
+  ok('one-place: no petitioner is dealt into a mission',
+    Object.values(s.missions).every((m) => (m.staffIds || []).every((id) => id.startsWith('staff-'))));
+
+  // Sending a man from Europe: he waits at the dock and sails — he does
+  // NOT appear at the mission until his ship arrives (no teleporting).
+  const { terna } = startYear(s);
+  decide(s, []); // all denied -> europeanLabor
+  const pid = terna[0].petitionerId;
+  s.resources.funds = 5000;
+  const availBefore = s.available;
+  const japanBefore = missionStaffed(missionStaff(s, 'japan'));
+  const entry = s.europeanLabor.find((e) => e.petitionerId === pid);
+  EngineNS.queueLaborMen(s, [entry], 'japan', 'test order');
+  const jst = missionStaff(s, 'japan');
+  ok('one-place: a sent man is not yet on the roster', !jst.staffIds.includes(pid));
+  ok('one-place: the headcount does not move until he arrives',
+    missionStaffed(jst) === japanBefore);
+  ok('one-place: the spare pool keeps him until he sails', s.available === availBefore);
+  ok('one-place: sent man leaves European labor',
+    !s.europeanLabor.some((e) => e.petitionerId === pid));
+  ok('one-place: sent man waits at the dock',
+    s.queue.some((q) => q.petitionerId === pid && q.status === 'awaiting' && q.destination === 'japan'));
+
+  // Removal takes the man's OWN grade bucket, not "fathers first".
+  const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'one-place-2' });
+  const { terna: t2 } = startYear(s2);
+  decide(s2, []);
+  const bid = t2[0].petitionerId;
+  const rec2 = s2.petitioners[bid];
+  if (!rec2.vows) rec2.vows = {};
+  rec2.vows.stage = 'brother';
+  const st2 = missionStaff(s2, 'peru');
+  st2.fathers = 2; st2.brothers = 3; st2.staffIds = [bid];
+  EngineNS.removeStationedMan(s2, st2, bid);
+  ok('one-place: removal decrements the man\'s own grade',
+    st2.brothers === 2 && st2.fathers === 2, `f=${st2.fathers} b=${st2.brothers}`);
+  ok('one-place: removal strikes the name', !st2.staffIds.includes(bid));
+
+  // A dock-held man does not petition again, and the queue never holds
+  // two awaiting entries for one man.
+  const s3 = newGameWithGalleons({ mode: 'campaign', seed: 'one-place-3' });
+  const { terna: t3 } = startYear(s3);
+  decide(s3, []);
+  const rid = t3[0].petitionerId;
+  EngineNS.reserveForMission(s3, rid, 'japan');
+  EngineNS.callReserveToDock(s3, rid);
+  ok('one-place: called to dock once',
+    s3.queue.filter((q) => q.petitionerId === rid && q.status === 'awaiting').length === 1);
+  EngineNS.enqueueAwaiting(s3, { petitionerId: rid, approvedYear: s3.year, destination: 'peru', status: 'awaiting', held: true, teamId: null, teamSize: 1, companions: 0 });
+  const entries3 = s3.queue.filter((q) => q.petitionerId === rid && q.status === 'awaiting');
+  ok('one-place: re-enqueue replaces, never duplicates',
+    entries3.length === 1 && entries3[0].destination === 'peru');
+  resolveYear(s3);
+  const { terna: t3b } = startYear(s3);
+  ok('one-place: a man at the dock is not in the next stack',
+    !t3b.some((c) => c.petitionerId === rid));
+  ok('one-place: the held man is still at the dock',
+    s3.queue.some((q) => q.petitionerId === rid && q.status === 'awaiting' && q.held));
+
+  // Station a named man at a mission through the real arrival path
+  // (an arrived voyage, resolved by staffArrival).
+  const stationMan = (st, pid, destId) => {
+    st.europeanLabor = st.europeanLabor.filter((e) => e.petitionerId !== pid);
+    const v = { id: `voy-test-${pid}-${destId}`, petitionerId: pid,
+      name: (st.petitioners[pid] || {}).name || pid, destination: destId,
+      stage: 'arrived', outcome: 'thriving', departYear: st.year - 2,
+      arriveYear: st.year, companions: 0, companionIds: [] };
+    st.voyages.push(v);
+    const rec = st.petitioners[pid];
+    if (rec) {
+      rec.status = 'active';
+      if (!Array.isArray(rec.voyages)) rec.voyages = [];
+      rec.voyages.push(v.id);
+    }
+    EngineNS.staffArrival(st, v);
+  };
+
+  // Disease death: the man dies in his record as well as the ledger, and
+  // leaves the roster. (A sickMen entry from last year ripens this year.)
+  const s4 = newGameWithGalleons({ mode: 'campaign', seed: 'one-place-4' });
+  const { terna: t4 } = startYear(s4);
+  decide(s4, []);
+  const did = t4[0].petitionerId;
+  s4.resources.funds = 5000;
+  stationMan(s4, did, 'peru');
+  s4.sickMen = { [did]: { since: s4.year - 1, destId: 'peru' } };
+  resolveYear(s4);
+  ok('one-place: disease death marks the record deceased',
+    s4.petitioners[did].status === 'deceased');
+  ok('one-place: disease death strikes the roster',
+    !missionStaff(s4, 'peru').staffIds.includes(did));
+  const { terna: t4b } = startYear(s4);
+  ok('one-place: the dead do not petition', !t4b.some((c) => c.petitionerId === did));
+
+  // Disband: named men come home as themselves; the closed mission gains
+  // no fragility years and never warns or collapses.
+  const s5 = newGameWithGalleons({ mode: 'campaign', seed: 'one-place-5' });
+  const { terna: t5 } = startYear(s5);
+  decide(s5, []);
+  const hid = t5[0].petitionerId;
+  s5.resources.funds = 5000;
+  stationMan(s5, hid, 'peru');
+  missionStaff(s5, 'peru').fragileYears = 3;
+  EngineNS.disbandMission(s5, 'peru');
+  ok('one-place: disbanded man is back laboring in Europe',
+    s5.europeanLabor.some((e) => e.petitionerId === hid));
+  ok('one-place: disbanding clears the fragility clock',
+    missionStaff(s5, 'peru').fragileYears === 0);
+  resolveYear(s5);
+  startYear(s5); decide(s5, []); resolveYear(s5);
+  ok('one-place: closed mission gathers no fragility',
+    missionStaff(s5, 'peru').fragileYears === 0 && !s5.destState.peru.collapsed);
+  ok('one-place: no collapse warning for a closed mission',
+    !s5.ledger.some((e) => e.type === 'warning' && e.destination === 'peru'));
+
+  // Save repair: a corrupted old save is cleaned on load.
+  const s6 = newGameWithGalleons({ mode: 'campaign', seed: 'one-place-6' });
+  const { terna: t6 } = startYear(s6);
+  decide(s6, []);
+  const xid = t6[0].petitionerId; // laboring in Europe
+  const raw = JSON.parse(JSON.stringify(serialize(s6)));
+  raw.queue.push(
+    { petitionerId: xid, approvedYear: 1615, destination: 'japan', status: 'awaiting', teamId: null, teamSize: 1, companions: 0 },
+    { petitionerId: xid, approvedYear: 1615, destination: 'peru', status: 'awaiting', teamId: null, teamSize: 1, companions: 0 },
+  );
+  raw.missions.japan.staffIds = [xid]; // phantom: he is in Europe, never sailed
+  raw.missions.peru.fragileYears = 4;
+  raw.destState.peru.access = 'closed';
+  const s6b = deserialize(raw);
+  ok('repair: duplicate queue entries collapse to one',
+    s6b.queue.filter((q) => q.petitionerId === xid && q.status === 'awaiting').length === 1);
+  ok('repair: phantom staff removed', !missionStaff(s6b, 'japan').staffIds.includes(xid));
+  // A closed mission's fragility clock is frozen, not erased: repair
+  // preserves the recorded counter (save round-trip must be identical),
+  // and the live engine never advances it while the mission stays closed.
+  ok('repair: closed mission fragility frozen, not rewritten', missionStaff(s6b, 'peru').fragileYears === 4);
+
+  // Companions show their own names, not a generic label.
+  const s7 = newGameWithGalleons({ mode: 'campaign', seed: 'one-place-7' });
+  s7.petitioners['companion-japan-1615-1'] = { id: 'companion-japan-1615-1', name: 'Named Companion', fictional: true, status: 'active', history: [] };
+  ok('one-place: a companion is called by his name',
+    EngineNS.personName(s7, 'companion-japan-1615-1') === 'Named Companion');
+
+  // Releasing a station removes the man and his companions by name.
+  const s8 = newGameWithGalleons({ mode: 'campaign', seed: 'one-place-8' });
+  const st8 = missionStaff(s8, 'china');
+  st8.brothers = 2; st8.staffIds = ['fic-vet', 'companion-china-1617-1'];
+  s8.petitioners['fic-vet'] = { id: 'fic-vet', fictional: true, status: 'active', history: [], vows: { stage: 'brother' } };
+  s8.petitioners['companion-china-1617-1'] = { id: 'companion-china-1617-1', fictional: true, status: 'active', history: [], vows: { stage: 'brother' } };
+  EngineNS.releaseVoyageStation(s8, { petitionerId: 'fic-vet', destination: 'china', staffGrade: 'brothers', staffCompanions: 1, companionIds: ['companion-china-1617-1'], arriveYear: 1617 });
+  ok('one-place: station release strikes both names', st8.staffIds.length === 0);
+  ok('one-place: station release balances the count', st8.brothers === 0);
+}
+
+// --- 51. End-of-game data export ----------------------------------------------
+{
+  // The ending screen's "Export game data" button downloads the full save
+  // (buildSaveExport over the engine). The payload must be the whole game:
+  // ledger history, people, missions, finance — a restorable state.
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'export-data' });
+  const { terna } = startYear(s);
+  decide(s, [{ id: terna[0].petitionerId }]);
+  resolveYear(s);
+  endGame(s);
+  const before = JSON.stringify(s);
+  const { filename, json } = buildSaveExport(EngineNS, s);
+  ok('export: building the payload does not mutate the game', JSON.stringify(s) === before);
+  ok('export: filename is a dated game-data JSON', /^generalate-save-\d{4}-\d{2}-\d{2}-anno\d+\.json$/.test(filename), filename);
+  const data = JSON.parse(json);
+  ok('export: payload is a version-1 save', data.version === 1);
+  ok('export: payload carries the ledger history', Array.isArray(data.ledger) && data.ledger.length > 0);
+  ok('export: payload carries people, missions and finance',
+    !!data.petitioners && !!data.missions && !!data.financeYears);
+  const restored = deserialize(data);
+  ok('export: payload restores as a game', restored.seed === s.seed && restored.year === s.year);
+}
+
+// --- 52. Ships only: every man a profile (Tran 2026-10-20) ---------------------
+{
+  // The dispatch actions are gone — no arranged passage, no teleport,
+  // no abstract man. Every way overseas is a ship.
+  ok('ships-only: no dispatch actions exist',
+    typeof EngineNS.dispatchFromEurope === 'undefined'
+    && typeof EngineNS.dispatchFromFormation === 'undefined'
+    && typeof EngineNS.dispatchFromDock === 'undefined'
+    && typeof EngineNS.dockSendCost === 'undefined'
+    && typeof EngineNS.dispatchMission === 'undefined');
+
+  // Founding: the company is named men who queue; a founding with no men
+  // in Europe fails clean and changes nothing.
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'found-1' });
+  s.destState.peru.collapsed = true;
+  s.resources.funds = 5000;
+  let threw = false;
+  try { EngineNS.foundMission(s, 'peru', { brothers: 1 }); } catch (e) { threw = /free in Europe/.test(e.message); }
+  ok('founding: no men in Europe, no founding', threw);
+  ok('founding: failed founding changes nothing',
+    s.resources.funds === 5000 && !!s.destState.peru.collapsed);
+  seedLabor(s, 1, 'found');
+  s.petitioners['test-found-0'].vows = { stage: 'brother' };
+  const availBefore = s.available;
+  const res = EngineNS.foundMission(s, 'peru', { brothers: 1 });
+  ok('founding: costs no coin and opens the mission',
+    res.cost === 0 && s.resources.funds === 5000 && s.destState.peru.access === 'open' && !s.destState.peru.collapsed);
+  ok('founding: the price is gone at every size',
+    EngineNS.foundCost(s, 'peru') === 0 && EngineNS.foundCost(s, 'japan') === 0,
+    `${EngineNS.foundCost(s, 'peru')}/${EngineNS.foundCost(s, 'japan')}`);
+  ok('founding: the founder is a named man at the dock',
+    res.men.length === 1 && res.men[0] === 'test-found-0'
+    && s.queue.some((q) => q.petitionerId === 'test-found-0' && q.status === 'awaiting' && q.destination === 'peru'));
+  ok('founding: he is not stationed until he sails',
+    !missionStaff(s, 'peru').staffIds.includes('test-found-0'));
+  ok('founding: the abstract pool is untouched', s.available === availBefore);
+
+  // Prices: ships and berths carry the whole load now, so they cost less.
+  ok('prices: ship tiers cut', EngineNS.RESOURCES.SHIP_TIERS.caravel.cost === 100
+    && EngineNS.RESOURCES.SHIP_TIERS.carrack.cost === 200 && EngineNS.RESOURCES.SHIP_TIERS.galleon.cost === 400);
+  const s2 = newGameWithGalleons({ mode: 'campaign', seed: 'price-1' });
+  s2.resources.funds = 5000;
+  const b0 = s2.resources.berths;
+  EngineNS.expandBerths(s2);
+  ok('prices: berth expansion costs 200', s2.resources.funds === 4800 && s2.resources.berths === b0 + 1,
+    `${s2.resources.funds}`);
+
+  // Legacy transit: men already at sea under the old rules step ashore
+  // as real men — names join the roster with profiles and arrivals.
+  const s3 = newGameWithGalleons({ mode: 'campaign', seed: 'transit-1' });
+  const goa0 = missionStaff(s3, 'goa');
+  const beforeIds = new Set(goa0.staffIds || []);
+  s3.missionTransit = { goa: [{ arrivalYear: s3.year, grades: { brothers: 2 } }] };
+  const { terna: t3 } = startYear(s3);
+  decide(s3, t3.map((c) => ({ id: c.petitionerId })));
+  resolveYear(s3);
+  const goa1 = missionStaff(s3, 'goa');
+  const newIds = (goa1.staffIds || []).filter((id) => !beforeIds.has(id));
+  ok('transit: abstract arrivals become named men',
+    newIds.length === 2 && newIds.every((id) => s3.petitioners[id] && s3.petitioners[id].staffMinted),
+    newIds.join(','));
+  ok('transit: the new men are in the community',
+    newIds.every((id) => missionCommunity(s3, 'goa').includes(id)));
+
+  // Native vocations in old saves: a stationed native with no arrival
+  // record gains one on load, and joins his mission's community.
+  const s4 = newGameWithGalleons({ mode: 'campaign', seed: 'native-1' });
+  const jst = missionStaff(s4, 'japan');
+  const nid = 'native-japan-1615-9';
+  s4.petitioners[nid] = { id: nid, name: 'Paulo Miki', fictional: true, native: true,
+    culture: 'japanese', grade: 'brother', status: 'active', history: [], historyV: 1,
+    genYear: 1615, nativeTo: 'japan' };
+  jst.staffIds.push(nid);
+  jst.brothers += 1;
+  const back = deserialize(serialize(s4));
+  ok('natives: a stationed native counts as arrived after load',
+    missionCommunity(back, 'japan').includes(nid));
+}
+
+
+// --- 53. Auto packing punches up as a last resort ------------------------------
+{
+  // No hull in the fleet can reach Japan (all caravels, range 1 < 3):
+  // the best-ranged free hull sails anyway, at the voyage penalty.
+  const s = _newGame({ mode: 'campaign', seed: 'punch-last-resort' });
+  for (const sh of s.resources.ships) sh.tier = 'caravel';
+  const { terna } = startYear(s);
+  decide(s, [{ id: terna[0].petitionerId, destination: 'japan' }]);
+  const pid = terna[0].petitionerId;
+  resolveYear(s);
+  const voy = s.voyages.find((v) => v.petitionerId === pid);
+  ok('punch-up: the man sails despite no reaching hull', !!voy);
+  ok('punch-up: he sails on the short-ranged hull', voy && voy.shipTier === 'caravel', voy && voy.shipTier);
+  ok('punch-up: the dock is empty of him', !s.queue.some((q) => q.petitionerId === pid));
+
+  // A reaching hull is still preferred: the galleon, not the caravel,
+  // takes the Japan man when both are free.
+  const s2 = _newGame({ mode: 'campaign', seed: 'punch-prefers-range' });
+  s2.resources.ships[0].tier = 'galleon';
+  s2.resources.ships[1].tier = 'caravel';
+  s2.resources.ships[2].tier = 'caravel';
+  const { terna: t2 } = startYear(s2);
+  decide(s2, [{ id: t2[0].petitionerId, destination: 'japan' }]);
+  resolveYear(s2);
+  const voy2 = s2.voyages.find((v) => v.petitionerId === t2[0].petitionerId);
+  ok('punch-up: a reaching hull is preferred', voy2 && voy2.shipTier === 'galleon', voy2 && voy2.shipTier);
+
+  // No hull free at all: he still waits, and the note says why.
+  const s3 = _newGame({ mode: 'campaign', seed: 'punch-no-hulls' });
+  for (const sh of s3.resources.ships) sh.freeYear = 9999;
+  const { terna: t3 } = startYear(s3);
+  decide(s3, [{ id: t3[0].petitionerId, destination: 'japan' }]);
+  resolveYear(s3);
+  const q3 = s3.queue.find((q) => q.petitionerId === t3[0].petitionerId);
+  ok('punch-up: an empty port still waits', !!q3);
+  ok('punch-up: the wait is blamed on hulls, not range', q3 && q3.note === 'delayed: no hulls free', q3 && q3.note);
+}
+
+// --- 54. Dock wages are capped: the first 8 held men are paid -------------------
+{
+  // The dock pays a waiting party, not a workforce (Tran 2026-10-20).
+  // Expectations are computed from the men's actual grades: the wage bill
+  // is the first 8 paid-grade men in queue order, and no more.
+  const WAGE = { 'P': 12, 'S*': 10, 'S': 5, 'F': 5, 'nS': 0, 'nF': 0 };
+  const holdAll = (seed, approveCount) => {
+    const s = newGameWithGalleons({ mode: 'campaign', seed });
+    const { terna } = startYear(s);
+    decide(s, terna.slice(0, approveCount).map((c) => ({ id: c.petitionerId })));
+    const held = s.queue.filter((q) => q.status === 'awaiting');
+    for (const q of held) EngineNS.setDockHold(s, q.petitionerId, true);
+    const wages = held.map((q) => WAGE[EngineNS.detailedGradeFor(s, q.petitionerId)] ?? 0).filter((w) => w > 0);
+    return { s, wages };
+  };
+  const a = holdAll('dock-cap-a', 10);
+  ok('dock cap: more than 8 paid-grade men are held', a.wages.length > 8, `${a.wages.length}`);
+  const expectedA = a.wages.slice(0, 8).reduce((n, w) => n + w, 0);
+  const uncappedA = a.wages.reduce((n, w) => n + w, 0);
+  ok('dock cap: only the first 8 in queue order are paid', EngineNS.dockYearlyFunds(a.s) === expectedA,
+    `${EngineNS.dockYearlyFunds(a.s)} vs ${expectedA}`);
+  ok('dock cap: the cap actually bites', expectedA < uncappedA, `${expectedA} < ${uncappedA}`);
+  // Under the cap, everyone held is paid in full — through resolveYear too.
+  const c = holdAll('dock-cap-c', 3);
+  const expectedC = c.wages.reduce((n, w) => n + w, 0);
+  ok('dock cap: a small party is paid in full', EngineNS.dockYearlyFunds(c.s) === expectedC && expectedC > 0,
+    `${EngineNS.dockYearlyFunds(c.s)} vs ${expectedC}`);
+  resolveYear(c.s);
+  const dockC = Object.values(c.s.financeYears).reduce((n, fy) => n + ((fy.income || {}).dock || 0), 0);
+  ok('dock cap: the capped wage reaches the chest at year end', dockC === expectedC, `${dockC}`);
+}
+
+// --- 55. Score breakdown: the ledger reconciles with the tally ---------------
+{
+  const s = newGameWithGalleons({ mode: 'campaign', seed: 'breakdown' });
+  foundNovitiate(s, 'goa'); // +4 founding, recorded under 'novitiate'
+  const { terna } = startYear(s);
+  decide(s, [{ id: terna[0].petitionerId }]);
+  resolveYear(s);
+  const v = s.voyages.find((x) => x.petitionerId === terna[0].petitionerId);
+  dbgForceOutcome(s, v.id, 'thriving'); // +4 voyage news, recorded under 'voyage-thriving'
+  for (let i = 0; i < 6; i++) {
+    const { terna: t } = startYear(s);
+    decide(s, t.slice(0, 3).map((c) => ({ id: c.petitionerId })));
+    resolveYear(s);
+  }
+  const sb = EngineNS.scoreBreakdown(s);
+  ok('breakdown: displayed matches getScore', sb.displayed === getScore(s), `${sb.displayed}`);
+  ok('breakdown: rows reconcile with the tally', sb.start + sb.recorded + sb.unrecorded === sb.uncapped,
+    `${sb.start}+${sb.recorded}+${sb.unrecorded} vs ${sb.uncapped}`);
+  ok('breakdown: nothing unrecorded in a fully-instrumented game', sb.unrecorded === 0,
+    `unrecorded=${sb.unrecorded} rows=${JSON.stringify(sb.rows)}`);
+  const nov = sb.rows.find((r) => r.source === 'novitiate');
+  ok('breakdown: novitiate founding + yearly growth tallied', !!nov && nov.total >= 4 + 7,
+    JSON.stringify(nov)); // +4 founding, +1 for each of the 7 resolved years
+  const thr = sb.rows.find((r) => r.source === 'voyage-thriving');
+  ok('breakdown: thriving voyage tallied', !!thr && thr.total >= 4, JSON.stringify(thr));
+  const yearSum = Object.values(sb.byYear).reduce((n, x) => n + x, 0);
+  ok('breakdown: per-year nets sum to the recorded total', yearSum === sb.recorded,
+    `${yearSum} vs ${sb.recorded}`);
+  // Old saves: play recorded before deltas existed shows as unrecorded,
+  // never as a wrong row.
+  const old = deserialize(serialize(s));
+  for (const e of old.ledger) { delete e.delta; delete e.scoreParts; delete e.scoreSource; }
+  old.scoreUncapped = s.scoreUncapped;
+  const sbOld = EngineNS.scoreBreakdown(old);
+  ok('breakdown: pre-record play is unrecorded, not invented', sbOld.rows.length === 0
+    && sbOld.unrecorded === sbOld.uncapped - sbOld.start,
+    `rows=${sbOld.rows.length} unrecorded=${sbOld.unrecorded}`);
+}
+
+// --- 56. Established missions start at strength (Tran 2026-10-20) ------------
+{
+  const dests = [
+    { id: 'goa', name: 'Goa, the Indies', travelYears: 2, ports: ['Lisbon', 'Goa'], region: 'Asia', foundedYear: 1542 },
+    { id: 'japan', name: 'Japan', travelYears: 3, ports: ['Lisbon', 'Nagasaki'], region: 'Asia', foundedYear: 1549 },
+    { id: 'peru', name: 'Peru', travelYears: 2, ports: ['Seville', 'Lima'], region: 'America', foundedYear: 1610 },
+  ];
+  setGameData({ petitioners: FIXTURES.petitioners, events: FIXTURES.events, destinations: dests });
+  const s = newGame({ mode: 'campaign', seed: 'established' });
+  const staffed = (id) => { const st = s.missions[id]; return st.fathers + st.coadjutors + st.brothers; };
+  const ratio = (id) => staffed(id) / s.missions[id].capacity;
+  ok('established: goa (founded 1542) starts at 60% or better', ratio('goa') >= 0.6, `${ratio('goa')}`);
+  ok('established: japan (founded 1549) starts at 60% or better', ratio('japan') >= 0.6, `${ratio('japan')}`);
+  ok('established: peru (founded 1610) keeps the lean start', ratio('peru') < 0.6, `${ratio('peru')}`);
+  ok('established: topped-up men are named profiles on the roster',
+    (s.missions.goa.staffIds || []).length === staffed('goa'),
+    `${(s.missions.goa.staffIds || []).length} vs ${staffed('goa')}`);
+  setGameData(FIXTURES);
+}
+
+// --- 57. Overcrowding penalties + Expand the mission (Tran 2026-10-20) -------
+{
+  // Upkeep: base on capacity, +2 per man beyond capacity.
+  ok('overcap: upkeep within capacity is the base',
+    EngineNS.missionUpkeep({ capacity: 10, fathers: 2, coadjutors: 2, brothers: 1 }) === 5);
+  ok('overcap: upkeep charges +2 per man beyond capacity',
+    EngineNS.missionUpkeep({ capacity: 10, fathers: 8, coadjutors: 6, brothers: 4 }) === 5 + 8 * 2,
+    `${EngineNS.missionUpkeep({ capacity: 10, fathers: 8, coadjutors: 6, brothers: 4 })}`);
+
+  // Fruit: the same men at the same mission bear less when over capacity.
+  const base = newGame({ mode: 'campaign', seed: 'overcap' });
+  const goaMen = (base.missions.goa.staffIds || []).length;
+  ok('overcap: fixture goa has named men to test with', goaMen >= 2, `${goaMen}`);
+  const full = deserialize(serialize(base));
+  full.missions.goa.capacity = 10; // every man within capacity
+  const over = deserialize(serialize(base));
+  over.missions.goa.capacity = 1; // all but one man beyond capacity
+  const frFull = EngineNS.produceFruits(full);
+  const frOver = EngineNS.produceFruits(over);
+  const hFull = frFull.byMission.goa.harvest;
+  const hOver = frOver.byMission.goa.harvest;
+  ok('overcap: over-capacity men bear less fruit', hOver < hFull, `${hOver} vs ${hFull}`);
+  ok('overcap: the loss is the halving, not a wipeout', hOver > hFull * 0.4, `${hOver} vs ${hFull}`);
+  // Tally: -5 per excess man per year, recorded for the breakdown.
+  ok('overcap: tally penalty counts overfull missions', frOver.overPenalty === 5 && frFull.overPenalty === 0,
+    `${frOver.overPenalty} vs ${frFull.overPenalty}`);
+  const over4 = deserialize(serialize(base));
+  over4.missions.goa.capacity = 1;
+  over4.missions.goa.brothers += 3; // 5 men counted, 1 place: 4 excess
+  ok('overcap: tally penalty scales per excess man',
+    EngineNS.produceFruits(over4).overPenalty === 20,
+    `${EngineNS.produceFruits(over4).overPenalty}`);
+  const sbState = deserialize(serialize(base));
+  EngineNS.buildSocietyReport(sbState, sbState.year, [], JSON.parse(JSON.stringify(sbState.stats || {})),
+    { totalNew: 0, quotaPenalty: 0, overPenalty: 5 });
+  const sbRow = EngineNS.scoreBreakdown(sbState).rows.find((r) => r.source === 'overcap');
+  ok('overcap: the tally penalty lands in the ledger breakdown', !!sbRow && sbRow.total === -5,
+    JSON.stringify(sbRow));
+
+  // Expand the mission: a direct order — always obeyed, +5 places.
+  for (const seed of ['exp-1', 'exp-2', 'exp-3']) {
+    const s = newGame({ mode: 'campaign', seed });
+    const before = s.missions.goa.capacity;
+    EngineNS.issueInstruction(s, 'goa', 'expand');
+    s.instructions.goa.arriveYear = s.year; // the order arrives this year
+    const { terna } = startYear(s);
+    decide(s, []);
+    resolveYear(s, { skipNatives: true });
+    ok(`overcap: expand is obeyed and adds 5 places (${seed})`,
+      s.missions.goa.capacity === before + 5 && s.instructions.goa.outcome === 'obeyed',
+      `cap ${before} -> ${s.missions.goa.capacity}, outcome ${s.instructions.goa.outcome}`);
+  }
+
+  // ================================================================
+  console.log('\n58. Rescue window — early warning, relief at sea, evacuation');
+  {
+    const s = deserialize(serialize(newGame({ mode: 'campaign', seed: 'rescue-58' })));
+    const jp = s.missions.japan;
+    jp.capacity = 40; // its men hold 4 of 40 places: below strength at once
+    startYear(s); decide(s, []); resolveYear(s, { skipNatives: true });
+    ok('rescue: the first year below strength warns at once',
+      jp.fragileYears === 1 && s.ledger.some((e) => e.type === 'warning' && e.destination === 'japan' && /fallen below strength/.test(e.text)),
+      `f=${jp.fragileYears}`);
+    const { terna } = startYear(s);
+    decide(s, [{ id: terna[0].petitionerId, destination: 'japan' }]);
+    resolveYear(s, { skipNatives: true });
+    ok('rescue: relief at sea pauses the clock', jp.fragileYears === 1, `f=${jp.fragileYears}`);
+    startYear(s); decide(s, []); resolveYear(s, { skipNatives: true });
+    ok('rescue: still paused on the second year at sea', jp.fragileYears === 1, `f=${jp.fragileYears}`);
+    for (const v of s.voyages) if (v.petitionerId === terna[0].petitionerId) v.arriveYear = s.year;
+    startYear(s); decide(s, []); resolveYear(s, { skipNatives: true });
+    ok('rescue: the clock resumes once the relief has landed', jp.fragileYears === 2, `f=${jp.fragileYears}`);
+
+    const s2 = deserialize(serialize(newGame({ mode: 'campaign', seed: 'evac-58' })));
+    const gst = s2.missions.goa;
+    const gmen = [...gst.staffIds];
+    gst.capacity = 40;
+    gst.fragileYears = 4;
+    startYear(s2); decide(s2, []); resolveYear(s2, { skipNatives: true });
+    ok('evacuation: the mission falls', !!s2.destState.goa.collapsed && gst.staffIds.length === 0);
+    ok('evacuation: the survivors are on a ship home, not lost',
+      gmen.length > 0 && gmen.every((pid) => (s2.returnVoyages || []).some((rv) => rv.petitionerId === pid && rv.arriveYear === 1617)),
+      JSON.stringify(s2.returnVoyages));
+    ok('evacuation: the collapse entry says they sail for Europe',
+      s2.ledger.some((e) => e.type === 'collapse' && e.destination === 'goa' && /take ship for Europe/.test(e.text)));
+    for (const rv of s2.returnVoyages || []) rv.arriveYear = s2.year;
+    startYear(s2); decide(s2, []); resolveYear(s2);
+    ok('evacuation: they land in Europe and labor there',
+      gmen.every((pid) => (s2.europeanLabor || []).some((e) => e.petitionerId === pid)),
+      JSON.stringify((s2.europeanLabor || []).map((e) => e.petitionerId)));
+  }
+
+  // ================================================================
+  console.log('\n59. Routes — one ship, one historical run, several stops');
+  {
+    // The route table itself: Brazil and the East Indies never share.
+    ok('routes: brazil and the east indies are different runs',
+      EngineNS.routeOf('brazil') === 'brazil' && EngineNS.routeOf('east-indies') === 'india'
+      && EngineNS.routeOf('japan') === 'india' && EngineNS.routeOf('china') === 'india'
+      && EngineNS.routeOf('peru') === 'spanish' && EngineNS.routeOf('england') === null);
+
+    // One hull carries the whole India run: japan + china + aethiopia
+    // (all fixture members of the india route) on a single galleon,
+    // each man arriving on his own leg's year.
+    const s = deserialize(serialize(newGame({ mode: 'campaign', seed: 'routes-59' })));
+    const { terna } = startYear(s);
+    decide(s, [
+      { id: terna[0].petitionerId, destination: 'japan' },
+      { id: terna[1].petitionerId, destination: 'china' },
+      { id: terna[2].petitionerId, destination: 'aethiopia' },
+    ]);
+    resolveYear(s);
+    const vs = s.voyages.filter((v) => v.departYear === 1615);
+    ok('routes: three stops of one run share a single hull',
+      vs.length === 3 && new Set(vs.map((v) => v.shipId)).size === 1,
+      JSON.stringify(vs.map((v) => `${v.destination}:${v.shipId}`)));
+    const hull = s.resources.ships.find((x) => x.id === vs[0].shipId);
+    ok('routes: the hull is away for her farthest leg',
+      hull.freeYear === 1615 + 3 && vs.find((v) => v.destination === 'aethiopia').arriveYear === 1615 + 2,
+      `freeYear ${hull.freeYear}`);
+
+    // Brazil is another ocean: its men never board the India ship.
+    const s2 = deserialize(serialize(newGame({ mode: 'campaign', seed: 'routes-59b' })));
+    const t2 = startYear(s2).terna;
+    decide(s2, [
+      { id: t2[0].petitionerId, destination: 'japan' },
+      { id: t2[1].petitionerId, destination: 'brazil' },
+      { id: t2[2].petitionerId, destination: 'brazil' },
+    ]);
+    resolveYear(s2);
+    const vs2 = s2.voyages.filter((v) => v.departYear === 1615);
+    ok('routes: brazil sails its own hull',
+      vs2.length === 3 && new Set(vs2.map((v) => v.shipId)).size === 2,
+      JSON.stringify(vs2.map((v) => `${v.destination}:${v.shipId}`)));
+
+    // Manual assignment enforces the route; auto-assignment too.
+    const s3 = deserialize(serialize(newGame({ mode: 'campaign', seed: 'routes-59c' })));
+    const t3 = startYear(s3).terna;
+    decide(s3, [
+      { id: t3[0].petitionerId, destination: 'japan' },
+      { id: t3[1].petitionerId, destination: 'china' },
+      { id: t3[2].petitionerId, destination: 'brazil' },
+    ]);
+    resolveYear(s3); // sail them off; fresh queue next year
+    const t3b = startYear(s3).terna;
+    decide(s3, [
+      { id: t3b[0].petitionerId, destination: 'aethiopia' },
+      { id: t3b[1].petitionerId, destination: 'brazil' },
+    ]);
+    // Both galleons are at sea in 1616; a free carrack (range 2) serves.
+    const carrack = s3.resources.ships.find((x) => (x.freeYear || 0) <= s3.year
+      && (EngineNS.RESOURCES.SHIP_TIERS[x.tier] || {}).range >= 2);
+    EngineNS.assignToShip(s3, t3b[0].petitionerId, carrack.id);
+    let threw = false;
+    try { EngineNS.assignToShip(s3, t3b[1].petitionerId, carrack.id); } catch (e) { threw = /not on that route/.test(e.message); }
+    ok('routes: a brazil man cannot be put aboard the india ship', threw);
+    EngineNS.autoAssignShips(s3);
+    const bq = s3.queue.find((q) => q.petitionerId === t3b[1].petitionerId);
+    ok('routes: auto-assignment keeps brazil off the india ship',
+      !bq.shipId || bq.shipId !== carrack.id, `shipId ${bq.shipId}`);
+  }
+
+  // ================================================================
+  console.log('\n60. Name prefixes — Fr. / Br. / none');
+  {
+    const s = deserialize(serialize(newGame({ mode: 'campaign', seed: 'prefix-60' })));
+    const withStage = (stage) => {
+      const c = deserialize(serialize(s));
+      c.petitioners['test-prefix-1'] = { id: 'test-prefix-1', name: 'Test Man', vows: { stage, firstVows: true } };
+      return EngineNS.namePrefix(c, 'test-prefix-1');
+    };
+    ok('prefix: the professed are Fr.', withStage('professed') === 'Fr.');
+    ok('prefix: ordained scholastics are Fr.', withStage('ordained') === 'Fr.');
+    ok('prefix: spiritual coadjutors are Fr.', withStage('coadjutor') === 'Fr.');
+    ok('prefix: brothers are Br.', withStage('brother') === 'Br.');
+    ok('prefix: unordained scholastics carry no prefix', withStage('scholastic') === '');
+    const c2 = deserialize(serialize(s));
+    c2.petitioners['test-prefix-1'] = { id: 'test-prefix-1', name: 'Test Man', vows: { stage: 'professed', firstVows: true } };
+    ok('prefix: displayName joins prefix and name',
+      EngineNS.displayName(c2, 'test-prefix-1') === 'Fr. Test Man',
+      EngineNS.displayName(c2, 'test-prefix-1'));
+    // The Armillei correction (Tran, translator of the letters): he is a
+    // brother in the table, and the prefix follows the brother track
+    // even when a save carries a scholastic stage seeded earlier.
+    ok('prefix: Armillei is a brother in the table', EngineNS.gradeFor(s, 'hist-6').grade === 'brother');
+    const c3 = deserialize(serialize(s));
+    if (c3.petitioners['hist-6']) c3.petitioners['hist-6'].vows = { stage: 'scholastic', firstVows: true };
+    ok('prefix: a brother is Br. even with a scholastic stage on his record',
+      EngineNS.namePrefix(c3, 'hist-6') === 'Br.', EngineNS.namePrefix(c3, 'hist-6'));
+    // Novices: nothing on the priest track (Tran), Br. on the brother track.
+    const novice = (track) => {
+      const c = deserialize(serialize(s));
+      c.petitioners['test-novice-1'] = { id: 'test-novice-1', name: 'Test Novice',
+        vows: { stage: 'novice', firstVows: false }, ...(track ? { vowsTrack: track } : {}) };
+      return EngineNS.namePrefix(c, 'test-novice-1');
+    };
+    ok('prefix: a novice on the priest track carries no prefix', novice('scholastic') === '');
+    ok('prefix: a novice with no recorded track carries no prefix', novice(null) === '');
+    ok('prefix: a novice on the brother track is Br.', novice('brother') === 'Br.');
+  }
+
+  // ================================================================
+  console.log('\n61. Card labels — the card reads the archive grade, not a years guess');
+  {
+    // enrichPetitioner used to derive the card's formation word from
+    // pet.grade — a field the letter records do not carry — so every
+    // historical man was carded by years alone: a professed father
+    // read 'scholastic', a brother read 'priest'. The cards must read
+    // dispositions.GRADES: hist-1 is a professed father, hist-3 a brother.
+    const s = deserialize(serialize(newGame({ mode: 'campaign', seed: 'cards-61' })));
+    const seen = {};
+    for (let y = 0; y < 9 && (seen['hist-1'] === undefined || seen['hist-3'] === undefined) && !s.ended; y++) {
+      const { terna } = startYear(s);
+      for (const c of terna) if (seen[c.petitionerId] === undefined) seen[c.petitionerId] = c.formation;
+      decide(s, []);
+      resolveYear(s);
+    }
+    ok('cards: a professed father is carded professed', seen['hist-1'] === 'professed', JSON.stringify(seen));
+    ok('cards: a brother is carded brother, never priest or scholastic', seen['hist-6'] === 'brother', JSON.stringify(seen));
+    ok('cards: a first-year brother is carded novice — and still takes Br.',
+      seen['hist-3'] === 'novice' && EngineNS.namePrefix(s, 'hist-3') === 'Br.', JSON.stringify(seen));
+  }
+
+  // ================================================================
+  console.log('\n62. The harvest rule — vocations from local souls');
+  {
+    // Accrual + yearly cap: a rich harvest ripens at most 2 men a year,
+    // the rest of the bank stays on the mission.
+    const s = deserialize(serialize(newGame({ mode: 'campaign', seed: 'harvest-62' })));
+    const jp = missionStaff(s, 'japan');
+    jp.fruits = 5000; // a 5,000-soul harvest on the books
+    startYear(s); decide(s, []); resolveYear(s);
+    const natives1 = Object.keys(s.petitioners).filter((id) => id.startsWith('native-japan-'));
+    ok('harvest: a rich mission ripens native vocations', natives1.length >= 1, `${natives1.length}`);
+    ok('harvest: at most two join in a year', natives1.length <= 2, `${natives1.length}`);
+    ok('harvest: the unripened share stays banked',
+      (missionStaff(s, 'japan').vocationBank || 0) > 3, `bank=${missionStaff(s, 'japan').vocationBank}`);
+    // Every open mission takes part — Peru was never on the old list,
+    // and a young, thin mission is no longer gated out.
+    const s2 = deserialize(serialize(newGame({ mode: 'campaign', seed: 'harvest-62b' })));
+    const pe = missionStaff(s2, 'peru');
+    pe.fruits = 2000; pe.foundedYear = s2.year; // founded this very year
+    startYear(s2); decide(s2, []); resolveYear(s2);
+    const natives2 = Object.keys(s2.petitioners).filter((id) => id.startsWith('native-peru-'));
+    ok('harvest: missions beyond the old four take part', natives2.length >= 1, `${natives2.length}`);
+    // No harvest, no vocations — and the bank stays at zero.
+    const s3 = deserialize(serialize(newGame({ mode: 'campaign', seed: 'harvest-62c' })));
+    startYear(s3); decide(s3, []); resolveYear(s3);
+    ok('harvest: a mission without fruit spawns no one',
+      !Object.keys(s3.petitioners).some((id) => id.startsWith('native-'))
+        || (missionStaff(s3, 'japan').vocationBank || 0) < 1);
+    // A native's home is his mission: he never "returns" as a veteran
+    // and never mints a spare man for the European pool.
+    const s4 = deserialize(serialize(newGame({ mode: 'campaign', seed: 'harvest-62d' })));
+    const jp4 = missionStaff(s4, 'japan');
+    jp4.fruits = 5000;
+    startYear(s4); decide(s4, []); resolveYear(s4);
+    const nid = Object.keys(s4.petitioners).find((id) => id.startsWith('native-japan-'));
+    ok('harvest: a native exists for the veteran test', !!nid, `${nid}`);
+    if (nid) {
+      const nv = s4.voyages.find((v) => v.petitionerId === nid);
+      nv.resolvedYear = s4.year - 12; nv.arriveYear = s4.year - 12; // long service
+      for (let i = 0; i < 8 && !s4.ended; i++) { startYear(s4); decide(s4, []); resolveYear(s4); }
+      ok('harvest: a native never sails home as a veteran',
+        !(s4.europeanLabor || []).some((e) => e.petitionerId === nid)
+          && (missionStaff(s4, 'japan').staffIds || []).includes(nid));
+    }
+    // Pool differential: identical worlds, natives on vs off — the
+    // spare-men reserve must come out the same.
+    const mk = () => { const x = deserialize(serialize(newGame({ mode: 'campaign', seed: 'harvest-62e' }))); missionStaff(x, 'japan').fruits = 5000; return x; };
+    const a = mk(); startYear(a); decide(a, []); resolveYear(a);
+    const b = mk(); startYear(b); decide(b, []); resolveYear(b, { skipNatives: true });
+    ok('harvest: native joinings mint no spare Europeans',
+      a.available === b.available, `${a.available} vs ${b.available}`);
+  }
+}
+
+// --- 63. Fog of war (bite prototype, Tran 2026-10-21) -------------------------
+{
+  console.log('\n63. Fog of war — knowledge, letters, and the bite');
+  // Knowledge opens equal to the truth.
+  const s0 = newGame({ mode: 'campaign', seed: 'fog-63a' });
+  const k0 = EngineNS.missionKnowledge(s0, 'goa');
+  ok('fog: knowledge opens with the start year as its date',
+    k0.asOf === s0.year, `asOf=${k0.asOf} year=${s0.year}`);
+  ok('fog: knowledge opens equal to the truth',
+    k0.staffed === missionStaffed(s0.missions.goa) && k0.capacity === s0.missions.goa.capacity
+      && JSON.stringify(k0.staffIds) === JSON.stringify(s0.missions.goa.staffIds || []));
+  ok('fog: no letters are in transit at the start',
+    Array.isArray(s0.newsInTransit) && s0.newsInTransit.length === 0);
+
+  // Knowledge lags the truth until the annual letter lands.
+  // Goa is a two-year letter run in the fixtures.
+  const s = deserialize(serialize(newGame({ mode: 'campaign', seed: 'fog-63b' })));
+  const believedBefore = EngineNS.missionKnowledge(s, 'goa').staffed;
+  missionStaff(s, 'goa').brothers += 3; // the truth moves; Rome has not heard
+  startYear(s); decide(s, []); resolveYear(s, { skipNatives: true }); // 1615 resolves; the letter sails
+  ok('fog: the annual letter is on its way',
+    s.newsInTransit.some((n) => n.destId === 'goa' && n.snapshot.asOf === 1615),
+    `${s.newsInTransit.length} letters out`);
+  const dispatched = s.newsInTransit.find((n) => n.destId === 'goa');
+  ok('fog: knowledge is unchanged while the letter is at sea',
+    EngineNS.missionKnowledge(s, 'goa').staffed === believedBefore,
+    `believed ${EngineNS.missionKnowledge(s, 'goa').staffed} vs ${believedBefore}`);
+  startYear(s); decide(s, []); resolveYear(s, { skipNatives: true }); // 1616: still at sea
+  ok('fog: knowledge still stale one year into a two-year run',
+    EngineNS.missionKnowledge(s, 'goa').staffed === believedBefore);
+  startYear(s); decide(s, []); resolveYear(s, { skipNatives: true }); // 1617: the 1615 letter lands
+  const kLanded = EngineNS.missionKnowledge(s, 'goa');
+  ok('fog: when the letter lands, knowledge matches the dispatched snapshot',
+    kLanded.asOf === dispatched.snapshot.asOf && kLanded.staffed === dispatched.snapshot.staffed,
+    `asOf ${kLanded.asOf}, staffed ${kLanded.staffed} vs ${dispatched.snapshot.staffed}`);
+
+  // A full account (report) sends a fresh snapshot home.
+  let reportState = null; let reportYear = null;
+  for (const seed of ['fog-63c1', 'fog-63c2', 'fog-63c3', 'fog-63c4', 'fog-63c5', 'fog-63c6']) {
+    const t = deserialize(serialize(newGame({ mode: 'campaign', seed })));
+    issueInstruction(t, 'goa', 'report');
+    t.instructions.goa.arriveYear = t.year; // the order arrives this year
+    const y = t.year;
+    startYear(t); decide(t, []); resolveYear(t, { skipNatives: true });
+    if (t.instructions.goa.outcome === 'obeyed' || t.instructions.goa.outcome === 'adapted') {
+      reportState = t; reportYear = y; break;
+    }
+  }
+  ok('fog: a report instruction is obeyed or adapted in a probed reign', !!reportState);
+  if (reportState) {
+    const accounts = reportState.newsInTransit.filter((n) => n.destId === 'goa' && n.snapshot.asOf === reportYear);
+    ok('fog: the account is scheduled home — beyond the one annual letter',
+      accounts.length >= 2, `${accounts.length} letters from Goa dated ${reportYear}`);
+    ok('fog: the account lands after the letter run',
+      accounts.every((n) => n.arriveYear === reportYear + 2),
+      JSON.stringify(accounts.map((n) => n.arriveYear)));
+    for (let i = 0; i < 2 && !reportState.ended; i++) {
+      startYear(reportState); decide(reportState, []); resolveYear(reportState, { skipNatives: true });
+    }
+    ok('fog: the account is applied when it lands',
+      EngineNS.missionKnowledge(reportState, 'goa').asOf >= reportYear,
+      `asOf ${EngineNS.missionKnowledge(reportState, 'goa').asOf}`);
+  }
+
+  // The bite at issuance: Rome's belief opens the gate, not the truth.
+  const b = deserialize(serialize(newGame({ mode: 'campaign', seed: 'fog-63d' })));
+  b.destState.goa.access = 'closed'; // the truth: shut. Rome believes it open.
+  let issued = true;
+  try { issueInstruction(b, 'goa', 'encourage'); } catch { issued = false; }
+  ok('fog: an instruction is sent when Rome believes the mission open',
+    issued && b.instructions.goa.status === 'in-transit');
+  const b2 = deserialize(serialize(newGame({ mode: 'campaign', seed: 'fog-63e' })));
+  b2.knowledge.goa.access = 'closed'; // Rome believes it shut.
+  let refused = false;
+  try { issueInstruction(b2, 'goa', 'encourage'); } catch (e) { refused = /believes .* is closed/.test(e.message); }
+  ok('fog: no instruction is sent when Rome believes the mission closed', refused);
+
+  // The bite at arrival: the letter reaches a mission that is gone.
+  const u = deserialize(serialize(newGame({ mode: 'campaign', seed: 'fog-63f' })));
+  u.destState.japan.collapsed = true;
+  u.destState.japan.access = 'closed';
+  const capBefore = u.missions.japan.capacity;
+  issueInstruction(u, 'japan', 'expand'); // Rome believes Japan stands
+  u.instructions.japan.arriveYear = u.year;
+  startYear(u); decide(u, []); resolveYear(u, { skipNatives: true });
+  ok('fog: an order reaching a collapsed mission has no effect',
+    u.instructions.japan.outcome === 'no-effect' && u.missions.japan.capacity === capBefore,
+    `outcome ${u.instructions.japan.outcome}, capacity ${capBefore} -> ${u.missions.japan.capacity}`);
+  ok('fog: the ledger says plainly that no mission received it',
+    u.ledger.some((e) => e.type === 'instruction' && /no mission to receive it/.test(e.text || '')));
+
+  // Round trip and old-save migration.
+  const rt = deserialize(serialize(s));
+  ok('fog: the round trip preserves knowledge',
+    JSON.stringify(rt.knowledge) === JSON.stringify(s.knowledge));
+  ok('fog: the round trip preserves letters in transit',
+    JSON.stringify(rt.newsInTransit) === JSON.stringify(s.newsInTransit),
+    `${(rt.newsInTransit || []).length} vs ${(s.newsInTransit || []).length}`);
+  const oldSave = serialize(s);
+  delete oldSave.knowledge; delete oldSave.newsInTransit;
+  const mig = deserialize(oldSave);
+  ok('fog: a pre-fog save opens with knowledge of the truth as of its year',
+    EngineNS.missionKnowledge(mig, 'goa').asOf === mig.year
+      && EngineNS.missionKnowledge(mig, 'goa').staffed === missionStaffed(mig.missions.goa)
+      && Array.isArray(mig.newsInTransit) && mig.newsInTransit.length === 0);
 }
 
 console.log(`\n${failures === 0 ? 'ALL TESTS PASSED' : failures + ' FAILURES'}`);

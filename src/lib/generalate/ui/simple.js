@@ -119,15 +119,16 @@ function sealYear() {
 }
 
 /* ---- rendering ---- */
+const TITLE_BLOCK = `<div class="simple-title"><div class="cross">✠</div><h1>GENERALATE</h1><div class="mode">S I M P L E</div></div>`;
 function render() {
   if (!S) {
     const has = !!loadSave();
     root.innerHTML = `<div class="simple-wrap">
-      <h1>GENERALATE — SIMPLE</h1>
+      ${TITLE_BLOCK}
       <p class="simple-sub">One screen. Read the letters, send or deny, grow a house, close the year. Everything else runs itself.</p>
       <div class="simple-foot">
         <button class="simple-btn primary" id="s-new">New campaign</button>
-        ${has ? '<button class="simple-btn" id="s-continue">Continue the saved campaign</button>' : ''}
+        ${has ? '<button class="simple-btn on-dark" id="s-continue">Continue the saved campaign</button>' : ''}
       </div></div>`;
     document.getElementById('s-new').onclick = newGame;
     const cont = document.getElementById('s-continue');
@@ -137,21 +138,24 @@ function render() {
   if (S.ended) {
     const souls = Object.values(S.missions || {}).reduce((n, st) => n + (st.fruits || 0), 0);
     root.innerHTML = `<div class="simple-wrap">
-      <h1>THE REIGN ENDS — ${S.year - 1}</h1>
-      <div class="simple-hud"><span>Final score <b>${Engine.getScore(S)}</b></span>
-      <span>Souls in the harvest <b>${fmt(souls)}</b></span>
-      <span>Deaths <b>${S.stats?.deaths || 0}</b></span></div>
+      ${TITLE_BLOCK}
+      <h2 style="text-align:center">THE REIGN ENDS — ${S.year - 1}</h2>
+      <div class="simple-hud">
+      <div class="cell"><span class="lab">FINAL SCORE</span><span class="val">${Engine.getScore(S)}</span></div>
+      <div class="cell"><span class="lab">SOULS IN THE HARVEST</span><span class="val">${fmt(souls)}</span></div>
+      <div class="cell"><span class="lab">DEATHS</span><span class="val">${S.stats?.deaths || 0}</span></div></div>
       <div class="simple-foot"><button class="simple-btn primary" id="s-new">New campaign</button></div></div>`;
     document.getElementById('s-new').onclick = () => { localStorage.removeItem(SAVE_KEY); S = null; render(); };
     return;
   }
   const funds = S.resources?.funds ?? 0;
   let html = `<div class="simple-wrap">
-    <h1>GENERALATE — SIMPLE</h1>
-    <div class="simple-hud"><span>Year <b>${S.year}</b></span>
-    <span>Score <b>${Engine.getScore(S)}</b></span>
-    <span>Treasury <b>${fmt(funds)} scudi</b></span>
-    <span>Men to spare <b>${S.available ?? 0}</b></span></div>
+    ${TITLE_BLOCK}
+    <div class="simple-hud">
+    <div class="cell"><span class="lab">YEAR</span><span class="val">${S.year}</span></div>
+    <div class="cell"><span class="lab">SCORE</span><span class="val">${Engine.getScore(S)}</span></div>
+    <div class="cell"><span class="lab">TREASURY</span><span class="val">${fmt(funds)} scudi</span></div>
+    <div class="cell"><span class="lab">MEN TO SPARE</span><span class="val">${S.available ?? 0}</span></div></div>
     <p class="simple-msg">${esc(msg)}</p>`;
   if (chronicle) {
     html += `<h2>The year ${chronicle.year} in review</h2><div class="simple-chron">
@@ -164,13 +168,13 @@ function render() {
     const st = S.missions[d.id]; if (!st) continue;
     const dst = S.destState[d.id] || {};
     if (dst.access === 'closed' && !dst.collapsed) {
-      if (d.frontier) html += `<div class="simple-line"><span class="nm">${esc(d.name)}</span><span class="dim">not founded</span>
-        <button class="simple-btn" data-found="${d.id}">Found — send a company</button></div>`;
+      if (d.frontier) html += `<div class="simple-line"><div class="row1"><span class="nm">${esc(d.name)}</span><span class="simple-flag flag-shut">not founded</span>
+        <button class="simple-btn on-dark" data-found="${d.id}">Found — send a company</button></div></div>`;
       continue;
     }
     if (dst.collapsed) {
-      html += `<div class="simple-line"><span class="nm">${esc(d.name)}</span><span class="warn">collapsed</span>
-        <button class="simple-btn" data-found="${d.id}">Refound — send a company</button></div>`;
+      html += `<div class="simple-line"><div class="row1"><span class="nm">${esc(d.name)}</span><span class="simple-flag flag-severe">collapsed</span>
+        <button class="simple-btn on-dark" data-found="${d.id}">Refound — send a company</button></div></div>`;
       continue;
     }
     const staffed = Engine.missionStaffed(st);
@@ -179,13 +183,19 @@ function render() {
     const inst = S.instructions && S.instructions[d.id];
     const expanding = inst && inst.status === 'in-transit' && inst.type === 'expand';
     const low = staffed / cap < 0.25;
-    html += `<div class="simple-line"><span class="nm">${esc(d.name)}</span>
+    const dw = dangerWord(d.id);
+    const flagCls = dw.includes('severe') ? 'flag-severe' : dw.includes('high') ? 'flag-high' : 'flag-low';
+    const herePct = Math.min(100, Math.round((staffed / cap) * 100));
+    const comePct = Math.min(100 - herePct, Math.round((coming / cap) * 100));
+    html += `<div class="simple-line"><div class="row1"><span class="nm">${esc(d.name)}</span>
       <span class="${low ? 'warn' : ''}">${staffed}/${cap} men</span>
       ${coming ? `<span class="dim">${coming} coming</span>` : ''}
-      <span class="dim">harvest ${fmt(st.fruits)} souls</span>
-      <span class="dim">${dangerWord(d.id)}</span>
+      <span class="gold">harvest ${fmt(st.fruits)} souls</span>
+      <span class="simple-flag ${flagCls}">${dw}</span>
       ${expanding ? `<span class="dim">expanding · arrives ${inst.arriveYear}</span>`
-        : `<button class="simple-btn" data-expand="${d.id}">Expand +5 · arrives ${S.year + (d.travelYears || 2)}</button>`}
+        : `<button class="simple-btn on-dark" data-expand="${d.id}">Expand +5 · arrives ${S.year + (d.travelYears || 2)}</button>`}
+      </div>
+      <div class="simple-bar"><div class="here" style="width:${herePct}%"></div><div class="coming" style="width:${comePct}%"></div></div>
     </div>`;
   }
   // Letters
@@ -196,9 +206,11 @@ function render() {
     let disp = { zeal: 3, prudence: 3 };
     try { const dd = Engine.ensureDisposition(S, c.petitionerId); if (dd && dd.current) disp = dd.current; } catch (e) { /* defaults */ }
     const letterText = c.letter && c.letter.excerpt ? c.letter.excerpt : (c.dossier || '');
-    html += `<div class="simple-card">
+    html += `<div class="simple-card ${p.mode !== 'deny' ? 'decided' : ''}">
+      <div class="dest">ASKS FOR · ${esc(String(c.destinationName || c.destination).toUpperCase())}</div>
       <div class="who">${esc(Engine.displayName(S, c.petitionerId))}</div>
-      <div class="meta">${esc(c.formation || '')} · age ${c.age} · ${c.yearsInSociety} yrs in the Society · asks for <b>${esc(c.destinationName || c.destination)}</b> · zeal ${disp.zeal} · prudence ${disp.prudence}</div>
+      <div class="meta">${esc(c.formation || '')} · age ${c.age} · ${c.yearsInSociety} yrs in the Society</div>
+      <div class="virtues">Zeal <b>${disp.zeal}</b> · Prudence <b>${disp.prudence}</b></div>
       ${letterText ? `<div class="letter">${esc(String(letterText).slice(0, 220))}</div>` : ''}
       <div class="simple-actions">
         <button class="simple-btn ${p.mode === 'send' ? 'chosen' : ''}" data-send="${c.petitionerId}">Send to ${esc(c.destinationName || c.destination)}</button>
@@ -213,7 +225,7 @@ function render() {
   }
   html += `<div class="simple-foot">
     <button class="simple-btn primary" id="s-seal">Seal the year</button>
-    <span class="dim">Unanswered letters are denied. Denied scholastics teach, and their colleges pay the house.</span>
+    <span class="note">Unanswered letters are denied. Denied scholastics teach, and their colleges pay the house.</span>
     </div></div>`;
   root.innerHTML = html;
   // wire actions

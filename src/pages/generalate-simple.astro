@@ -16,33 +16,58 @@ import Base from '../layouts/Base.astro';
   <style slot="head">
     .site-footer { display: none !important; }
     .site-header { display: none !important; }
-    #generalate-app { max-width: 760px; margin: 0 auto; padding: 12px; }
-    .simple-wrap { font-family: Georgia, 'Times New Roman', serif; color: #e8e0cc; }
-    .simple-wrap h1 { font-size: 22px; letter-spacing: 1px; margin: 8px 0 2px; }
-    .simple-wrap h2 { font-size: 16px; margin: 20px 0 8px; border-bottom: 1px solid #57492a; padding-bottom: 4px; }
-    .simple-sub { opacity: .75; font-size: 13px; margin: 0 0 10px; }
-    .simple-hud { display: flex; flex-wrap: wrap; gap: 6px 16px; background: #221c10; border: 1px solid #57492a; border-radius: 8px; padding: 10px 12px; font-size: 15px; }
-    .simple-hud b { color: #f3c969; }
-    .simple-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 7px 10px; border: 1px solid #3a3220; border-radius: 6px; margin: 5px 0; background: #171208; font-size: 14px; }
-    .simple-line .nm { font-weight: bold; color: #f0e6c8; }
-    .simple-line .dim { opacity: .7; }
-    .simple-line .warn { color: #e88; }
-    .simple-btn { font: inherit; font-size: 13px; background: #2e2410; color: #f3c969; border: 1px solid #8a6d2f; border-radius: 6px; padding: 5px 10px; cursor: pointer; }
-    .simple-btn:hover { background: #3d3016; }
+    #generalate-app { max-width: 780px; margin: 0 auto; padding: 0 14px; }
+    .simple-wrap { color: var(--parch); font-family: var(--serif); padding-bottom: 2rem; }
+    .simple-title { text-align: center; margin: 1.6rem 0 0.2rem; }
+    .simple-title .cross { color: var(--gold); font-size: 1.5rem; line-height: 1; }
+    .simple-title h1 { font-family: var(--px); font-size: 1.35rem; letter-spacing: 0.1em; color: var(--gold); margin: 0.5rem 0 0.3rem; text-shadow: 0 0 24px rgba(216,180,106,0.35); }
+    .simple-title .mode { font-family: var(--px); font-size: 0.6rem; letter-spacing: 0.34em; color: var(--parch-deep); }
+    .simple-sub { text-align: center; opacity: .75; font-size: 0.92rem; font-style: italic; margin: 0.6rem auto 1rem; max-width: 34rem; }
+    .simple-hud { display: flex; flex-wrap: wrap; gap: 0.5rem 1.4rem; justify-content: center; background: var(--wood-deep); border: 1px solid rgba(232,217,176,0.25); border-radius: 6px; padding: 0.7rem 1rem; box-shadow: 0 4px 14px rgba(0,0,0,0.45); }
+    .simple-hud .cell { text-align: center; }
+    .simple-hud .lab { display: block; font-family: var(--px); font-size: 0.52rem; letter-spacing: 0.06em; color: var(--gold); margin-bottom: 0.3rem; }
+    .simple-hud .val { font-size: 1.15rem; color: var(--parch); }
+    .simple-wrap h2 { font-family: var(--px); font-size: 0.78rem; letter-spacing: 0.08em; color: var(--gold); margin: 1.7rem 0 0.7rem; border-bottom: 1px solid rgba(216,180,106,0.35); padding-bottom: 0.45rem; }
+    .simple-msg { color: #ff9a9a; font-size: 0.92rem; min-height: 1.1rem; margin: 0.5rem 0 0; text-align: center; }
+    .simple-line { border: 1px solid rgba(232,217,176,0.25); border-radius: 6px; padding: 0.55rem 0.75rem 0.65rem; margin: 0.45rem 0; background: rgba(0,0,0,0.25); }
+    .simple-line .row1 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.7rem; }
+    .simple-line .nm { font-weight: bold; color: var(--parch); font-size: 1.02rem; }
+    .simple-line .dim { opacity: .72; font-size: 0.88rem; }
+    .simple-line .warn { color: #ff9a9a; font-size: 0.92rem; }
+    .simple-line .gold { color: var(--gold); font-size: 0.92rem; }
+    .simple-bar { height: 6px; border-radius: 3px; background: rgba(232,217,176,0.15); margin: 0.45rem 0 0.15rem; overflow: hidden; display: flex; }
+    .simple-bar .here { height: 100%; background: var(--wax); }
+    .simple-bar .coming { height: 100%; background: rgba(168,200,216,0.75); }
+    .simple-flag { font-size: 0.75rem; padding: 0.08rem 0.45rem; border-radius: 999px; white-space: nowrap; border: 1px solid; }
+    .flag-low { background: rgba(120,200,140,0.12); color: #a8d8b0; border-color: rgba(120,200,140,0.4); }
+    .flag-high { background: rgba(255,190,90,0.18); color: #ffd9a0; border-color: rgba(255,190,90,0.5); }
+    .flag-severe { background: rgba(220,70,70,0.20); color: #ff9a9a; border-color: rgba(220,70,70,0.7); font-weight: 700; }
+    .flag-shut { background: rgba(200,120,120,0.12); color: #d8a8a8; border-color: rgba(200,120,120,0.4); }
+    .simple-btn { font-family: var(--serif); font-size: 0.88rem; background: var(--parch); color: var(--ink); border: 1px solid var(--parch-deep); border-radius: 4px; padding: 0.32rem 0.7rem; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.4); }
+    .simple-btn:hover { background: #f4e8c4; }
     .simple-btn:disabled { opacity: .45; cursor: default; }
-    .simple-btn.primary { background: #6b5518; color: #fff2cc; font-size: 15px; padding: 10px 18px; }
-    .simple-btn.chosen { background: #f3c969; color: #241a04; font-weight: bold; }
-    .simple-card { border: 1px solid #57492a; border-radius: 8px; padding: 10px 12px; margin: 8px 0; background: #1c1508; }
-    .simple-card .who { font-size: 16px; font-weight: bold; color: #f0e6c8; }
-    .simple-card .meta { font-size: 13px; opacity: .8; margin: 2px 0 6px; }
-    .simple-card .letter { font-size: 13px; font-style: italic; opacity: .75; margin: 4px 0 8px; }
-    .simple-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-    .simple-dests { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
-    .simple-msg { color: #e8a0a0; font-size: 14px; min-height: 18px; margin: 6px 0; }
-    .simple-chron { font-size: 14px; line-height: 1.45; background: #141b10; border: 1px solid #3d5231; border-radius: 8px; padding: 10px 12px; }
-    .simple-chron p { margin: 3px 0; }
-    .simple-foot { margin: 18px 0 30px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-    .simple-check { font-size: 13px; display: inline-flex; gap: 5px; align-items: center; }
+    .simple-btn.on-dark { background: rgba(232,217,176,0.08); color: var(--parch); border-color: rgba(232,217,176,0.4); box-shadow: none; }
+    .simple-btn.on-dark:hover { background: rgba(232,217,176,0.16); }
+    .simple-btn.chosen { background: var(--wax); color: #f7ecd4; border-color: #4a1712; font-weight: bold; }
+    .simple-btn.primary { font-family: var(--px); font-size: 0.72rem; letter-spacing: 0.05em; background: var(--wax); color: #f7ecd4; border: 1px solid #4a1712; border-radius: 5px; padding: 0.8rem 1.3rem; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,0.5); }
+    .simple-btn.primary:hover { background: #a03a2f; }
+    .simple-card { position: relative; background: linear-gradient(175deg, #efe0b8 0%, var(--parch) 40%, var(--parch-deep) 100%); color: var(--ink); border-radius: 3px; padding: 1rem 1.1rem 1.1rem; margin: 0.7rem 0; box-shadow: 0 6px 18px rgba(0,0,0,0.5), inset 0 0 40px rgba(120,90,40,0.15); border: 2px solid transparent; transition: transform 0.15s ease, border-color 0.15s ease; }
+    .simple-card:hover { transform: translateY(-3px); }
+    .simple-card.decided { border-color: var(--wax); }
+    .simple-card.decided::after { content: "✠"; position: absolute; top: 0.45rem; right: 0.7rem; color: var(--wax); font-size: 1.25rem; }
+    .simple-card .dest { font-family: var(--px); font-size: 0.58rem; color: var(--wax-deep); letter-spacing: 0.04em; margin-bottom: 0.45rem; }
+    .simple-card .who { font-size: 1.3rem; font-weight: bold; color: var(--ink); margin: 0; }
+    .simple-card .meta { font-size: 0.88rem; color: var(--ink-soft); font-style: italic; margin: 0.2rem 0 0.35rem; }
+    .simple-card .virtues { font-size: 0.88rem; color: var(--ink); margin: 0.15rem 0 0.3rem; }
+    .simple-card .virtues b { color: var(--wax-deep); }
+    .simple-card .letter { font-size: 0.93rem; line-height: 1.5; color: var(--ink); border-top: 1px dashed rgba(42,33,24,0.35); padding-top: 0.5rem; margin: 0.45rem 0 0.7rem; }
+    .simple-actions { display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center; }
+    .simple-dests { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.55rem; }
+    .simple-chron { background: linear-gradient(175deg, #efe0b8 0%, var(--parch) 45%, var(--parch-deep) 100%); color: var(--ink); border-radius: 3px; padding: 0.9rem 1.1rem; box-shadow: 0 6px 18px rgba(0,0,0,0.5), inset 0 0 40px rgba(120,90,40,0.15); font-size: 0.94rem; line-height: 1.5; }
+    .simple-chron p { margin: 0.25rem 0; }
+    .simple-foot { position: sticky; bottom: 0; margin: 1.4rem -14px 0; padding: 0.8rem 14px; background: rgba(24,14,8,0.97); border-top: 2px solid var(--parch-deep); display: flex; gap: 0.9rem; align-items: center; flex-wrap: wrap; }
+    .simple-foot .note { font-size: 0.85rem; color: var(--parch); opacity: .85; flex: 1; min-width: 12rem; }
+    .simple-check { font-size: 0.86rem; color: var(--ink-soft); display: inline-flex; gap: 0.3rem; align-items: center; }
   </style>
   <div id="generalate-app" aria-live="polite"></div>
   <script src="../lib/generalate/ui/simple.js"></script>

@@ -4481,16 +4481,19 @@ export function isProvincial(state, petitionerId) {
 }
 
 /**
- * A man's fruit capacity from his disposition: 25 × (zeal + prudence).
- * Range: 50 (zeal 1, prudence 1) to 250 (zeal 5, prudence 5).
- * To whom much is given, much is expected.
+ * A man's fruit capacity from his disposition: 4 × (zeal + prudence)^2.
+ * Steepened at Tran's word (2026-10-21) so virtue bites: the average man
+ * (3+3) yields 144, near the old 150, but the weak fall away (1+1: 16)
+ * and the strong pull far ahead (5+5: 400). To whom much is given,
+ * much is expected — and from whom little is given, little comes.
  */
 export function fruitCapacity(state, petitionerId, destId = null) {
   const cur = ensureDisposition(state, petitionerId).current;
   const zeal = cur.zeal || 3;
   const prudence = cur.prudence || 3;
   const mult = destId ? rules.fruitMultiplierFor(destId) : 1.0;
-  return Math.round(25 * (zeal + prudence) * mult);
+  const sum = zeal + prudence;
+  return Math.round(4 * sum * sum * mult);
 }
 
 /**
@@ -5382,9 +5385,10 @@ function spawnNativeVocations(state, mainRng, opts = {}) {
  * point per man his house holds beyond its places; the next year he
  * faces a two-in-five chance of death, else he recovers.
  * When a martyrdom occurs, survivors react based on Zeal:
- *   Zeal 4+: private vow (+2 Zeal, immune to flee)
- *   Zeal 1-2: flees (joins return ship queue)
- *   Else: stays neutral
+ *   Zeal 5+: private vow (+2 Zeal, immune to flee)
+ *   Zeal 1-3: flees (joins return ship queue) — widened 2026-10-21,
+ *     at Tran's word that flight should be the likelier response
+ *   Zeal 4: inspired (+1 Zeal)
  * All survivors get +1 Zeal (martyrs inspire).
  */
 function resolveMartyrdomAndDisease(state, rng) {
@@ -5465,7 +5469,8 @@ function resolveMartyrdomAndDisease(state, rng) {
     // Persecution (Tran 2026-10-19): replaces the flat martyrdom roll.
     // PER MAN at danger 2-3: 15% seized at danger 3, 10% at danger 2.
     // His fate turns on zeal + prudence (zelus non secundum scientiam is bad):
-    // >=8 crown, 5-7 confessor, <=4 apostate.
+    // >=8 crown, 6-7 confessor, <=5 apostate (the apostasy band widened
+    // 2026-10-21 at Tran's word — the mediocre now fall too).
     if (danger >= 2 && st.staffIds.length > 0) {
       const chance = danger >= 3 ? 0.15 : 0.10;
       for (const pid of [...st.staffIds]) {
@@ -5497,7 +5502,7 @@ function resolveMartyrdomAndDisease(state, rng) {
             year: state.year, type: 'martyrdom', destination: destId, petitionerId: pid,
             text: `${name} was seized at ${destName} and won the glorious crown of the martyrs.`,
           });
-        } else if (sum >= 5) {
+        } else if (sum >= 6) {
           // Confessor: suffers, survives, body broken, virtues perfected
           state.stats.confessors = (state.stats.confessors || 0) + 1;
           const rec = state.petitioners[pid];
@@ -5534,12 +5539,12 @@ function resolveMartyrdomAndDisease(state, rng) {
         if (!d || !d.current) continue;
         const zeal = d.current.zeal || 3;
         const name = personName(state, pid);
-        if (zeal >= 4) {
+        if (zeal >= 5) {
           // Private vow
           d.current.zeal = Math.min(6, zeal + 2);
           recordHistory(state, pid, { kind: 'vow', event: 'martyr-vow',
             text: `Took a private vow accepting martyrdom after witnessing death at ${destName}.` });
-        } else if (zeal <= 2) {
+        } else if (zeal <= 3) {
           // Flees: he takes ship for Europe and labors there when the
           // voyage home lands (the old returnTransit bucket was never
           // processed; the man simply vanished).

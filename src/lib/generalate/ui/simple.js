@@ -17,6 +17,7 @@ let DESTS = [];            // destination records (id, name, travelYears, danger
 let picks = {};            // petitionerId -> { mode, dest, companions, picking }
 let chronicle = null;      // { year, lines[] } from the last closed year
 let msg = '';
+let view = 'letters';      // 'letters' | 'missions' — the two pages (Tran 2026-10-22)
 
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (n) => Math.round(n || 0).toLocaleString('en-US');
@@ -112,6 +113,7 @@ function sealYear() {
       && ['death', 'ill', 'recovery', 'collapse', 'native'].includes(e.type)).slice(-10);
     const report = (S.ledger || []).find((e) => e.year === closedYear && e.type === 'society-report');
     chronicle = { year: closedYear, report: report ? report.text : '', lines: notable.map((e) => e.text) };
+    view = 'letters';
     picks = {};
     if (!S.ended) Engine.startYear(S);
   } catch (e) { msg = String(e.message || e); }
@@ -156,12 +158,12 @@ function render() {
     <div class="cell"><span class="lab">SCORE</span><span class="val">${Engine.getScore(S)}</span></div>
     <div class="cell"><span class="lab">TREASURY</span><span class="val">${fmt(funds)} scudi</span></div>
     <div class="cell"><span class="lab">MEN TO SPARE</span><span class="val">${S.available ?? 0}</span></div></div>
-    <p class="simple-msg">${esc(msg)}</p>`;
-  if (chronicle) {
-    html += `<h2>The year ${chronicle.year} in review</h2><div class="simple-chron">
-      ${chronicle.report ? `<p>${esc(chronicle.report)}</p>` : ''}
-      ${chronicle.lines.map((t) => `<p>${esc(t)}</p>`).join('')}</div>`;
-  }
+    <p class="simple-msg">${esc(msg)}</p>
+    <div class="simple-tabs">
+      <button class="simple-tab ${view === 'letters' ? 'chosen' : ''}" data-view="letters">The Letters (${((S.currentTerna && S.currentTerna.cards) || []).length})</button>
+      <button class="simple-tab ${view === 'missions' ? 'chosen' : ''}" data-view="missions">The Missions</button>
+    </div>`;
+  if (view === 'missions') {
   // Missions
   html += `<h2>The missions</h2>`;
   for (const d of DESTS) {
@@ -198,6 +200,12 @@ function render() {
       <div class="simple-bar"><div class="here" style="width:${herePct}%"></div><div class="coming" style="width:${comePct}%"></div></div>
     </div>`;
   }
+  } else {
+  if (chronicle) {
+    html += `<h2>The year ${chronicle.year} in review</h2><div class="simple-chron">
+      ${chronicle.report ? `<p>${esc(chronicle.report)}</p>` : ''}
+      ${chronicle.lines.map((t) => `<p>${esc(t)}</p>`).join('')}</div>`;
+  }
   // Letters
   const cards = (S.currentTerna && S.currentTerna.cards) || [];
   html += `<h2>Letters — ${cards.length} petitioners</h2>`;
@@ -219,9 +227,10 @@ function render() {
         ${p.mode !== 'deny' ? `<label class="simple-check"><input type="checkbox" data-comp="${c.petitionerId}" ${p.companions ? 'checked' : ''}/> with companions (2 more men)</label>` : ''}
       </div>
       ${p.picking ? `<div class="simple-dests">${DESTS.filter((d) => isOpen(d.id) && d.id !== c.destination)
-        .map((d) => `<button class="simple-btn" data-dest="${c.petitionerId}:${d.id}">${esc(d.name)}</button>`).join('')}</div>` : ''}
+        .map((d) => { const here = Engine.missionStaffed(S.missions[d.id]); const cap2 = (S.missions[d.id] && S.missions[d.id].capacity) || 5; const com = inbound(d.id); const label = com ? `${here}+${com}/${cap2}` : `${here}/${cap2}`; return `<button class="simple-btn" data-dest="${c.petitionerId}:${d.id}">${esc(d.name)} · ${label}${here + com >= cap2 ? ' · FULL' : ''}</button>`; }).join('')}</div>` : ''}
       ${p.mode === 'redirect' && p.dest ? `<div class="meta">Bound for <b>${esc(destOf(p.dest).name)}</b></div>` : ''}
     </div>`;
+  }
   }
   html += `<div class="simple-foot">
     <button class="simple-btn primary" id="s-seal">Seal the year</button>
@@ -229,6 +238,7 @@ function render() {
     </div></div>`;
   root.innerHTML = html;
   // wire actions
+  root.querySelectorAll('[data-view]').forEach((b) => { b.onclick = () => { view = b.dataset.view; render(); }; });
   root.querySelectorAll('[data-expand]').forEach((b) => { b.onclick = () => expand(b.dataset.expand); });
   root.querySelectorAll('[data-found]').forEach((b) => { b.onclick = () => found(b.dataset.found); });
   root.querySelectorAll('[data-send]').forEach((b) => { b.onclick = () => setPick(b.dataset.send, { mode: 'send', picking: false }); });

@@ -1,0 +1,49 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base
+  title="Generalate — Simple"
+  description="GENERALATE, the simple way — one screen: read the letters, send or deny, expand a house, close the year. The same Society, the same sea."
+>
+  <link slot="head" rel="preconnect" href="https://fonts.googleapis.com" />
+  <link slot="head" rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    slot="head"
+    href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
+    rel="stylesheet"
+  />
+  <style slot="head">
+    .site-footer { display: none !important; }
+    .site-header { display: none !important; }
+    #generalate-app { max-width: 760px; margin: 0 auto; padding: 12px; }
+    .simple-wrap { font-family: Georgia, 'Times New Roman', serif; color: #e8e0cc; }
+    .simple-wrap h1 { font-size: 22px; letter-spacing: 1px; margin: 8px 0 2px; }
+    .simple-wrap h2 { font-size: 16px; margin: 20px 0 8px; border-bottom: 1px solid #57492a; padding-bottom: 4px; }
+    .simple-sub { opacity: .75; font-size: 13px; margin: 0 0 10px; }
+    .simple-hud { display: flex; flex-wrap: wrap; gap: 6px 16px; background: #221c10; border: 1px solid #57492a; border-radius: 8px; padding: 10px 12px; font-size: 15px; }
+    .simple-hud b { color: #f3c969; }
+    .simple-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 7px 10px; border: 1px solid #3a3220; border-radius: 6px; margin: 5px 0; background: #171208; font-size: 14px; }
+    .simple-line .nm { font-weight: bold; color: #f0e6c8; }
+    .simple-line .dim { opacity: .7; }
+    .simple-line .warn { color: #e88; }
+    .simple-btn { font: inherit; font-size: 13px; background: #2e2410; color: #f3c969; border: 1px solid #8a6d2f; border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+    .simple-btn:hover { background: #3d3016; }
+    .simple-btn:disabled { opacity: .45; cursor: default; }
+    .simple-btn.primary { background: #6b5518; color: #fff2cc; font-size: 15px; padding: 10px 18px; }
+    .simple-btn.chosen { background: #f3c969; color: #241a04; font-weight: bold; }
+    .simple-card { border: 1px solid #57492a; border-radius: 8px; padding: 10px 12px; margin: 8px 0; background: #1c1508; }
+    .simple-card .who { font-size: 16px; font-weight: bold; color: #f0e6c8; }
+    .simple-card .meta { font-size: 13px; opacity: .8; margin: 2px 0 6px; }
+    .simple-card .letter { font-size: 13px; font-style: italic; opacity: .75; margin: 4px 0 8px; }
+    .simple-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .simple-dests { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+    .simple-msg { color: #e8a0a0; font-size: 14px; min-height: 18px; margin: 6px 0; }
+    .simple-chron { font-size: 14px; line-height: 1.45; background: #141b10; border: 1px solid #3d5231; border-radius: 8px; padding: 10px 12px; }
+    .simple-chron p { margin: 3px 0; }
+    .simple-foot { margin: 18px 0 30px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .simple-check { font-size: 13px; display: inline-flex; gap: 5px; align-items: center; }
+  </style>
+  <div id="generalate-app" aria-live="polite"></div>
+  <script src="../lib/generalate/ui/simple.js"></script>
+</Base>

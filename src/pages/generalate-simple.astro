@@ -13,11 +13,12 @@ import Base from '../layouts/Base.astro';
     href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
     rel="stylesheet"
   />
-  <style slot="head">
+  <style is:global slot="head">
     .site-footer { display: none !important; }
     .site-header { display: none !important; }
+    body { background: #1a120b; }
     #generalate-app { max-width: 780px; margin: 0 auto; padding: 0 14px; }
-    .simple-wrap { color: var(--parch); font-family: var(--serif); padding-bottom: 2rem; }
+    .simple-wrap { color: var(--parch); font-family: var(--serif); padding-bottom: 2rem; min-height: 100vh; }
     .simple-title { text-align: center; margin: 1.6rem 0 0.2rem; }
     .simple-title .cross { color: var(--gold); font-size: 1.5rem; line-height: 1; }
     .simple-title h1 { font-family: var(--px); font-size: 1.35rem; letter-spacing: 0.1em; color: var(--gold); margin: 0.5rem 0 0.3rem; text-shadow: 0 0 24px rgba(216,180,106,0.35); }
